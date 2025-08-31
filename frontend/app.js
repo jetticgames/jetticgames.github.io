@@ -4,7 +4,7 @@ console.log('🎮 WaterWall app.js is loading...');
 let games = [];
 let currentGame = null;
 let isProxyEnabled = true; // Enable proxy by default since most games need it
-const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
+const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy?url=';
 let favorites = [];
 let settings = { defaultProxy: true };
 let currentGameTabTimeout = null;
