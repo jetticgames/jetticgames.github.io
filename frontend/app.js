@@ -174,24 +174,17 @@ function forceRenderGames() {
     console.log('🎨 Force rendering games...');
     console.log('📊 Games to render:', games.length);
     
-    const featuredGrid = document.getElementById('featuredGames');
     const allGamesGrid = document.getElementById('allGames');
     
-    if (!featuredGrid || !allGamesGrid) {
+    if (!allGamesGrid) {
         console.error('❌ Required DOM elements not found!');
         return;
     }
     
     if (games.length === 0) {
-        featuredGrid.innerHTML = '<div class="loading-message">⚠️ No games available</div>';
         allGamesGrid.innerHTML = '<div class="loading-message">⚠️ No games available</div>';
         return;
     }
-    
-    // Render featured games (first 6)
-    const featuredGames = games.slice(0, 6);
-    featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game)).join('');
-    console.log('✅ Featured games rendered:', featuredGames.length);
     
     // Render all games
     allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
@@ -201,7 +194,6 @@ function forceRenderGames() {
 function emergencyFallback() {
     console.log('🚨 Emergency fallback activated');
     
-    const featuredGrid = document.getElementById('featuredGames');
     const allGamesGrid = document.getElementById('allGames');
     
     const emergencyHTML = `
@@ -228,7 +220,6 @@ function emergencyFallback() {
         </div>
     `;
     
-    if (featuredGrid) featuredGrid.innerHTML = emergencyHTML;
     if (allGamesGrid) allGamesGrid.innerHTML = emergencyHTML;
     
     // Set fallback games data
