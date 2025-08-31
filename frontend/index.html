@@ -8,6 +8,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="app-container">
@@ -28,12 +29,6 @@
                         <a href="#" class="nav-link">
                             <i class="nav-icon fas fa-home"></i>
                             <span>Home</span>
-                        </a>
-                    </li>
-                    <li class="nav-item" data-page="categories">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-th-large"></i>
-                            <span>Categories</span>
                         </a>
                     </li>
                     <li class="nav-item" data-page="favorites">
@@ -89,13 +84,18 @@
             <div class="content-area">
                 <!-- Home Page -->
                 <div id="homePage" class="page active">
+                    <section id="favoriteGamesSection" class="games-section" style="display:none;">
+                        <div class="section-header">
+                            <h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Your Favorites</h2>
+                        </div>
+                        <div class="games-grid" id="favoriteGamesGrid"></div>
+                    </section>
                     <section class="games-section">
                         <div class="section-header">
                             <h2 class="section-title">All Games</h2>
+                            <div id="categoryTabs" class="category-tabs"></div>
                         </div>
-                        <div class="games-grid" id="allGames">
-                            <!-- All games will be loaded here -->
-                        </div>
+                        <div class="games-grid" id="allGames"></div>
                     </section>
                 </div>
 
@@ -120,6 +120,9 @@
                                             <span class="proxy-toggle-text">Proxy</span>
                                         </label>
                                     </div>
+                                    <button class="icon-btn fav-btn" data-action="favorite" title="Add to Favorites">
+                                        <i class="fas fa-heart"></i>
+                                    </button>
                                     <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
                                         <i class="fas fa-expand"></i>
                                     </button>

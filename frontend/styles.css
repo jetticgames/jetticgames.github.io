@@ -8,7 +8,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     background: #0d1117;
     color: #ffffff;
     min-height: 100vh;
@@ -604,6 +604,25 @@ body {
     width: 100%; /* Ensure full width */
     opacity: 1; /* Ensure it's visible */
 }
+.fav-btn {position:relative;}
+.fav-btn.active i {color:#e25555; animation:pulse .6s ease;}
+@keyframes pulse {0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}
+
+/* Category tabs */
+.category-tabs {display:flex; gap:10px; flex-wrap:wrap; margin-left:auto;}
+.category-tab {background:#1b1f24; color:#c9d1d9; border:1px solid #30363d; padding:6px 14px; border-radius:999px; font-size:13px; cursor:pointer; transition:.25s;}
+.category-tab:hover {background:#30363d;}
+.category-tab.active {background:#1f6feb; color:#fff; border-color:#1f6feb;}
+
+/* Current game sidebar tab */
+.current-game-tab {display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; background:#1b1f24; margin:8px 12px; cursor:pointer; animation:slideIn .35s ease; position:relative;}
+.current-game-tab.removing {animation:slideOut .35s ease forwards;}
+.current-game-tab i {color:#1f6feb;}
+@keyframes slideIn {from{opacity:0; transform:translateX(-12px);} to{opacity:1; transform:translateX(0);}}
+@keyframes slideOut {to{opacity:0; transform:translateX(-12px); height:0; margin:0; padding:0;}}
+
+/* Favorites section grid margin tweak */
+#favoriteGamesSection {margin-bottom:32px;}
 
 .game-description {
     background: transparent; /* Remove background */

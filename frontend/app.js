@@ -5,6 +5,9 @@ let games = [];
 let currentGame = null;
 let isProxyEnabled = true; // Enable proxy by default since most games need it
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
+let favorites = [];
+let settings = { defaultProxy: true };
+let currentGameTabTimeout = null;
 
 // DOM elements (will be initialized after DOM loads)
 let gamesGrid;
@@ -28,6 +31,11 @@ let isFullscreen = false;
 // Enhanced initialization with better error handling
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 DOM loaded, starting initialization...');
+    loadSettingsFromCookies();
+    loadFavoritesFromCookies();
+    if (typeof settings.defaultProxy === 'boolean') {
+        isProxyEnabled = settings.defaultProxy;
+    }
     startApp();
 });
 
@@ -90,6 +98,9 @@ async function startApp() {
         
         // Update stats
         updateNavigationStats();
+    buildCategoryTabs();
+    renderFavoritesSection();
+    updateFavoriteButtonState();
         
         console.log('✅ App initialization complete! Games loaded:', games.length);
     } catch (error) {
@@ -189,6 +200,7 @@ function forceRenderGames() {
     // Render all games
     allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
     console.log('✅ All games rendered:', games.length);
+    renderFavoritesSection();
 }
 
 function emergencyFallback() {
@@ -357,15 +369,13 @@ function setupEventListeners() {
     const searchBtn = document.querySelector('.search-btn');
     
     if (searchInput) {
-        console.log('Search input found, adding listeners');
-        searchInput.addEventListener('input', handleSearch);
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleSearch();
-            }
+        console.log('Search input found, adding debounced listeners');
+        let debounceTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(()=> handleSearch(), 150);
         });
-    } else {
-        console.warn('Search input not found');
+        searchInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter'){ handleSearch(); }});
     }
     
     if (searchBtn) {
@@ -519,6 +529,16 @@ function handleGameActions(e) {
     // Fullscreen button
     if (e.target.closest('[data-action="fullscreen"]')) {
         toggleFullscreen();
+    }
+    // Favorite toggle
+    if (e.target.closest('[data-action="favorite"]')) {
+        if (currentGame) {
+            toggleFavorite(currentGame);
+            updateFavoriteButtonState();
+            renderFavoritesSection();
+        } else {
+            showError('Open a game first to favorite it');
+        }
     }
     
     // Exit fullscreen
@@ -1200,5 +1220,39 @@ window.debugWaterWall = function() {
     renderFeaturedGames();
     renderGamesByCategory();
 };
+
+// ===== New Helpers (Favorites, Settings, Category Tabs, Current Game Tab) =====
+function toggleFavorite(game) {
+    if (!game) return;
+    const idx = favorites.indexOf(game.id);
+    if (idx === -1) favorites.push(game.id); else favorites.splice(idx,1);
+    saveFavoritesToCookies();
+}
+function updateFavoriteButtonState() {
+    const favBtn = document.querySelector('.fav-btn');
+    if (!favBtn) return;
+    if (!currentGame) { favBtn.classList.remove('active'); return; }
+    favBtn.classList.toggle('active', favorites.includes(currentGame.id));
+}
+function renderFavoritesSection() {
+    const section = document.getElementById('favoriteGamesSection');
+    const grid = document.getElementById('favoriteGamesGrid');
+    if (!section || !grid) return;
+    const favGames = games.filter(g=>favorites.includes(g.id));
+    if (favGames.length === 0) { section.style.display='none'; grid.innerHTML=''; return; }
+    section.style.display='block';
+    grid.innerHTML = favGames.map(g=>createGameCard(g)).join('');
+}
+function saveFavoritesToCookies(){ document.cookie='ww_favs='+encodeURIComponent(JSON.stringify(favorites))+';path=/;max-age=31536000'; }
+function loadFavoritesFromCookies(){ const m=document.cookie.match(/ww_favs=([^;]+)/); if(m){ try{ favorites=JSON.parse(decodeURIComponent(m[1])); }catch(e){ favorites=[]; } } }
+function saveSettingsToCookies(){ document.cookie='ww_settings='+encodeURIComponent(JSON.stringify(settings))+';path=/;max-age=31536000'; }
+function loadSettingsFromCookies(){ const m=document.cookie.match(/ww_settings=([^;]+)/); if(m){ try{ settings=JSON.parse(decodeURIComponent(m[1])); isProxyEnabled=settings.defaultProxy; }catch(e){} } }
+
+function buildCategoryTabs(){ const c=document.getElementById('categoryTabs'); if(!c||games.length===0)return; const cats=[...new Set(games.map(g=>g.category))].sort(); const all=['all',...cats]; c.innerHTML=all.map(x=>`<button class="category-tab" data-cat="${x}">${x==='all'?'All':x.charAt(0).toUpperCase()+x.slice(1)}</button>`).join(''); c.onclick=e=>{const b=e.target.closest('.category-tab'); if(!b)return; c.querySelectorAll('.category-tab').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); filterHomeByCategory(b.dataset.cat);}; const first=c.querySelector('[data-cat="all"]'); if(first) first.classList.add('active'); }
+function filterHomeByCategory(cat){ const grid=document.getElementById('allGames'); if(!grid)return; if(cat==='all'){ grid.innerHTML=games.map(g=>createGameCard(g)).join(''); return;} const filtered=games.filter(g=>g.category.toLowerCase()===cat.toLowerCase()); grid.innerHTML=filtered.map(g=>createGameCard(g)).join(''); }
+
+function addOrReplaceCurrentGameTab(game){ if(!game)return; clearTimeout(currentGameTabTimeout); let tab=document.querySelector('.current-game-tab'); if(tab) tab.remove(); const list=document.querySelector('.sidebar nav .nav-list'); if(!list)return; const li=document.createElement('li'); li.className='current-game-tab'; li.dataset.gameId=game.id; li.innerHTML=`<i class="fas fa-gamepad"></i><span>${game.title}</span>`; li.onclick=()=>{ if(currentGame && currentGame.id===game.id){ showGamePage(game);} else { const g=games.find(x=>x.id==li.dataset.gameId); if(g) showGamePage(g);} }; list.insertBefore(li, list.firstChild.nextSibling); }
+function scheduleCurrentGameTabRemoval(){ const tab=document.querySelector('.current-game-tab'); if(!tab)return; clearTimeout(currentGameTabTimeout); currentGameTabTimeout=setTimeout(()=>{ tab.classList.add('removing'); setTimeout(()=>{ if(tab.parentElement) tab.remove(); }, 350); }, 10000); }
+
 
 
