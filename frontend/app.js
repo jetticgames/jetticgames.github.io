@@ -20,15 +20,22 @@ async function init() {
 async function loadGames() {
     try {
         console.log('Loading games...');
-        const response = await fetch('./games.json');
+        const response = await fetch('games.json');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        games = await response.json();
+        const data = await response.json();
+        games = Array.isArray(data) ? data : [];
         console.log(`Loaded ${games.length} games successfully`);
+        
+        // If no games loaded, use fallback
+        if (games.length === 0) {
+            throw new Error('No games found in JSON');
+        }
+        
     } catch (error) {
         console.error('Error loading games:', error);
-        showError('Failed to load games. Please try again later.');
+        showError('Failed to load games. Using fallback games.');
         // Fallback games for testing
         games = [
             {
@@ -38,8 +45,25 @@ async function loadGames() {
                 category: "puzzle",
                 embed: "https://play2048.co/",
                 thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff?text=2048"
+            },
+            {
+                id: 2,
+                title: "Snake Game",
+                description: "Classic snake game where you eat food and grow longer.",
+                category: "arcade",
+                embed: "https://playsnake.org/",
+                thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake"
+            },
+            {
+                id: 3,
+                title: "Tetris",
+                description: "Classic block puzzle game.",
+                category: "puzzle",
+                embed: "https://tetris.com/play-tetris",
+                thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
             }
         ];
+        console.log(`Using ${games.length} fallback games`);
     }
 }
 
@@ -85,13 +109,20 @@ function setupEventListeners() {
 
 // Navigation handler
 function handleNavigation(e) {
+    console.log('Navigation click detected:', e.target);
+    
     // Sidebar navigation
     if (e.target.closest('.nav-link')) {
+        console.log('Nav link clicked');
         e.preventDefault();
         const navItem = e.target.closest('.nav-item');
-        if (!navItem) return;
+        if (!navItem) {
+            console.warn('Nav item not found');
+            return;
+        }
         
         const page = navItem.dataset.page;
+        console.log('Navigating to page:', page);
         
         // Update active nav state
         document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
@@ -111,18 +142,23 @@ function handleNavigation(e) {
             case 'settings':
                 showSettingsPage();
                 break;
+            default:
+                console.warn('Unknown page:', page);
         }
         return;
     }
     
     // Game card clicks
     if (e.target.closest('.game-card')) {
+        console.log('Game card clicked');
         const gameCard = e.target.closest('.game-card');
         const gameId = parseInt(gameCard.dataset.gameId);
         const game = games.find(g => g.id === gameId);
         if (game) {
             console.log('Loading game:', game.title);
             showGamePage(game);
+        } else {
+            console.warn('Game not found for ID:', gameId);
         }
         return;
     }
