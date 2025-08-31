@@ -8,25 +8,45 @@ const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+    console.log('Initializing WaterWall...');
     await loadGames();
     setupEventListeners();
     showHomePage();
     updateNavigationStats();
+    console.log('WaterWall initialized successfully!');
 }
 
 // Load games from JSON
 async function loadGames() {
     try {
+        console.log('Loading games...');
         const response = await fetch('./games.json');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         games = await response.json();
+        console.log(`Loaded ${games.length} games successfully`);
     } catch (error) {
         console.error('Error loading games:', error);
         showError('Failed to load games. Please try again later.');
+        // Fallback games for testing
+        games = [
+            {
+                id: 1,
+                title: "2048",
+                description: "A sliding puzzle game where you combine tiles with the same number to reach 2048.",
+                category: "puzzle",
+                embed: "https://play2048.co/",
+                thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff?text=2048"
+            }
+        ];
     }
 }
 
 // Setup event listeners
 function setupEventListeners() {
+    console.log('Setting up event listeners...');
+    
     // Navigation
     document.addEventListener('click', handleNavigation);
     
@@ -35,16 +55,22 @@ function setupEventListeners() {
     const searchBtn = document.querySelector('.search-btn');
     
     if (searchInput) {
+        console.log('Search input found, adding listeners');
         searchInput.addEventListener('input', handleSearch);
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 handleSearch();
             }
         });
+    } else {
+        console.warn('Search input not found');
     }
     
     if (searchBtn) {
+        console.log('Search button found, adding listener');
         searchBtn.addEventListener('click', handleSearch);
+    } else {
+        console.warn('Search button not found');
     }
     
     // Game controls
@@ -53,6 +79,8 @@ function setupEventListeners() {
     
     // Fullscreen controls
     document.addEventListener('keydown', handleKeyboardShortcuts);
+    
+    console.log('Event listeners setup complete');
 }
 
 // Navigation handler
@@ -61,6 +89,8 @@ function handleNavigation(e) {
     if (e.target.closest('.nav-link')) {
         e.preventDefault();
         const navItem = e.target.closest('.nav-item');
+        if (!navItem) return;
+        
         const page = navItem.dataset.page;
         
         // Update active nav state
@@ -82,31 +112,36 @@ function handleNavigation(e) {
                 showSettingsPage();
                 break;
         }
+        return;
     }
     
     // Game card clicks
     if (e.target.closest('.game-card')) {
         const gameCard = e.target.closest('.game-card');
-        const gameId = gameCard.dataset.gameId;
-        const game = games.find(g => g.id == gameId);
+        const gameId = parseInt(gameCard.dataset.gameId);
+        const game = games.find(g => g.id === gameId);
         if (game) {
+            console.log('Loading game:', game.title);
             showGamePage(game);
         }
+        return;
     }
     
     // Back button
     if (e.target.closest('.back-btn')) {
         e.preventDefault();
         showHomePage();
+        return;
     }
     
     // Recommended game clicks
     if (e.target.closest('.recommended-item')) {
-        const gameId = e.target.closest('.recommended-item').dataset.gameId;
-        const game = games.find(g => g.id == gameId);
+        const gameId = parseInt(e.target.closest('.recommended-item').dataset.gameId);
+        const game = games.find(g => g.id === gameId);
         if (game) {
             showGamePage(game);
         }
+        return;
     }
 }
 
@@ -180,31 +215,47 @@ function handleKeyboardShortcuts(e) {
 
 // Page display functions
 function showHomePage() {
+    console.log('Showing home page');
     hideAllPages();
-    document.getElementById('homePage').classList.add('active');
+    
+    const homePage = document.getElementById('homePage');
+    if (homePage) {
+        homePage.classList.add('active');
+    } else {
+        console.error('Home page element not found');
+        return;
+    }
     
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    document.querySelector('[data-page="home"]').classList.add('active');
+    const homeNavItem = document.querySelector('[data-page="home"]');
+    if (homeNavItem) {
+        homeNavItem.classList.add('active');
+    }
     
     renderFeaturedGames();
     renderGamesByCategory();
 }
 
 function showGamePage(game) {
+    console.log('Showing game page for:', game.title);
     currentGame = game;
     hideAllPages();
     document.getElementById('gamePage').classList.add('active');
     
     // Update game info
-    document.getElementById('gameTitle').textContent = game.title;
-    document.getElementById('gameCategory').textContent = game.category;
-    document.getElementById('gameDescription').textContent = game.description || 'No description available.';
+    const gameTitle = document.getElementById('gameTitle');
+    const gameCategory = document.getElementById('gameCategory');
+    const gameDescription = document.getElementById('gameDescription');
+    
+    if (gameTitle) gameTitle.textContent = game.title;
+    if (gameCategory) gameCategory.textContent = game.category;
+    if (gameDescription) gameDescription.textContent = game.description || 'No description available.';
     
     // Update thumbnail
     const thumbnail = document.getElementById('gameThumbnail');
     if (thumbnail) {
-        thumbnail.src = game.thumbnail || `https://via.placeholder.com/300x200?text=${encodeURIComponent(game.title)}`;
+        thumbnail.src = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff?text=${encodeURIComponent(game.title)}`;
         thumbnail.alt = game.title;
     }
     
@@ -271,17 +322,22 @@ function renderFeaturedGames() {
     const featuredGames = games.slice(0, 6); // First 6 games as featured
     const featuredGrid = document.getElementById('featuredGames');
     
-    if (featuredGrid) {
+    if (featuredGrid && featuredGames.length > 0) {
+        console.log('Rendering', featuredGames.length, 'featured games');
         featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game, true)).join('');
+    } else {
+        console.log('Featured games container not found or no games available');
     }
 }
 
 function renderGamesByCategory() {
-    const categories = [...new Set(games.map(game => game.category))];
     const allGamesContainer = document.getElementById('allGames');
     
-    if (allGamesContainer) {
+    if (allGamesContainer && games.length > 0) {
+        console.log('Rendering', games.length, 'total games');
         allGamesContainer.innerHTML = games.map(game => createGameCard(game)).join('');
+    } else {
+        console.log('All games container not found or no games available');
     }
 }
 
@@ -292,9 +348,10 @@ function renderRecommendedGames(currentGame) {
     
     const recommendedList = document.getElementById('recommendedGames');
     if (recommendedList) {
+        console.log('Rendering', recommendedGames.length, 'recommended games');
         recommendedList.innerHTML = recommendedGames.map(game => `
             <div class="recommended-item" data-game-id="${game.id}">
-                <img src="${game.thumbnail || `https://via.placeholder.com/120x90?text=${encodeURIComponent(game.title)}`}" alt="${game.title}">
+                <img src="${game.thumbnail || `https://via.placeholder.com/120x90/6366f1/ffffff?text=${encodeURIComponent(game.title)}`}" alt="${game.title}">
                 <div class="recommended-item-info">
                     <h5>${game.title}</h5>
                     <span class="category">${game.category}</span>
@@ -305,9 +362,11 @@ function renderRecommendedGames(currentGame) {
 }
 
 function createGameCard(game, isFeatured = false) {
+    const thumbnailUrl = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff?text=${encodeURIComponent(game.title)}`;
+    
     return `
         <div class="game-card" data-game-id="${game.id}">
-            <img src="${game.thumbnail || `https://via.placeholder.com/300x200?text=${encodeURIComponent(game.title)}`}" alt="${game.title}">
+            <img src="${thumbnailUrl}" alt="${game.title}" loading="lazy">
             <div class="game-card-content">
                 <div class="game-card-title">${game.title}</div>
                 <div class="game-card-category">${game.category}</div>
@@ -326,7 +385,7 @@ function loadGame(game) {
     if (!gameFrame) return;
     
     try {
-        let gameUrl = game.url || game.embed;
+        let gameUrl = game.embed; // Use 'embed' field from JSON
         
         // Apply proxy if enabled
         if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
@@ -386,13 +445,15 @@ function updateNavigationStats() {
     const totalGamesElement = document.querySelector('[data-stat="games"]');
     const categoriesElement = document.querySelector('[data-stat="categories"]');
     
-    if (totalGamesElement) {
+    if (totalGamesElement && games.length > 0) {
         totalGamesElement.textContent = games.length;
+        console.log('Updated games count:', games.length);
     }
     
-    if (categoriesElement) {
+    if (categoriesElement && games.length > 0) {
         const uniqueCategories = [...new Set(games.map(game => game.category))];
         categoriesElement.textContent = uniqueCategories.length;
+        console.log('Updated categories count:', uniqueCategories.length);
     }
 }
 
