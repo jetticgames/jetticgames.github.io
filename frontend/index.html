@@ -103,38 +103,32 @@
                 <div id="gamePage" class="page">
                     <div class="game-page-container">
                         <div class="game-main-area">
-                            <!-- Game Frame Container -->
+                            <!-- Game Frame Container (height calculated to leave room for controls) -->
                             <div class="game-frame-wrapper">
                                 <iframe id="gameFrame" src="" title="Game"></iframe>
                             </div>
-                            
-                            <!-- Scrollable content area for info and description -->
-                            <div class="game-content-wrapper">
-                                <!-- Game Info Below Frame -->
-                                <div class="game-info-bottom">
-                                    <div class="game-info-left">
-                                        <h1 id="gameTitle">Game Title</h1>
-                                        <span id="gameCategory">Category</span>
-                                    </div>
-                                    
-                                    <div class="game-info-right">
-                                        <div class="proxy-toggle-container">
-                                            <label class="proxy-toggle-label">
-                                                <input type="checkbox" id="proxyToggleGame" checked>
-                                                <span class="proxy-toggle-text">Proxy</span>
-                                            </label>
-                                        </div>
-                                        <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
-                                            <i class="fas fa-expand"></i>
-                                        </button>
-                                    </div>
+                            <!-- Game Info Bar -->
+                            <div class="game-info-bottom">
+                                <div class="game-info-left">
+                                    <h1 id="gameTitle">Game Title</h1>
+                                    <span id="gameCategory">Category</span>
                                 </div>
-                                
-                                <!-- Game Description Below the fold -->
-                                <div class="game-description">
-                                    <h3>About this game</h3>
-                                    <p id="gameDescription">Game description will appear here...</p>
+                                <div class="game-info-right">
+                                    <div class="proxy-toggle-container">
+                                        <label class="proxy-toggle-label">
+                                            <input type="checkbox" id="proxyToggleGame" checked>
+                                            <span class="proxy-toggle-text">Proxy</span>
+                                        </label>
+                                    </div>
+                                    <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
+                                        <i class="fas fa-expand"></i>
+                                    </button>
                                 </div>
+                            </div>
+                            <!-- Game Description (scrolls separately) -->
+                            <div class="game-description">
+                                <h3>About this game</h3>
+                                <p id="gameDescription">Game description will appear here...</p>
                             </div>
                         </div>
                         

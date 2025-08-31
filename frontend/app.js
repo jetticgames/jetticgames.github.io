@@ -721,6 +721,14 @@ function showGamePage(game) {
     const gameCategory = document.getElementById('gameCategory');
     const gameDescription = document.getElementById('gameDescription');
     const proxyToggleGame = document.getElementById('proxyToggleGame');
+
+    // Ensure visibility if previously hidden by legacy CSS
+    [gameTitle, gameCategory, proxyToggleGame].forEach(el => {
+        if (el) {
+            el.style.opacity = '1';
+            el.style.visibility = 'visible';
+        }
+    });
     
     if (gameTitle) gameTitle.textContent = game.title;
     if (gameCategory) gameCategory.textContent = game.category;
@@ -738,6 +746,14 @@ function showGamePage(game) {
     
     // Load suggested games
     loadSuggestedGames(game);
+    // Fallback: if no suggested games rendered after short delay, try again once
+    setTimeout(() => {
+        const sg = document.getElementById('suggestedGames');
+        if (sg && sg.children.length === 0) {
+            console.warn('Retrying suggested games render');
+            loadSuggestedGames(game);
+        }
+    }, 500);
     
     // Load the game after a brief delay to ensure iframe is ready
     setTimeout(() => {
