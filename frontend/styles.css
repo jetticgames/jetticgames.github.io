@@ -457,12 +457,12 @@ body {
     flex-direction: column;
     padding: 16px;
     padding-right: 8px; /* Half gap */
-    height: calc(100vh - 72px); /* Full height minus header */
+    height: 100vh; /* Full viewport height */
     overflow: hidden; /* Prevent scrolling in main area */
 }
 
 .game-frame-wrapper {
-    height: 90vh; /* 90% of viewport height as requested */
+    height: 90vh; /* Exactly 90% of viewport height as requested */
     background: transparent; /* Remove black background */
     border-radius: 12px;
     overflow: hidden;
@@ -471,11 +471,12 @@ body {
 }
 
 .game-content-wrapper {
-    flex: 1; /* Take remaining space */
+    height: calc(10vh - 72px + 32px); /* Use remaining 10% of viewport for controls */
+    min-height: 100px; /* Ensure minimum space for controls */
     overflow-y: auto; /* Allow scrolling for content */
     display: flex;
     flex-direction: column;
-    min-height: 0; /* Allow shrinking */
+    flex-shrink: 0; /* Don't shrink */
 }
 
 #gameFrame {
@@ -528,8 +529,8 @@ body {
 }
 
 .suggested-game-card {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: transparent; /* Remove background */
+    border: none; /* Remove border */
     border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
@@ -537,12 +538,12 @@ body {
     position: relative;
     opacity: 0;
     animation: fadeInUp 0.6s ease forwards;
-    height: 100px; /* Reduced height to fit more games without scrolling */
+    height: 0; /* Use aspect ratio instead */
+    aspect-ratio: 16/9; /* 16:9 ratio like homepage */
     flex-shrink: 0; /* Don't shrink individual cards */
 }
 
 .suggested-game-card:hover {
-    border-color: #1f6feb;
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -602,7 +603,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #0d1117; /* Match page background for visibility */
+    background: transparent; /* Remove background completely */
     border: none; /* Remove border */
     border-radius: 0; /* Remove border radius */
     padding: 12px 0; /* Increase padding for better visibility */
@@ -610,9 +611,8 @@ body {
     min-height: 60px; /* Increase minimum height for better visibility */
     flex-shrink: 0; /* Don't shrink this section */
     margin-bottom: 16px; /* Increase margin for separation */
-    position: sticky; /* Make controls stick to top of scrollable area */
-    top: 0; /* Stick to top */
-    z-index: 2; /* Above other content */
+    width: 100%; /* Ensure full width */
+    opacity: 1; /* Ensure it's visible */
 }
 
 .game-description {
