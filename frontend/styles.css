@@ -9,7 +9,7 @@
 
 body {
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     color: #ffffff;
     min-height: 100vh;
     overflow-x: hidden;
@@ -22,11 +22,10 @@ body {
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(44, 62, 80, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: 20px 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
 }
 
 .nav-container {
@@ -66,7 +65,7 @@ body {
 }
 
 .filter-btn {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(52, 73, 94, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #ffffff;
     padding: 12px 20px;
@@ -76,19 +75,18 @@ body {
     font-size: 0.9rem;
     font-weight: 500;
     font-family: 'Poppins', sans-serif;
-    backdrop-filter: blur(10px);
 }
 
 .filter-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(52, 73, 94, 1);
     transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .filter-btn.active {
-    background: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(74, 144, 226, 0.9);
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+    border-color: rgba(74, 144, 226, 0.8);
 }
 
 .search-container {
@@ -96,7 +94,7 @@ body {
 }
 
 #searchInput {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(52, 73, 94, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #ffffff;
     padding: 12px 20px;
@@ -106,13 +104,12 @@ body {
     font-family: 'Poppins', sans-serif;
     outline: none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
 }
 
 #searchInput:focus {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    background: rgba(52, 73, 94, 1);
+    border-color: rgba(74, 144, 226, 0.8);
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.2);
 }
 
 #searchInput::placeholder {
@@ -155,16 +152,15 @@ body {
     overflow: hidden;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    background: rgba(52, 73, 94, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .game-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+    border-color: rgba(74, 144, 226, 0.5);
 }
 
 .game-card img {
@@ -183,11 +179,10 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
     padding: 25px 20px 20px;
     transform: translateY(100%);
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
 }
 
 .game-card:hover .game-info-overlay {
@@ -227,9 +222,9 @@ body {
     width: 100%;
     height: 90%;
     border-radius: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    background: rgba(52, 73, 94, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .game-controls-section {
@@ -241,12 +236,11 @@ body {
 
 .game-sidebar {
     width: 320px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(52, 73, 94, 0.8);
     border-radius: 20px;
     padding: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .game-sidebar h3 {
@@ -267,18 +261,18 @@ body {
     display: flex;
     gap: 12px;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(44, 62, 80, 0.6);
     border-radius: 12px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .recommended-item:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(44, 62, 80, 0.8);
+    border-color: rgba(74, 144, 226, 0.3);
     transform: translateX(5px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .recommended-item img {
@@ -307,12 +301,11 @@ body {
 .game-info {
     display: flex;
     gap: 30px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(52, 73, 94, 0.8);
     border-radius: 20px;
     padding: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .game-description {
@@ -332,7 +325,7 @@ body {
 }
 
 .game-description::-webkit-scrollbar-thumb {
-    background: rgba(0, 255, 255, 0.4);
+    background: rgba(74, 144, 226, 0.6);
     border-radius: 3px;
 }
 
@@ -404,11 +397,11 @@ body {
 .toggle-slider {
     width: 54px;
     height: 28px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(44, 62, 80, 0.8);
     border-radius: 28px;
     position: relative;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .toggle-slider::after {
@@ -425,13 +418,13 @@ body {
 }
 
 .proxy-toggle input:checked + .toggle-slider {
-    background: rgba(100, 200, 255, 0.4);
-    border-color: rgba(100, 200, 255, 0.6);
+    background: rgba(74, 144, 226, 0.8);
+    border-color: rgba(74, 144, 226, 1);
 }
 
 .proxy-toggle input:checked + .toggle-slider::after {
     transform: translateX(26px);
-    background: #64c8ff;
+    background: #4a90e2;
 }
 
 .toggle-label {
@@ -443,8 +436,8 @@ body {
 
 /* Control Buttons */
 .control-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(52, 73, 94, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: #ffffff;
     padding: 12px 24px;
     border-radius: 25px;
@@ -456,13 +449,12 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    backdrop-filter: blur(10px);
 }
 
 .control-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(74, 144, 226, 0.8);
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
 }
 
 /* Fullscreen Overlay */
@@ -472,8 +464,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(20px);
+    background: rgba(44, 62, 80, 0.98);
     z-index: 2000;
     display: none;
     opacity: 0;
