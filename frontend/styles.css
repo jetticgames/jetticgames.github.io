@@ -1809,8 +1809,22 @@ body {
 .game-info-bottom * {opacity:1 !important; visibility:visible !important;}
 
 /* Frame & sizing */
-.game-frame-wrapper {max-width:100%;}
-#gameFrame {width:100%; height:100%; background:#000 !important; border:none !important;}
+/* Enforce ~16:9 aspect ratio instead of tall 90vh */
+.game-frame-wrapper { 
+        max-width:100%; 
+        width:100%;
+        aspect-ratio:16 / 9; 
+        height:auto !important; 
+        max-height:none !important; 
+        position:relative; 
+        background:#000; 
+}
+#gameFrame {position:absolute; inset:0; width:100%; height:100%; background:#000 !important; border:none !important;}
+/* Fallback for browsers without aspect-ratio support */
+@supports not (aspect-ratio: 16/9) {
+    .game-frame-wrapper {height:0 !important; padding-top:56.25%;}
+    #gameFrame {position:absolute; inset:0;}
+}
 
 /* Sidebar / suggested games */
 .game-sidebar {background:transparent !important; border:none !important; box-shadow:none !important;}
