@@ -83,12 +83,23 @@ body {
 .nav-bottom {
     margin-top: auto; /* Push to bottom */
     border-top: 1px solid #30363d;
-    padding-top: 16px;
+    padding-top: 8px; /* Reduced padding */
+    margin-bottom: 8px; /* Add small margin from bottom */
+}
+
+.nav-settings {
+    margin: 2px 12px;
 }
 
 .nav-settings .nav-link {
     justify-content: flex-start;
-    padding: 10px 12px;
+    padding: 8px; /* Reduced padding to fit icon only */
+    width: 36px; /* Fixed width for icon only */
+    height: 36px; /* Fixed height for icon only */
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .nav-settings .nav-icon {
@@ -306,6 +317,11 @@ body {
     position: relative;
     opacity: 0;
     animation: fadeInUp 0.6s ease forwards;
+    height: 140px; /* Fixed height for regular cards */
+}
+
+.featured-grid .game-card {
+    height: 180px; /* Fixed height for featured cards */
 }
 
 .game-card:hover {
