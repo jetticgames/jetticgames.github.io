@@ -1,0 +1,26 @@
+{
+  "name": "waterwall-backend",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker proxy for WaterWall gaming platform",
+  "main": "worker.js",
+  "scripts": {
+    "deploy": "wrangler publish",
+    "deploy:staging": "wrangler publish --env staging",
+    "deploy:production": "wrangler publish --env production",
+    "dev": "wrangler dev",
+    "logs": "wrangler tail",
+    "test": "wrangler dev --local"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "proxy",
+    "games",
+    "cors"
+  ],
+  "author": "WaterWall Team",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

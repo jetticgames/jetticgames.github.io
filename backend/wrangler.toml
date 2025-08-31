@@ -1,0 +1,23 @@
+name = "waterwall-proxy"
+main = "worker.js"
+compatibility_date = "2023-05-18"
+
+[env.production]
+name = "waterwall-proxy"
+routes = [
+  { pattern = "yourdomain.com/backend/*", zone_name = "yourdomain.com" }
+]
+
+[env.staging]
+name = "waterwall-proxy-staging"
+
+# Uncomment and configure if you need KV storage for caching
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
+
+# Uncomment if you need environment variables
+# [vars]
+# ENVIRONMENT = "production"
+# MAX_REQUESTS_PER_MINUTE = "100"

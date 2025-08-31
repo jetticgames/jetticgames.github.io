@@ -1,0 +1,122 @@
+[
+    {
+        "id": 1,
+        "title": "2048",
+        "description": "A sliding puzzle game where you combine tiles with the same number to reach 2048. Use arrow keys to move tiles and try to reach the highest score possible!",
+        "category": "puzzle",
+        "embed": "https://play2048.co/",
+        "thumbnail": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 2,
+        "title": "Tetris",
+        "description": "Classic block-stacking puzzle game where you arrange falling pieces to create complete lines. Clear lines to score points and prevent the blocks from reaching the top!",
+        "category": "puzzle",
+        "embed": "https://tetris.com/play-tetris",
+        "thumbnail": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 3,
+        "title": "Snake",
+        "description": "Control a snake to eat food and grow longer without hitting walls or yourself. A classic arcade game that tests your reflexes and strategic thinking!",
+        "category": "arcade",
+        "embed": "https://playsnake.org/",
+        "thumbnail": "https://images.unsplash.com/photo-1578662015908-c2d3bb1e7100?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 4,
+        "title": "Pac-Man",
+        "description": "Navigate mazes, eat dots, and avoid ghosts in this classic arcade game. Collect power pellets to turn the tables on your ghostly pursuers!",
+        "category": "arcade",
+        "embed": "https://pacman.com/en/",
+        "thumbnail": "https://images.unsplash.com/photo-1580234839249-341c0cd6b928?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 5,
+        "title": "Chess",
+        "description": "Strategic board game for two players on a checkered board. Plan your moves carefully and outmaneuver your opponent to achieve checkmate!",
+        "category": "strategy",
+        "embed": "https://chess.com/play",
+        "thumbnail": "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 6,
+        "title": "Solitaire",
+        "description": "Classic card game where you arrange cards in descending order by alternating colors. A relaxing puzzle game perfect for unwinding!",
+        "category": "puzzle",
+        "embed": "https://solitaired.com/freecell",
+        "thumbnail": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 7,
+        "title": "Asteroids",
+        "description": "Pilot a spaceship through an asteroid field, shooting rocks and avoiding collisions. A classic space shooter that tests your reflexes!",
+        "category": "action",
+        "embed": "https://freeasteroids.org/",
+        "thumbnail": "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 8,
+        "title": "Pong",
+        "description": "The classic two-player game where you control paddles to hit a ball back and forth. Simple yet addictive gameplay!",
+        "category": "arcade",
+        "embed": "https://pong-2.com/",
+        "thumbnail": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 9,
+        "title": "Checkers",
+        "description": "Strategic board game where you move pieces diagonally to capture your opponent's pieces. Plan ahead to win!",
+        "category": "strategy",
+        "embed": "https://cardgames.io/checkers/",
+        "thumbnail": "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 10,
+        "title": "Minesweeper",
+        "description": "Uncover squares without hitting mines using numerical clues. A logic puzzle that requires careful deduction!",
+        "category": "puzzle",
+        "embed": "https://minesweeper.online/",
+        "thumbnail": "https://images.unsplash.com/photo-1611996575749-79a3a250f948?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 11,
+        "title": "Space Invaders",
+        "description": "Defend Earth from waves of alien invaders in this classic arcade shooter. Move left and right while shooting at descending enemies!",
+        "category": "action",
+        "embed": "https://freeinvaders.org/",
+        "thumbnail": "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 12,
+        "title": "Sudoku",
+        "description": "Fill a 9x9 grid with digits so that each column, row, and 3x3 section contains all digits from 1 to 9. A number puzzle that challenges logic!",
+        "category": "puzzle",
+        "embed": "https://sudoku.com/",
+        "thumbnail": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 13,
+        "title": "Breakout",
+        "description": "Control a paddle to bounce a ball and break bricks at the top of the screen. Clear all bricks to advance to the next level!",
+        "category": "arcade",
+        "embed": "https://elgoog.im/breakout/",
+        "thumbnail": "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 14,
+        "title": "Tower Defense",
+        "description": "Build towers along a path to defend against waves of enemies. Strategically place different types of towers to stop the invasion!",
+        "category": "strategy",
+        "embed": "https://www.crazygames.com/game/bloons-td-4",
+        "thumbnail": "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=280&h=200&fit=crop&crop=center"
+    },
+    {
+        "id": 15,
+        "title": "Frogger",
+        "description": "Help a frog cross busy roads and rivers by timing movements perfectly. Avoid cars, trucks, and water hazards in this classic arcade game!",
+        "category": "arcade",
+        "embed": "https://www.crazygames.com/game/frogger",
+        "thumbnail": "https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?w=280&h=200&fit=crop&crop=center"
+    }
+]
