@@ -21,7 +21,7 @@ let gameDescription;
 let recommendedGames;
 let bottomRecommendedGames;
 let fullscreenBtn;
-let exitFullscreen;
+let exitFullscreenBtn;
 
 let isFullscreen = false;
 
@@ -260,7 +260,7 @@ function initializeDOMElements() {
     recommendedGames = document.getElementById('recommendedGames');
     bottomRecommendedGames = document.getElementById('bottomRecommendedGames');
     fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
-    exitFullscreen = document.querySelector('.exit-fullscreen-btn');
+    exitFullscreenBtn = document.querySelector('.exit-fullscreen-btn');
     
     console.log('🔧 DOM elements initialized');
     console.log('🔍 Key elements check:');
