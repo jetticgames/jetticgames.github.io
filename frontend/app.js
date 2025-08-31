@@ -1161,7 +1161,7 @@ function ensureSettingsPage(){
                 <div class="settings-content">
                     <div class="setting-group">
                         <h3>Game Settings</h3>
-                        <div class="setting-item"><label style="cursor:pointer;"><input type="checkbox" id="proxyToggleSetting" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)"> Enable Proxy for Games</label></div>
+                        <div class="setting-item"><label style="cursor:pointer;"><input type="checkbox" id="proxyToggleSetting" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)"> Enable Proxy for Games (Beta Feature)</label></div>
                     </div>
                     <div class="setting-group">
                         <h3>Display Settings</h3>
