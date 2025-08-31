@@ -960,9 +960,15 @@ function loadGame(game) {
         
         // Apply proxy if enabled
         if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
-            gameUrl = proxyUrl + encodeURIComponent(gameUrl);
+            // Use ?url= parameter format which is more standard for proxy services
+            gameUrl = proxyUrl + '?url=' + encodeURIComponent(gameUrl);
         } else if (!isProxyEnabled && gameUrl.startsWith(proxyUrl)) {
-            gameUrl = decodeURIComponent(gameUrl.replace(proxyUrl, ''));
+            // Extract URL from proxy format
+            if (gameUrl.includes('?url=')) {
+                gameUrl = decodeURIComponent(gameUrl.split('?url=')[1]);
+            } else {
+                gameUrl = decodeURIComponent(gameUrl.replace(proxyUrl, ''));
+            }
         }
         
         // Validate URL

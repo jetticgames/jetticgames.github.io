@@ -84,7 +84,7 @@ body {
     margin-top: auto; /* Push to bottom */
     border-top: 1px solid #30363d;
     padding-top: 8px; /* Reduced padding */
-    margin-bottom: 8px; /* Add small margin from bottom */
+    padding-bottom: 16px; /* Add bottom padding for spacing from edge */
 }
 
 .nav-settings {
@@ -453,11 +453,11 @@ body {
 }
 
 .game-frame-wrapper {
-    height: 95%; /* Increased from 90% to push description below fold */
+    height: 90%; /* Set to 90% for iframe */
     background: #000000;
     border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 12px; /* Reduced margin */
+    margin-bottom: 8px; /* Reduced margin */
 }
 
 #gameFrame {
@@ -564,11 +564,11 @@ body {
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 12px;
-    padding: 12px 20px; /* Reduced padding */
-    height: 5%; /* Reduced from 10% to 5% */
-    min-height: 60px; /* Reduced minimum height */
+    padding: 12px 20px;
+    height: 10%; /* Increased to 10% to match remaining space */
+    min-height: 60px;
     flex-shrink: 0; /* Don't shrink this section */
-    margin-bottom: 12px; /* Reduced margin */
+    margin-bottom: 8px; /* Reduced margin */
 }
 
 .game-description {
