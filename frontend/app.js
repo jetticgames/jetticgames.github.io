@@ -689,11 +689,11 @@ function renderAdColumn(){
     for(let i=0;i<count;i++){
         const slot=document.createElement('div');
         slot.className='ad-slot loading';
-        const frame=document.createElement('iframe');
-        frame.src='https://www.example.com';
-        frame.loading='lazy';
-        frame.onload=()=> slot.classList.remove('loading');
-        slot.appendChild(frame);
+    // Insert provided ad snippet EXACTLY as given
+    slot.innerHTML = "<div id=\"frame\" style=\"width: 100%;margin: auto;background: rgba(0, 0, 0, 0.50);position: relative; z-index: 99998;\">\n          <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive'\n                            style='border:0; padding:0; width:70%; height:auto; overflow:hidden;display: block;margin: auto'></iframe>\n        </div>";
+    // Remove loading class once iframe loads
+    const innerFrame = slot.querySelector('iframe');
+    if(innerFrame){ innerFrame.addEventListener('load', ()=> slot.classList.remove('loading')); }
         col.appendChild(slot);
     }
 }
