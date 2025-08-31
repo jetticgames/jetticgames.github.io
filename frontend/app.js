@@ -53,16 +53,6 @@ setTimeout(function() {
         console.log('✅ Games already loaded, safeguard not needed');
     }
 }, 2000);
-let gamePage;
-let homepage;
-let gameTitle;
-let gameDescription;
-let recommendedGames;
-let bottomRecommendedGames;
-let fullscreenBtn;
-let exitFullscreen;
-
-let isFullscreen = false;
 
 // Enhanced initialization with better error handling
 document.addEventListener('DOMContentLoaded', function() {
