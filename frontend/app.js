@@ -1,4 +1,6 @@
 // Global variables
+console.log('🎮 WaterWall app.js is loading...');
+
 let games = [];
 let currentGame = null;
 let isProxyEnabled = true;
@@ -24,7 +26,12 @@ let exitFullscreen;
 let isFullscreen = false;
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    // DOM is already loaded
+    init();
+}
 
 async function init() {
     console.log('Initializing WaterWall...');
@@ -32,9 +39,34 @@ async function init() {
     // Initialize DOM elements
     initializeDOMElements();
     
+    // Simple test - add some content immediately
+    const featuredGrid = document.getElementById('featuredGames');
+    const allGamesGrid = document.getElementById('allGames');
+    
+    if (featuredGrid) {
+        featuredGrid.innerHTML = '<div style="color: white; padding: 20px;">Featured games loading...</div>';
+        console.log('Added test content to featured games');
+    } else {
+        console.error('Featured games element not found!');
+    }
+    
+    if (allGamesGrid) {
+        allGamesGrid.innerHTML = '<div style="color: white; padding: 20px;">All games loading...</div>';
+        console.log('Added test content to all games');
+    } else {
+        console.error('All games element not found!');
+    }
+    
     await loadGames();
+    console.log('Games loaded, count:', games.length);
+    
+    // Now render the actual games
+    if (games.length > 0) {
+        renderFeaturedGames();
+        renderGamesByCategory();
+    }
+    
     setupEventListeners();
-    showHomePage();
     updateNavigationStats();
     console.log('WaterWall initialized successfully!');
 }
@@ -61,24 +93,31 @@ function initializeDOMElements() {
 // Load games from JSON
 async function loadGames() {
     try {
-        console.log('Loading games...');
-        const response = await fetch('games.json');
+        console.log('🔄 Loading games...');
+        const response = await fetch('./games.json');
+        console.log('📡 Fetch response:', response.status, response.statusText);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
         const data = await response.json();
+        console.log('📊 JSON data received:', data ? `${data.length} games` : 'No data');
+        
         games = Array.isArray(data) ? data : [];
-        console.log(`Loaded ${games.length} games successfully`);
+        console.log(`✅ Loaded ${games.length} games successfully`);
         
         // If no games loaded, use fallback
         if (games.length === 0) {
             throw new Error('No games found in JSON');
         }
         
+        return games;
+        
     } catch (error) {
-        console.error('Error loading games:', error);
-        showError('Failed to load games. Using fallback games.');
-        // Fallback games for testing
+        console.error('❌ Error loading games:', error);
+        
+        // Use fallback games for testing
         games = [
             {
                 id: 1,
@@ -105,7 +144,8 @@ async function loadGames() {
                 thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
             }
         ];
-        console.log(`Using ${games.length} fallback games`);
+        console.log(`🔄 Using ${games.length} fallback games`);
+        return games;
     }
 }
 
@@ -357,8 +397,11 @@ function showHomePage() {
     // Re-initialize homepage element reference
     homepage = document.getElementById('homePage');
     
-    renderFeaturedGames();
-    renderGamesByCategory();
+    // Use setTimeout to ensure DOM is ready after innerHTML change
+    setTimeout(() => {
+        renderFeaturedGames();
+        renderGamesByCategory();
+    }, 0);
 }
 
 function showGamePage(game) {
@@ -489,25 +532,38 @@ function hideAllPages() {
 
 // Game rendering functions
 function renderFeaturedGames() {
+    console.log('renderFeaturedGames called, games.length:', games.length);
     const featuredGames = games.slice(0, 6); // First 6 games as featured
     const featuredGrid = document.getElementById('featuredGames');
+    
+    console.log('Featured grid element found:', !!featuredGrid);
+    console.log('Featured games to render:', featuredGames.length);
     
     if (featuredGrid && featuredGames.length > 0) {
         console.log('Rendering', featuredGames.length, 'featured games');
         featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game, true)).join('');
+        console.log('Featured games rendered successfully');
     } else {
         console.log('Featured games container not found or no games available');
+        console.log('featuredGrid:', featuredGrid);
+        console.log('featuredGames.length:', featuredGames.length);
     }
 }
 
 function renderGamesByCategory() {
+    console.log('renderGamesByCategory called, games.length:', games.length);
     const allGamesContainer = document.getElementById('allGames');
+    
+    console.log('All games container found:', !!allGamesContainer);
     
     if (allGamesContainer && games.length > 0) {
         console.log('Rendering', games.length, 'total games');
         allGamesContainer.innerHTML = games.map(game => createGameCard(game)).join('');
+        console.log('All games rendered successfully');
     } else {
         console.log('All games container not found or no games available');
+        console.log('allGamesContainer:', allGamesContainer);
+        console.log('games.length:', games.length);
     }
 }
 
@@ -683,5 +739,24 @@ if ('serviceWorker' in navigator) {
             });
     });
 }
+
+// Debug function for testing
+window.debugWaterWall = function() {
+    console.log('=== WaterWall Debug Info ===');
+    console.log('Games array:', games);
+    console.log('Games count:', games.length);
+    console.log('Featured games element:', document.getElementById('featuredGames'));
+    console.log('All games element:', document.getElementById('allGames'));
+    console.log('Homepage element:', document.getElementById('homePage'));
+    
+    if (games.length > 0) {
+        console.log('First game:', games[0]);
+        console.log('Sample game card HTML:', createGameCard(games[0]));
+    }
+    
+    // Try to render games manually
+    renderFeaturedGames();
+    renderGamesByCategory();
+};
 
 
