@@ -109,29 +109,33 @@
                 <!-- Game Page -->
                 <div id="gamePage" class="page">
                     <div class="game-page-container">
-                        <!-- Game Header Overlay -->
-                        <div class="game-header-overlay">
-                            <div class="game-header-left">
-                                <button class="back-btn">
-                                    <i class="fas fa-arrow-left"></i>
-                                    Back
-                                </button>
-                                <div class="game-title-overlay">
-                                    <h1 id="gameTitle">Game Title</h1>
-                                    <span id="gameCategory">Category</span>
+                        <!-- Game Frame Container -->
+                        <div class="game-frame-container">
+                            <iframe id="gameFrame" src="" title="Game"></iframe>
+                        </div>
+                        
+                        <!-- Game Sidebar with Suggestions -->
+                        <div class="game-sidebar">
+                            <div class="suggested-games">
+                                <h3 class="suggested-title">More Games</h3>
+                                <div class="suggested-games-list" id="suggestedGames">
+                                    <!-- Suggested games will be loaded here -->
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Game Info Below Frame -->
+                        <div class="game-info-bottom">
+                            <div class="game-info-left">
+                                <h1 id="gameTitle">Game Title</h1>
+                                <span id="gameCategory">Category</span>
+                            </div>
                             
-                            <div class="game-header-right">
+                            <div class="game-info-right">
                                 <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
                                     <i class="fas fa-expand"></i>
                                 </button>
                             </div>
-                        </div>
-                        
-                        <!-- Game Frame -->
-                        <div class="game-frame-container">
-                            <iframe id="gameFrame" src="" title="Game"></iframe>
                         </div>
                     </div>
                 </div>

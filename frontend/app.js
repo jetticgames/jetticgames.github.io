@@ -454,10 +454,33 @@ function handleNavigation(e) {
         return;
     }
     
-    // Back button
+    // Suggested game card clicks
+    if (e.target.closest('.suggested-game-card')) {
+        console.log('Suggested game card clicked');
+        const gameCard = e.target.closest('.suggested-game-card');
+        const gameId = parseInt(gameCard.dataset.gameId);
+        const game = games.find(g => g.id === gameId);
+        if (game) {
+            console.log('Loading suggested game:', game.title);
+            showGamePage(game);
+        }
+        return;
+    }
+    
+    // Back button - remove since we're using sidebar home
     if (e.target.closest('.back-btn')) {
         e.preventDefault();
         showHomePage();
+        return;
+    }
+    
+    // Category card clicks
+    if (e.target.closest('.category-card')) {
+        const categoryCard = e.target.closest('.category-card');
+        const category = categoryCard.dataset.category;
+        if (category) {
+            filterByCategory(category);
+        }
         return;
     }
     
@@ -574,17 +597,110 @@ function showHomePage() {
 
 function showCategoriesPage() {
     hideAllPages();
-    showError('Categories page coming soon!');
+    showHomePage(); // For now, show homepage but filter by featured games
+    
+    // Filter to show popular/featured games
+    const contentArea = document.querySelector('.content-area');
+    contentArea.innerHTML = `
+        <div class="page active">
+            <section class="games-section">
+                <div class="section-header">
+                    <h2 class="section-title">Categories</h2>
+                </div>
+                <div class="category-grid">
+                    <div class="category-card" data-category="puzzle">
+                        <div class="category-icon">🧩</div>
+                        <h3>Puzzle</h3>
+                        <p>Brain-training games</p>
+                    </div>
+                    <div class="category-card" data-category="action">
+                        <div class="category-icon">⚡</div>
+                        <h3>Action</h3>
+                        <p>Fast-paced excitement</p>
+                    </div>
+                    <div class="category-card" data-category="adventure">
+                        <div class="category-icon">🗺️</div>
+                        <h3>Adventure</h3>
+                        <p>Explore new worlds</p>
+                    </div>
+                    <div class="category-card" data-category="sports">
+                        <div class="category-icon">⚽</div>
+                        <h3>Sports</h3>
+                        <p>Athletic challenges</p>
+                    </div>
+                    <div class="category-card" data-category="strategy">
+                        <div class="category-icon">♟️</div>
+                        <h3>Strategy</h3>
+                        <p>Think and conquer</p>
+                    </div>
+                    <div class="category-card" data-category="arcade">
+                        <div class="category-icon">🕹️</div>
+                        <h3>Arcade</h3>
+                        <p>Classic gaming fun</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    `;
 }
 
 function showFavoritesPage() {
     hideAllPages();
-    showError('Favorites page coming soon!');
+    showHomePage(); // For now, show homepage
+    
+    const contentArea = document.querySelector('.content-area');
+    contentArea.innerHTML = `
+        <div class="page active">
+            <section class="games-section">
+                <div class="section-header">
+                    <h2 class="section-title">Favorite Games</h2>
+                </div>
+                <div class="favorites-content">
+                    <div class="empty-state">
+                        <div class="empty-icon">❤️</div>
+                        <h3>No favorites yet</h3>
+                        <p>Games you mark as favorites will appear here</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    `;
 }
 
 function showSettingsPage() {
     hideAllPages();
-    showError('Settings page coming soon!');
+    showHomePage(); // For now, show homepage
+    
+    const contentArea = document.querySelector('.content-area');
+    contentArea.innerHTML = `
+        <div class="page active">
+            <section class="games-section">
+                <div class="section-header">
+                    <h2 class="section-title">Settings</h2>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <h3>Game Settings</h3>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="proxyToggle" ${isProxyEnabled ? 'checked' : ''}>
+                                Enable Proxy for Games
+                            </label>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Display Settings</h3>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" checked>
+                                Dark Theme
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    `;
 }
 
 function showGamePage(game) {
@@ -600,17 +716,49 @@ function showGamePage(game) {
     
     document.getElementById('gamePage').classList.add('active');
     
-    // Update game info in the overlay
+    // Update game info
     const gameTitle = document.getElementById('gameTitle');
     const gameCategory = document.getElementById('gameCategory');
     
     if (gameTitle) gameTitle.textContent = game.title;
     if (gameCategory) gameCategory.textContent = game.category;
     
+    // Load suggested games
+    loadSuggestedGames(game);
+    
     // Load the game after a brief delay to ensure iframe is ready
     setTimeout(() => {
         loadGame(game);
     }, 100);
+}
+
+function loadSuggestedGames(currentGame) {
+    console.log('Loading suggested games for:', currentGame.title);
+    
+    // Get random games excluding the current one
+    const otherGames = games.filter(game => game.id !== currentGame.id);
+    const shuffled = otherGames.sort(() => 0.5 - Math.random());
+    const suggestedGames = shuffled.slice(0, 6); // Show 6 suggested games
+    
+    const suggestedContainer = document.getElementById('suggestedGames');
+    if (!suggestedContainer) {
+        console.warn('Suggested games container not found');
+        return;
+    }
+    
+    suggestedContainer.innerHTML = suggestedGames.map(game => createSuggestedGameCard(game)).join('');
+}
+
+function createSuggestedGameCard(game) {
+    return `
+        <div class="suggested-game-card" data-game-id="${game.id}">
+            <img src="${game.image}" alt="${game.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
+            <div class="suggested-game-info">
+                <div class="suggested-game-title">${game.title}</div>
+                <div class="suggested-game-category">${game.category}</div>
+            </div>
+        </div>
+    `;
 }
 
 function showCategoriesPage() {
