@@ -445,39 +445,29 @@ body {
 /* Game Page - New Layout */
 .game-page-container {
     display: flex;
-    height: calc(100vh - 72px); /* Full height minus header */
     width: 100%;
     background: #0d1117;
-    overflow: hidden; /* Prevent horizontal scrolling */
+    gap: 8px;
 }
 
 .game-main-area {
     width: 80%;
     display: flex;
     flex-direction: column;
-    padding: 16px;
-    padding-right: 8px; /* Half gap */
-    height: 100vh; /* Full viewport height */
-    overflow: hidden; /* Prevent scrolling in main area */
+    padding: 16px 16px 40px 16px;
 }
 
 .game-frame-wrapper {
-    height: 90vh; /* Exactly 90% of viewport height as requested */
-    background: transparent; /* Remove black background */
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 8px; /* Small margin for controls */
-    flex-shrink: 0; /* Don't shrink the iframe */
+    width:100%;
+    aspect-ratio:16/9;
+    background:#000;
+    border-radius:12px;
+    overflow:hidden;
+    margin-bottom:24px;
+    position:relative;
 }
 
-.game-content-wrapper {
-    height: calc(10vh - 72px + 32px); /* Use remaining 10% of viewport for controls */
-    min-height: 100px; /* Ensure minimum space for controls */
-    overflow-y: auto; /* Allow scrolling for content */
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0; /* Don't shrink */
-}
+.game-content-wrapper { /* No longer used but keep safe */ display:none; }
 
 #gameFrame {
     width: 100%;
@@ -1845,3 +1835,12 @@ body {
     .suggested-games-list {flex-direction:row; flex-wrap:wrap; gap:12px;}
     .suggested-game-card {flex:1 1 calc(50% - 12px);}  
 }
+
+/* === POST-OVERRIDE (remove fixed heights & ensure visibility) === */
+.game-page-container, .game-main-area, .game-sidebar, .suggested-games-list {height:auto !important; max-height:none !important; overflow:visible !important;}
+.game-main-area {padding-bottom:60px;}
+.suggested-games-list {display:flex !important; flex-direction:column; gap:14px;}
+.suggested-game-card {background:rgba(255,255,255,0.04) !important; border:1px solid rgba(255,255,255,0.06) !important;}
+.suggested-game-card:hover {background:rgba(255,255,255,0.08) !important;}
+.suggested-game-card img {aspect-ratio:16/9; object-fit:cover; width:120px;}
+.game-frame-wrapper {margin-bottom:28px !important;}

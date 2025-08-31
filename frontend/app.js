@@ -779,6 +779,12 @@ function generateGameDescription(game) {
 function loadSuggestedGames(currentGame) {
     console.log('Loading suggested games for:', currentGame.title);
     console.log('Total available games:', games.length);
+    const suggestedContainer = document.getElementById('suggestedGames');
+    if (games.length === 0) {
+        console.warn('Games not loaded yet when requesting suggestions; retrying in 250ms');
+        setTimeout(() => loadSuggestedGames(currentGame), 250);
+        return;
+    }
     
     // Get random games excluding the current one
     const otherGames = games.filter(game => game.id !== currentGame.id);
@@ -788,7 +794,6 @@ function loadSuggestedGames(currentGame) {
     const suggestedGames = shuffled.slice(0, 4); // Show only 4 suggested games to fit without scrolling
     console.log('Suggested games to display:', suggestedGames.length);
     
-    const suggestedContainer = document.getElementById('suggestedGames');
     if (!suggestedContainer) {
         console.error('❌ Suggested games container not found');
         return;
@@ -805,6 +810,8 @@ function loadSuggestedGames(currentGame) {
         const card = createSuggestedGameCard(game);
         return card.replace('<div class="suggested-game-card"', `<div class="suggested-game-card" style="animation-delay: ${index * 0.1}s"`);
     }).join('');
+    suggestedContainer.style.opacity = '1';
+    suggestedContainer.style.visibility = 'visible';
     
     console.log('✅ Suggested games rendered successfully');
 }
