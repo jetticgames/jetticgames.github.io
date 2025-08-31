@@ -405,9 +405,8 @@ function handleNavigation(e) {
             return;
         }
         
-        const navLink = navItem.querySelector('.nav-link');
-        const page = navLink.dataset.page;
-        const category = navLink.dataset.category;
+        const page = navItem.dataset.page; // Get page from nav-item instead of nav-link
+        const category = navItem.dataset.category;
         
         console.log('Navigating to page:', page, 'or category:', category);
         
@@ -597,7 +596,7 @@ function showHomePage() {
     
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    const homeNavItem = document.querySelector('[data-page="home"]').closest('.nav-item');
+    const homeNavItem = document.querySelector('[data-page="home"]');
     if (homeNavItem) {
         homeNavItem.classList.add('active');
     }
@@ -607,7 +606,6 @@ function showHomePage() {
 
 function showCategoriesPage() {
     hideAllPages();
-    showHomePage(); // For now, show homepage but filter by featured games
     
     // Filter to show popular/featured games
     const contentArea = document.querySelector('.content-area');
@@ -656,7 +654,6 @@ function showCategoriesPage() {
 
 function showFavoritesPage() {
     hideAllPages();
-    showHomePage(); // For now, show homepage
     
     const contentArea = document.querySelector('.content-area');
     contentArea.innerHTML = `
@@ -679,7 +676,6 @@ function showFavoritesPage() {
 
 function showSettingsPage() {
     hideAllPages();
-    showHomePage(); // For now, show homepage
     
     const contentArea = document.querySelector('.content-area');
     contentArea.innerHTML = `
