@@ -196,18 +196,33 @@ function loadGame(game) {
     const useProxy = proxyToggle.checked;
     const gameUrl = useProxy ? getProxyUrl(game.embed) : game.embed;
     
-    gameFrame.src = gameUrl;
+    // Ensure we have a valid URL
+    if (!gameUrl) {
+        console.error('No valid game URL found');
+        return;
+    }
     
-    // Also update fullscreen frame if it exists
-    if (fullscreenFrame.src) {
+    // Set the iframe source
+    if (gameFrame) {
+        gameFrame.src = gameUrl;
+    }
+    
+    // Also update fullscreen frame if it exists and is currently being used
+    if (fullscreenFrame && isFullscreen) {
         fullscreenFrame.src = gameUrl;
     }
 }
 
 // Get proxy URL
 function getProxyUrl(originalUrl) {
+    if (!originalUrl) {
+        console.error('No original URL provided to proxy');
+        return '';
+    }
+    
     const proxyBaseUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy?url=';
-    return proxyBaseUrl + encodeURIComponent(originalUrl);
+    const finalUrl = proxyBaseUrl + encodeURIComponent(originalUrl);
+    return finalUrl;
 }
 
 // Load recommended games
@@ -312,6 +327,14 @@ function showHomepage() {
     setTimeout(() => {
         homepage.classList.add('active');
     }, 150);
+    
+    // Clear iframe when going back to homepage
+    if (gameFrame) {
+        gameFrame.src = '';
+    }
+    
+    // Reset current game
+    currentGame = null;
     
     // Reset search and filters
     searchInput.value = '';
