@@ -108,60 +108,30 @@
 
                 <!-- Game Page -->
                 <div id="gamePage" class="page">
-                    <div class="game-page-header">
-                        <button class="back-btn">
-                            <i class="fas fa-arrow-left"></i>
-                            Back to Games
-                        </button>
-                        
-                        <div class="game-meta">
-                            <div class="game-thumbnail">
-                                <img id="gameThumbnail" src="" alt="">
-                            </div>
-                            <div class="game-info-header">
-                                <h1 id="gameTitle">Game Title</h1>
-                                <p id="gameCategory">Category</p>
-                                <div class="game-actions">
-                                    <button class="play-btn">
-                                        <i class="fas fa-play"></i>
-                                        Play Now
-                                    </button>
-                                    
-                                    <div class="game-controls">
-                                        <label class="proxy-toggle">
-                                            <input type="checkbox" id="proxyToggle" checked>
-                                            <span class="toggle-slider"></span>
-                                            <span class="toggle-label">Use Proxy</span>
-                                        </label>
-                                        
-                                        <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
-                                            <i class="fas fa-expand"></i>
-                                        </button>
-                                    </div>
+                    <div class="game-page-container">
+                        <!-- Game Header Overlay -->
+                        <div class="game-header-overlay">
+                            <div class="game-header-left">
+                                <button class="back-btn">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Back
+                                </button>
+                                <div class="game-title-overlay">
+                                    <h1 id="gameTitle">Game Title</h1>
+                                    <span id="gameCategory">Category</span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="game-container">
-                        <div class="game-main">
-                            <div class="game-frame-container">
-                                <iframe id="gameFrame" src="" title="Game"></iframe>
-                            </div>
-                        </div>
-                        
-                        <div class="game-sidebar">
-                            <div class="game-description">
-                                <h4>About this game</h4>
-                                <p id="gameDescription">Game description will appear here.</p>
                             </div>
                             
-                            <div class="recommended-section">
-                                <h4>Recommended Games</h4>
-                                <div class="recommended-list" id="recommendedGames">
-                                    <!-- Recommended games will be loaded here -->
-                                </div>
+                            <div class="game-header-right">
+                                <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
+                                    <i class="fas fa-expand"></i>
+                                </button>
                             </div>
+                        </div>
+                        
+                        <!-- Game Frame -->
+                        <div class="game-frame-container">
+                            <iframe id="gameFrame" src="" title="Game"></iframe>
                         </div>
                     </div>
                 </div>

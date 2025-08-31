@@ -249,16 +249,12 @@ function initializeDOMElements() {
     gamesGrid = document.getElementById('allGames');
     searchInput = document.getElementById('searchInput');
     filterBtns = document.querySelectorAll('.filter-btn');
-    proxyToggle = document.getElementById('proxyToggle');
     gameFrame = document.getElementById('gameFrame');
     fullscreenFrame = document.getElementById('fullscreenFrame');
     fullscreenOverlay = document.getElementById('fullscreenOverlay');
     gamePage = document.getElementById('gamePage');
     homepage = document.getElementById('homePage');
     gameTitle = document.getElementById('gameTitle');
-    gameDescription = document.getElementById('gameDescription');
-    recommendedGames = document.getElementById('recommendedGames');
-    bottomRecommendedGames = document.getElementById('bottomRecommendedGames');
     fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
     exitFullscreenBtn = document.querySelector('.exit-fullscreen-btn');
     
@@ -267,6 +263,7 @@ function initializeDOMElements() {
     console.log('  - Featured games grid:', !!document.getElementById('featuredGames'));
     console.log('  - All games grid:', !!document.getElementById('allGames'));
     console.log('  - Search input:', !!document.getElementById('searchInput'));
+    console.log('  - Game frame:', !!document.getElementById('gameFrame'));
 }
 
 // Load games from JSON
@@ -603,30 +600,12 @@ function showGamePage(game) {
     
     document.getElementById('gamePage').classList.add('active');
     
-    // Update game info
+    // Update game info in the overlay
     const gameTitle = document.getElementById('gameTitle');
     const gameCategory = document.getElementById('gameCategory');
-    const gameDescription = document.getElementById('gameDescription');
     
     if (gameTitle) gameTitle.textContent = game.title;
     if (gameCategory) gameCategory.textContent = game.category;
-    if (gameDescription) gameDescription.textContent = game.description || 'No description available.';
-    
-    // Update thumbnail (without text in placeholder)
-    const thumbnail = document.getElementById('gameThumbnail');
-    if (thumbnail) {
-        thumbnail.src = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff`;
-        thumbnail.alt = game.title;
-    }
-    
-    // Update proxy toggle state
-    const proxyToggle = document.getElementById('proxyToggle');
-    if (proxyToggle) {
-        proxyToggle.checked = isProxyEnabled;
-    }
-    
-    // Load recommended games
-    renderRecommendedGames(game);
     
     // Load the game after a brief delay to ensure iframe is ready
     setTimeout(() => {
@@ -763,23 +742,8 @@ function renderGamesByCategory() {
 }
 
 function renderRecommendedGames(currentGame) {
-    const recommendedGames = games
-        .filter(game => game.id !== currentGame.id && game.category === currentGame.category)
-        .slice(0, 4);
-    
-    const recommendedList = document.getElementById('recommendedGames');
-    if (recommendedList) {
-        console.log('Rendering', recommendedGames.length, 'recommended games');
-        recommendedList.innerHTML = recommendedGames.map(game => `
-            <div class="recommended-item" data-game-id="${game.id}">
-                <img src="${game.thumbnail || `https://via.placeholder.com/120x90/6366f1/ffffff`}" alt="${game.title}">
-                <div class="recommended-item-info">
-                    <h5>${game.title}</h5>
-                    <span class="category">${game.category}</span>
-                </div>
-            </div>
-        `).join('');
-    }
+    // Recommended games removed in simplified layout
+    console.log('Recommended games disabled in new simplified layout');
 }
 
 function createGameCard(game, isFeatured = false) {
