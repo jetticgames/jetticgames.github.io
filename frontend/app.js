@@ -861,43 +861,28 @@ function loadGame(game) {
         
         console.log('Loading game URL:', gameUrl);
         
-        // Clear any previous error handlers
-        gameFrame.onload = null;
-        gameFrame.onerror = null;
-        
-        // Set new URL
+        // Loading overlay handling
+        startGameLoadingOverlay(gameUrl);
+
+        // Clear any previous handlers
+        gameFrame.onload = null; gameFrame.onerror = null;
         gameFrame.src = gameUrl;
-        
-        // Handle iframe load events
-        gameFrame.onload = () => {
-            console.log('Game loaded successfully:', game.title);
-            // Hide any error messages
-            const errorMsg = gameFrame.parentElement.querySelector('.game-error');
-            if (errorMsg) errorMsg.remove();
-        };
+        gameFrame.onload = () => { finishGameLoadingOverlay(true); };
+        gameFrame.onerror = () => { finishGameLoadingOverlay(false); showGameError('Failed to load game. Try enabling/disabling proxy or try another game.'); };
 
-        gameFrame.onerror = () => {
-            console.error('Failed to load game:', game.title);
-            showGameError('Failed to load game. Try enabling/disabling proxy or try another game.');
-        };
-
-        // Add timeout for games that don't trigger load events
+        // Add timeout probe
         setTimeout(() => {
             try {
-                // Try to access iframe content to see if it loaded
                 if (gameFrame.contentDocument || gameFrame.contentWindow) {
                     console.log('Game appears to be loading...');
-                } else {
-                    console.warn('Game may be blocked by X-Frame-Options');
-                    if (!isProxyEnabled) {
-                        showGameError('Game blocked. Try enabling proxy to bypass restrictions.');
-                    }
+                } else if (!isProxyEnabled) {
+                    showGameError('Game blocked. Try enabling proxy to bypass restrictions.');
                 }
             } catch (e) {
-                // This is expected for cross-origin content
-                console.log('Cross-origin content detected (normal for external games)');
+                console.log('Cross-origin content (expected)');
             }
-        }, 3000);    } catch (error) {
+        }, 3000);
+    } catch (error) {
         console.error('Error loading game:', error);
         showGameError('Error loading game. Please check the URL and try again.');
     }
@@ -1193,6 +1178,54 @@ renderFavoritesSection = function(){
     __origRenderFavoritesSection();
     renderFavoritesPage();
 };
+
+// ===== Loading Overlay Logic =====
+let loadingOverlayTimer=null, loadingProxyTimer=null, loadingMinTimer=null, loadingProgressTimer=null;
+function startGameLoadingOverlay(url){
+    const overlay=document.getElementById('gameLoadingOverlay');
+    const bar=document.querySelector('.loading-bar-fill');
+    const status=document.getElementById('loadingStatusText');
+    const hint=document.getElementById('loadingHintText');
+    const proxyBtn=document.getElementById('loadingProxyToggle');
+    if(!overlay||!bar) return;
+    // Reset
+    clearTimeout(loadingOverlayTimer); clearTimeout(loadingProxyTimer); clearTimeout(loadingMinTimer); clearInterval(loadingProgressTimer);
+    overlay.style.display='flex';
+    bar.style.width='0%';
+    status.textContent='Loading game...';
+    hint.textContent='Preparing resources';
+    proxyBtn.style.display='none';
+    // Progressive fill (simulate) up to 85% until load finishes
+    let progress=0;
+    loadingProgressTimer=setInterval(()=>{ progress = Math.min(progress + Math.random()*6, 85); bar.style.width=progress+'%'; }, 400);
+    // After 5s allow closing if loaded
+    loadingMinTimer=setTimeout(()=>{ overlay.dataset.min='done'; },5000);
+    // After 8s change hint
+    loadingOverlayTimer=setTimeout(()=>{ hint.textContent='Still loading...'; },8000);
+    // After 15s with proxy enabled show suggestion
+    loadingProxyTimer=setTimeout(()=>{
+        if(isProxyEnabled){
+            proxyBtn.style.display='inline-block';
+            hint.textContent='Taking unusually long.';
+            status.textContent='Consider disabling proxy for this game.';
+            proxyBtn.onclick=()=>{ isProxyEnabled=false; gameProxyOverrides[currentGame?.id||'']=false; updateProxyVisuals(); if(currentGame) loadGame(currentGame); };
+        }
+    },15000);
+}
+function finishGameLoadingOverlay(success){
+    const overlay=document.getElementById('gameLoadingOverlay');
+    const bar=document.querySelector('.loading-bar-fill');
+    const status=document.getElementById('loadingStatusText');
+    const hint=document.getElementById('loadingHintText');
+    if(!overlay||!bar) return;
+    clearInterval(loadingProgressTimer);
+    bar.style.width='100%';
+    status.textContent = success ? 'Loaded!' : 'Load ended';
+    hint.textContent = success ? '' : 'You can retry or toggle proxy.';
+    // Ensure at least 5s display
+    const delay = overlay.dataset.min==='done'? 400 : 5200; // if min not reached, wait remainder ~5s
+    setTimeout(()=>{ overlay.style.display='none'; }, delay);
+}
 
 
 

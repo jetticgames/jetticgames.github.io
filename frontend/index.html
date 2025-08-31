@@ -106,6 +106,15 @@
                             <!-- Game Frame Container (height calculated to leave room for controls) -->
                             <div class="game-frame-wrapper">
                                 <iframe id="gameFrame" src="" title="Game"></iframe>
+                                <!-- Loading Overlay -->
+                                <div id="gameLoadingOverlay" aria-live="polite" style="display:none;">
+                                    <div class="loading-inner">
+                                        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+                                        <div class="loading-status" id="loadingStatusText">Loading game...</div>
+                                        <div class="loading-hint" id="loadingHintText">Preparing resources</div>
+                                        <button class="loading-proxy-btn" id="loadingProxyToggle" style="display:none;">Disable Proxy & Retry</button>
+                                    </div>
+                                </div>
                             </div>
                             <!-- Game Info Bar -->
                             <div class="game-info-bottom">

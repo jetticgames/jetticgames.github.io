@@ -446,6 +446,18 @@ body {
 #favoritesEmptyState h3 { font-size:24px; }
 #favoritesEmptyState p { font-size:14px; }
 
+/* Game Loading Overlay */
+#gameLoadingOverlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:linear-gradient(135deg, rgba(13,17,23,0.9), rgba(22,27,34,0.92)); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); z-index:20; }
+#gameLoadingOverlay .loading-inner { width:min(420px,90%); text-align:center; display:flex; flex-direction:column; gap:18px; }
+.loading-bar { width:100%; height:18px; background:#1e2530; border-radius:999px; overflow:hidden; position:relative; box-shadow:0 0 0 1px #30363d inset, 0 4px 12px -2px rgba(0,0,0,.4); }
+.loading-bar-fill { position:absolute; inset:0; width:0%; background:linear-gradient(90deg,#6366f1,#8b5cf6,#6366f1); background-size:200% 100%; animation: loadingPulse 2.2s linear infinite; border-radius:inherit; box-shadow:0 0 0 1px rgba(255,255,255,0.05) inset; }
+@keyframes loadingPulse { 0%{background-position:0 0;} 100%{background-position:-200% 0;} }
+.loading-status { font-size:15px; font-weight:600; letter-spacing:.3px; }
+.loading-hint { font-size:12px; color:#9da5b4; min-height:16px; }
+.loading-proxy-btn { background:#f0883e; border:none; padding:10px 16px; border-radius:8px; color:#fff; font-size:13px; font-weight:600; cursor:pointer; transition:background .2s; }
+.loading-proxy-btn:hover { background:#db7b35; }
+.game-frame-wrapper { position:relative; }
+
 /* Loading Message */
 .loading-message {
     display: flex;
