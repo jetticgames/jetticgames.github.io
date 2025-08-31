@@ -25,50 +25,77 @@ let exitFullscreen;
 
 let isFullscreen = false;
 
-// Initialize app
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    // DOM is already loaded
-    init();
-}
-
-async function init() {
-    console.log('Initializing WaterWall...');
+// Simple direct initialization - no complex DOM ready checks
+window.addEventListener('load', function() {
+    console.log('🚀 Window loaded, starting initialization...');
     
-    // Initialize DOM elements
-    initializeDOMElements();
-    
-    // Simple test - add some content immediately
+    // Test DOM access immediately
     const featuredGrid = document.getElementById('featuredGames');
     const allGamesGrid = document.getElementById('allGames');
     
+    console.log('🔍 Featured grid found:', !!featuredGrid);
+    console.log('🔍 All games grid found:', !!allGamesGrid);
+    
     if (featuredGrid) {
-        featuredGrid.innerHTML = '<div style="color: white; padding: 20px;">Featured games loading...</div>';
-        console.log('Added test content to featured games');
-    } else {
-        console.error('Featured games element not found!');
+        featuredGrid.innerHTML = '<div style="color: white; padding: 20px; background: red;">🎮 FEATURED GAMES TEST - JS IS WORKING!</div>';
     }
     
     if (allGamesGrid) {
-        allGamesGrid.innerHTML = '<div style="color: white; padding: 20px;">All games loading...</div>';
-        console.log('Added test content to all games');
-    } else {
-        console.error('All games element not found!');
+        allGamesGrid.innerHTML = '<div style="color: white; padding: 20px; background: blue;">🎯 ALL GAMES TEST - JS IS WORKING!</div>';
     }
     
-    await loadGames();
-    console.log('Games loaded, count:', games.length);
+    // Start the real initialization
+    setTimeout(startApp, 1000);
+});
+
+async function startApp() {
+    console.log('🎯 Starting main app initialization...');
     
-    // Now render the actual games
-    if (games.length > 0) {
-        renderFeaturedGames();
-        renderGamesByCategory();
+    try {
+        // Load games first
+        await loadGames();
+        
+        // Initialize DOM elements
+        initializeDOMElements();
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Render games
+        renderGames();
+        
+        // Update stats
+        updateNavigationStats();
+        
+        console.log('✅ App initialization complete!');
+    } catch (error) {
+        console.error('❌ App initialization failed:', error);
+    }
+}
+
+function renderGames() {
+    console.log('🎨 Rendering games...');
+    
+    const featuredGrid = document.getElementById('featuredGames');
+    const allGamesGrid = document.getElementById('allGames');
+    
+    if (games.length === 0) {
+        console.log('⚠️ No games to render');
+        return;
     }
     
-    setupEventListeners();
-    updateNavigationStats();
-    console.log('WaterWall initialized successfully!');
+    // Render featured games (first 6)
+    if (featuredGrid) {
+        const featuredGames = games.slice(0, 6);
+        featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game)).join('');
+        console.log('✅ Featured games rendered:', featuredGames.length);
+    }
+    
+    // Render all games
+    if (allGamesGrid) {
+        allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
+        console.log('✅ All games rendered:', games.length);
+    }
 }
 
 function initializeDOMElements() {
@@ -88,6 +115,8 @@ function initializeDOMElements() {
     bottomRecommendedGames = document.getElementById('bottomRecommendedGames');
     fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
     exitFullscreen = document.querySelector('.exit-fullscreen-btn');
+    
+    console.log('🔧 DOM elements initialized');
 }
 
 // Load games from JSON
