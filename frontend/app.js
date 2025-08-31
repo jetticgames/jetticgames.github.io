@@ -124,7 +124,7 @@ function loadFallbackGames() {
             description: "A sliding puzzle game where you combine tiles with the same number to reach 2048.",
             category: "puzzle",
             embed: "https://play2048.co/",
-            thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff?text=2048"
+            thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff"
         },
         {
             id: 2,
@@ -132,7 +132,7 @@ function loadFallbackGames() {
             description: "Classic snake game where you eat food and grow longer.",
             category: "arcade",
             embed: "https://playsnake.org/",
-            thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake"
+            thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff"
         },
         {
             id: 3,
@@ -140,7 +140,7 @@ function loadFallbackGames() {
             description: "Classic block puzzle game.",
             category: "puzzle",
             embed: "https://tetris.com/play-tetris",
-            thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
+            thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff"
         },
         {
             id: 4,
@@ -148,7 +148,7 @@ function loadFallbackGames() {
             description: "Navigate mazes, eat dots, and avoid ghosts.",
             category: "arcade",
             embed: "https://pacman.com/en/",
-            thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff?text=Pac-Man"
+            thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff"
         },
         {
             id: 5,
@@ -156,7 +156,7 @@ function loadFallbackGames() {
             description: "Strategic board game for two players.",
             category: "strategy",
             embed: "https://chess.com/play",
-            thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff?text=Chess"
+            thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff"
         },
         {
             id: 6,
@@ -164,7 +164,7 @@ function loadFallbackGames() {
             description: "Classic card game.",
             category: "puzzle",
             embed: "https://solitaired.com/freecell",
-            thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff?text=Solitaire"
+            thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff"
         }
     ];
     console.log(`✅ Loaded ${games.length} fallback games`);
@@ -206,21 +206,21 @@ function emergencyFallback() {
     
     const emergencyHTML = `
         <div class="game-card" data-game-id="1">
-            <img src="https://via.placeholder.com/300x200/6366f1/ffffff?text=2048" alt="2048" loading="lazy">
+            <img src="https://via.placeholder.com/300x200/6366f1/ffffff" alt="2048" loading="lazy">
             <div class="game-card-content">
                 <div class="game-card-title">2048</div>
                 <div class="game-card-category">puzzle</div>
             </div>
         </div>
         <div class="game-card" data-game-id="2">
-            <img src="https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake" alt="Snake" loading="lazy">
+            <img src="https://via.placeholder.com/300x200/22c55e/ffffff" alt="Snake" loading="lazy">
             <div class="game-card-content">
                 <div class="game-card-title">Snake</div>
                 <div class="game-card-category">arcade</div>
             </div>
         </div>
         <div class="game-card" data-game-id="3">
-            <img src="https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris" alt="Tetris" loading="lazy">
+            <img src="https://via.placeholder.com/300x200/3b82f6/ffffff" alt="Tetris" loading="lazy">
             <div class="game-card-content">
                 <div class="game-card-title">Tetris</div>
                 <div class="game-card-category">puzzle</div>
@@ -548,6 +548,16 @@ function showHomePage() {
     console.log('Showing home page');
     hideAllPages();
     
+    // Clear current game state
+    currentGame = null;
+    
+    // Clear iframe when going back to homepage
+    const gameFrame = document.getElementById('gameFrame');
+    if (gameFrame) {
+        gameFrame.src = 'about:blank';
+    }
+    
+    const homepage = document.getElementById('homePage');
     if (homepage) {
         homepage.classList.add('active');
     } else {
@@ -557,62 +567,40 @@ function showHomePage() {
     
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    const homeNavItem = document.querySelector('[data-page="home"]');
+    const homeNavItem = document.querySelector('[data-page="home"]').closest('.nav-item');
     if (homeNavItem) {
         homeNavItem.classList.add('active');
     }
     
-    // Clear iframe when going back to homepage
-    if (gameFrame) {
-        gameFrame.src = '';
-    }
-    
-    // Reset current game
-    currentGame = null;
-    
-    // Reset search
-    if (searchInput) {
-        searchInput.value = '';
-    }
-    
-    // Restore the original homepage content
-    const contentArea = document.querySelector('.content-area');
-    contentArea.innerHTML = `
-        <div id="homePage" class="page active">
-            <section class="games-section">
-                <div class="section-header">
-                    <h2 class="section-title">Featured Games</h2>
-                </div>
-                <div class="games-grid featured-grid" id="featuredGames">
-                    <!-- Featured games will be loaded here -->
-                </div>
-            </section>
-            
-            <section class="games-section">
-                <div class="section-header">
-                    <h2 class="section-title">All Games</h2>
-                </div>
-                <div class="games-grid" id="allGames">
-                    <!-- All games will be loaded here -->
-                </div>
-            </section>
-        </div>
-    `;
-    
-    // Re-initialize homepage element reference
-    homepage = document.getElementById('homePage');
-    
-    // Use setTimeout to ensure DOM is ready after innerHTML change
-    setTimeout(() => {
-        renderFeaturedGames();
-        renderGamesByCategory();
-    }, 0);
+    console.log('Home page displayed successfully');
+}
+
+function showCategoriesPage() {
+    hideAllPages();
+    showError('Categories page coming soon!');
+}
+
+function showFavoritesPage() {
+    hideAllPages();
+    showError('Favorites page coming soon!');
+}
+
+function showSettingsPage() {
+    hideAllPages();
+    showError('Settings page coming soon!');
 }
 
 function showGamePage(game) {
     console.log('Showing game page for:', game.title);
     currentGame = game;
     hideAllPages();
+    
+    // Clear the previous game iframe
+    const gameFrame = document.getElementById('gameFrame');
+    if (gameFrame) {
+        gameFrame.src = 'about:blank';
+    }
+    
     document.getElementById('gamePage').classList.add('active');
     
     // Update game info
@@ -624,10 +612,10 @@ function showGamePage(game) {
     if (gameCategory) gameCategory.textContent = game.category;
     if (gameDescription) gameDescription.textContent = game.description || 'No description available.';
     
-    // Update thumbnail
+    // Update thumbnail (without text in placeholder)
     const thumbnail = document.getElementById('gameThumbnail');
     if (thumbnail) {
-        thumbnail.src = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff?text=${encodeURIComponent(game.title)}`;
+        thumbnail.src = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff`;
         thumbnail.alt = game.title;
     }
     
@@ -640,8 +628,10 @@ function showGamePage(game) {
     // Load recommended games
     renderRecommendedGames(game);
     
-    // Auto-load the game
-    loadGame(game);
+    // Load the game after a brief delay to ensure iframe is ready
+    setTimeout(() => {
+        loadGame(game);
+    }, 100);
 }
 
 function showCategoriesPage() {
@@ -782,7 +772,7 @@ function renderRecommendedGames(currentGame) {
         console.log('Rendering', recommendedGames.length, 'recommended games');
         recommendedList.innerHTML = recommendedGames.map(game => `
             <div class="recommended-item" data-game-id="${game.id}">
-                <img src="${game.thumbnail || `https://via.placeholder.com/120x90/6366f1/ffffff?text=${encodeURIComponent(game.title)}`}" alt="${game.title}">
+                <img src="${game.thumbnail || `https://via.placeholder.com/120x90/6366f1/ffffff`}" alt="${game.title}">
                 <div class="recommended-item-info">
                     <h5>${game.title}</h5>
                     <span class="category">${game.category}</span>
@@ -793,7 +783,7 @@ function renderRecommendedGames(currentGame) {
 }
 
 function createGameCard(game, isFeatured = false) {
-    const thumbnailUrl = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff?text=${encodeURIComponent(game.title)}`;
+    const thumbnailUrl = game.thumbnail || `https://via.placeholder.com/300x200/6366f1/ffffff`;
     
     return `
         <div class="game-card" data-game-id="${game.id}">
@@ -813,7 +803,12 @@ function createGameCard(game, isFeatured = false) {
 // Game loading
 function loadGame(game) {
     const gameFrame = document.getElementById('gameFrame');
-    if (!gameFrame) return;
+    if (!gameFrame) {
+        console.error('Game frame not found');
+        return;
+    }
+    
+    console.log('Loading game:', game.title);
     
     try {
         let gameUrl = game.embed; // Use 'embed' field from JSON
@@ -831,14 +826,22 @@ function loadGame(game) {
             return;
         }
         
+        console.log('Loading game URL:', gameUrl);
+        
+        // Clear any previous error handlers
+        gameFrame.onload = null;
+        gameFrame.onerror = null;
+        
+        // Set new URL
         gameFrame.src = gameUrl;
         
         // Handle iframe load events
         gameFrame.onload = () => {
-            console.log('Game loaded successfully');
+            console.log('Game loaded successfully:', game.title);
         };
         
         gameFrame.onerror = () => {
+            console.error('Failed to load game:', game.title);
             showError('Failed to load game. Please try again.');
         };
         
