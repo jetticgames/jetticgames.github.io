@@ -536,13 +536,23 @@ function handleGameActions(e) {
 
 // Proxy toggle handler
 function handleProxyToggle(e) {
-    if (e.target.type === 'checkbox' && e.target.closest('.proxy-toggle')) {
+    if (e.target.type === 'checkbox' && (e.target.closest('.proxy-toggle') || e.target.id === 'proxyToggleGame')) {
         isProxyEnabled = e.target.checked;
+        
+        // Sync all proxy toggles
+        const allProxyToggles = document.querySelectorAll('#proxyToggle, #proxyToggleGame');
+        allProxyToggles.forEach(toggle => {
+            if (toggle !== e.target) {
+                toggle.checked = isProxyEnabled;
+            }
+        });
         
         // Reload current game if one is playing
         if (currentGame) {
             loadGame(currentGame);
         }
+        
+        console.log('Proxy toggled:', isProxyEnabled ? 'enabled' : 'disabled');
     }
 }
 
@@ -720,9 +730,15 @@ function showGamePage(game) {
     const gameTitle = document.getElementById('gameTitle');
     const gameCategory = document.getElementById('gameCategory');
     const gameDescription = document.getElementById('gameDescription');
+    const proxyToggleGame = document.getElementById('proxyToggleGame');
     
     if (gameTitle) gameTitle.textContent = game.title;
     if (gameCategory) gameCategory.textContent = game.category;
+    
+    // Sync proxy toggle state
+    if (proxyToggleGame) {
+        proxyToggleGame.checked = isProxyEnabled;
+    }
     
     // Set game description (generate a description if not available)
     if (gameDescription) {
@@ -768,7 +784,10 @@ function loadSuggestedGames(currentGame) {
         return;
     }
     
-    suggestedContainer.innerHTML = suggestedGames.map(game => createSuggestedGameCard(game)).join('');
+    suggestedContainer.innerHTML = suggestedGames.map((game, index) => {
+        const card = createSuggestedGameCard(game);
+        return card.replace('<div class="suggested-game-card"', `<div class="suggested-game-card" style="animation-delay: ${index * 0.1}s"`);
+    }).join('');
 }
 
 function createSuggestedGameCard(game) {

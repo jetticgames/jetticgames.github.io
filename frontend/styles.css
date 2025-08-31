@@ -419,11 +419,11 @@ body {
 }
 
 .game-frame-wrapper {
-    height: 90%;
+    height: 95%; /* Increased from 90% to push description below fold */
     background: #000000;
     border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 16px;
+    margin-bottom: 12px; /* Reduced margin */
 }
 
 #gameFrame {
@@ -436,12 +436,9 @@ body {
 
 .game-sidebar {
     width: 20%;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 12px;
+    padding: 16px;
     margin: 16px;
     margin-left: 8px; /* Half gap */
-    padding: 16px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -465,43 +462,64 @@ body {
 }
 
 .suggested-game-card {
-    background: #21262d;
+    background: #161b22;
     border: 1px solid #30363d;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
+    opacity: 0;
+    animation: fadeInUp 0.6s ease forwards;
 }
 
 .suggested-game-card:hover {
     border-color: #1f6feb;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .suggested-game-card img {
     width: 100%;
-    height: 80px;
+    height: 100px; /* Increased height for better proportion */
     object-fit: cover;
     display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 .suggested-game-info {
-    padding: 8px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.8) 100%);
+    padding: 12px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.suggested-game-card:hover .suggested-game-info {
+    opacity: 1;
 }
 
 .suggested-game-title {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: #ffffff;
     margin-bottom: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .suggested-game-category {
-    font-size: 10px;
-    color: #7d8590;
+    font-size: 12px;
+    color: #8b949e;
     text-transform: capitalize;
 }
 
@@ -512,11 +530,11 @@ body {
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 12px;
-    padding: 16px 20px;
-    height: 10%; /* Fixed 10% height */
-    min-height: 80px; /* Minimum height for proper display */
+    padding: 12px 20px; /* Reduced padding */
+    height: 5%; /* Reduced from 10% to 5% */
+    min-height: 60px; /* Reduced minimum height */
     flex-shrink: 0; /* Don't shrink this section */
-    margin-bottom: 16px;
+    margin-bottom: 12px; /* Reduced margin */
 }
 
 .game-description {
@@ -556,7 +574,54 @@ body {
 
 .game-info-right {
     display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.proxy-toggle-container {
+    display: flex;
+    align-items: center;
+}
+
+.proxy-toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #8b949e;
     gap: 8px;
+}
+
+.proxy-toggle-label input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    background: #21262d;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.proxy-toggle-label input[type="checkbox"]:checked {
+    background: #1f6feb;
+    border-color: #1f6feb;
+}
+
+.proxy-toggle-label input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -1px;
+    left: 2px;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.proxy-toggle-text {
+    font-size: 12px;
+    color: #8b949e;
 }
 
 .icon-btn {
