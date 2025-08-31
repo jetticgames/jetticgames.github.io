@@ -109,9 +109,31 @@
                 <!-- Game Page -->
                 <div id="gamePage" class="page">
                     <div class="game-page-container">
-                        <!-- Game Frame Container -->
-                        <div class="game-frame-container">
-                            <iframe id="gameFrame" src="" title="Game"></iframe>
+                        <div class="game-main-area">
+                            <!-- Game Frame Container -->
+                            <div class="game-frame-wrapper">
+                                <iframe id="gameFrame" src="" title="Game"></iframe>
+                            </div>
+                            
+                            <!-- Game Info Below Frame -->
+                            <div class="game-info-bottom">
+                                <div class="game-info-left">
+                                    <h1 id="gameTitle">Game Title</h1>
+                                    <span id="gameCategory">Category</span>
+                                </div>
+                                
+                                <div class="game-info-right">
+                                    <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
+                                        <i class="fas fa-expand"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Game Description Below the fold -->
+                            <div class="game-description">
+                                <h3>About this game</h3>
+                                <p id="gameDescription">Game description will appear here...</p>
+                            </div>
                         </div>
                         
                         <!-- Game Sidebar with Suggestions -->
@@ -121,20 +143,6 @@
                                 <div class="suggested-games-list" id="suggestedGames">
                                     <!-- Suggested games will be loaded here -->
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Game Info Below Frame -->
-                        <div class="game-info-bottom">
-                            <div class="game-info-left">
-                                <h1 id="gameTitle">Game Title</h1>
-                                <span id="gameCategory">Category</span>
-                            </div>
-                            
-                            <div class="game-info-right">
-                                <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
-                                    <i class="fas fa-expand"></i>
-                                </button>
                             </div>
                         </div>
                     </div>

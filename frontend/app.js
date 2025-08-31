@@ -719,9 +719,16 @@ function showGamePage(game) {
     // Update game info
     const gameTitle = document.getElementById('gameTitle');
     const gameCategory = document.getElementById('gameCategory');
+    const gameDescription = document.getElementById('gameDescription');
     
     if (gameTitle) gameTitle.textContent = game.title;
     if (gameCategory) gameCategory.textContent = game.category;
+    
+    // Set game description (generate a description if not available)
+    if (gameDescription) {
+        const description = game.description || generateGameDescription(game);
+        gameDescription.textContent = description;
+    }
     
     // Load suggested games
     loadSuggestedGames(game);
@@ -730,6 +737,21 @@ function showGamePage(game) {
     setTimeout(() => {
         loadGame(game);
     }, 100);
+}
+
+function generateGameDescription(game) {
+    // Generate a description based on the game's category and title
+    const descriptions = {
+        'puzzle': `${game.title} is an engaging puzzle game that will challenge your problem-solving skills. Test your logic and reasoning as you work through increasingly complex challenges.`,
+        'action': `Experience fast-paced action in ${game.title}! This thrilling game combines quick reflexes with strategic thinking for an adrenaline-pumping gaming experience.`,
+        'adventure': `Embark on an epic journey in ${game.title}. Explore vast worlds, discover hidden secrets, and experience an unforgettable adventure.`,
+        'strategy': `${game.title} is a strategic masterpiece that requires careful planning and tactical thinking. Outsmart your opponents and claim victory through superior strategy.`,
+        'arcade': `${game.title} brings classic arcade gaming to your browser. Enjoy simple controls, addictive gameplay, and hours of entertainment.`,
+        'sports': `Get ready for athletic competition in ${game.title}. Experience the thrill of sports with realistic gameplay and exciting challenges.`,
+        'default': `${game.title} is an exciting game that offers engaging gameplay and entertainment. Dive in and discover what makes this game special.`
+    };
+    
+    return descriptions[game.category.toLowerCase()] || descriptions['default'];
 }
 
 function loadSuggestedGames(currentGame) {
