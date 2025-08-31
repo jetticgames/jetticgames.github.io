@@ -8,6 +8,8 @@ const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
 let favorites = [];
 let settings = { defaultProxy: true };
 let currentGameTabTimeout = null;
+// Per-game proxy overrides (true = enabled, false = disabled); undefined -> use settings.defaultProxy
+const gameProxyOverrides = {};
 
 // DOM elements (will be initialized after DOM loads)
 let gamesGrid;
@@ -472,6 +474,15 @@ function handleGameActions(e) {
             showError('Open a game first to favorite it');
         }
     }
+    // Game page proxy toggle (visual cloud button)
+    if (e.target.closest('.proxy-toggle-visual')) {
+        if (currentGame) {
+            toggleGameProxy();
+        } else {
+            // If somehow clicked outside game context ignore
+            console.log('Proxy toggle clicked outside game context');
+        }
+    }
     
     // Exit fullscreen
     if (e.target.closest('.exit-fullscreen-btn')) {
@@ -617,9 +628,13 @@ function showGamePage(game) {
     if (gameTitle) gameTitle.textContent = sanitize(game.title);
     if (gameCategory) gameCategory.textContent = sanitize(game.category);
     
-    // Sync proxy toggle state
+    // Determine per-game proxy setting (override or default)
+    isProxyEnabled = gameProxyOverrides[game.id] !== undefined ? gameProxyOverrides[game.id] : settings.defaultProxy;
     if (proxyToggleGame) {
-        proxyToggleGame.checked = isProxyEnabled;
+        proxyToggleGame.classList.toggle('on', isProxyEnabled);
+        proxyToggleGame.classList.toggle('off', !isProxyEnabled);
+        proxyToggleGame.setAttribute('aria-pressed', isProxyEnabled ? 'true':'false');
+        proxyToggleGame.title = isProxyEnabled ? 'Proxy Enabled' : 'Proxy Disabled';
     }
     
     // Set game description (generate a description if not available)
@@ -643,6 +658,8 @@ function showGamePage(game) {
     setTimeout(() => {
         loadGame(game);
     }, 100);
+    // Update favorite heart state now that currentGame is set
+    updateFavoriteButtonState();
 }
 
 function generateGameDescription(game) {
@@ -818,7 +835,7 @@ function loadGame(game) {
         }
         
         // Apply proxy if enabled
-        if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
+    if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
             // Use ?url= parameter format which is more standard for proxy services
             gameUrl = proxyUrl + '?url=' + encodeURIComponent(gameUrl);
         } else if (!isProxyEnabled && gameUrl.startsWith(proxyUrl)) {
@@ -1072,6 +1089,15 @@ function updateProxyVisuals(){
         el.setAttribute('aria-pressed', isProxyEnabled ? 'true':'false');
         el.title = isProxyEnabled ? 'Proxy Enabled' : 'Proxy Disabled';
     });
+}
+
+function toggleGameProxy(){
+    if(!currentGame) return; 
+    isProxyEnabled = !isProxyEnabled;
+    gameProxyOverrides[currentGame.id] = isProxyEnabled; // store override for this game
+    updateProxyVisuals();
+    // Reload game with new proxy state
+    loadGame(currentGame);
 }
 
 // ===== Added Utility / Page Helpers =====
