@@ -164,6 +164,20 @@ body {
     border-bottom: 1px solid #30363d;
     padding: 16px 32px;
     height: 72px; /* Match sidebar header height */
+    position: sticky;
+    top: 0;
+    z-index: 90; /* Below sidebar (100) */
+    display: flex;
+    align-items: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    background: rgba(22,27,34,0.85);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.top-header.scrolled {
+    box-shadow: 0 4px 14px -2px rgba(0,0,0,0.55);
+    border-bottom-color: #1e2530;
 }
 
 .header-content {

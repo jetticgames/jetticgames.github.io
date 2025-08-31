@@ -37,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFavoritesFromCookies();
     if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy;
     startApp();
+    // Sticky header shadow on scroll
+    const header = document.querySelector('.top-header');
+    if (header) {
+        const onScroll = () => {
+            if (window.scrollY > 8) header.classList.add('scrolled'); else header.classList.remove('scrolled');
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+    }
 });
 window.addEventListener('load', () => {
     if (games.length === 0) {
