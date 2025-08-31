@@ -207,23 +207,23 @@ function emergencyFallback() {
     const emergencyHTML = `
         <div class="game-card" data-game-id="1">
             <img src="https://via.placeholder.com/300x200/6366f1/ffffff" alt="2048" loading="lazy">
-            <div class="game-card-content">
-                <div class="game-card-title">2048</div>
-                <div class="game-card-category">puzzle</div>
+            <div class="game-card-overlay">
+                <div class="overlay-title">2048</div>
+                <div class="overlay-category">puzzle</div>
             </div>
         </div>
         <div class="game-card" data-game-id="2">
             <img src="https://via.placeholder.com/300x200/22c55e/ffffff" alt="Snake" loading="lazy">
-            <div class="game-card-content">
-                <div class="game-card-title">Snake</div>
-                <div class="game-card-category">arcade</div>
+            <div class="game-card-overlay">
+                <div class="overlay-title">Snake</div>
+                <div class="overlay-category">arcade</div>
             </div>
         </div>
         <div class="game-card" data-game-id="3">
             <img src="https://via.placeholder.com/300x200/3b82f6/ffffff" alt="Tetris" loading="lazy">
-            <div class="game-card-content">
-                <div class="game-card-title">Tetris</div>
-                <div class="game-card-category">puzzle</div>
+            <div class="game-card-overlay">
+                <div class="overlay-title">Tetris</div>
+                <div class="overlay-category">puzzle</div>
             </div>
         </div>
     `;
@@ -752,10 +752,6 @@ function createGameCard(game, isFeatured = false) {
     return `
         <div class="game-card" data-game-id="${game.id}">
             <img src="${thumbnailUrl}" alt="${game.title}" loading="lazy">
-            <div class="game-card-content">
-                <div class="game-card-title">${game.title}</div>
-                <div class="game-card-category">${game.category}</div>
-            </div>
             <div class="game-card-overlay">
                 <div class="overlay-title">${game.title}</div>
                 <div class="overlay-category">${game.category}</div>
