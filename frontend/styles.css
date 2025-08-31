@@ -1932,3 +1932,6 @@ body {
 .proxy-toggle-visual.off .times-icon {display:block; color:#f85149;}
 .proxy-toggle-visual:active {transform:scale(.95);} 
 /* live-user-badge removed */
+/* Align ad column top with iframe top */
+.game-sidebar {margin-top:0 !important; padding-top:16px !important;}
+.ad-column {padding-top:0 !important;}
