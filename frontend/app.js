@@ -769,7 +769,7 @@ function loadSuggestedGames(currentGame) {
     console.log('Other games after filtering:', otherGames.length);
     
     const shuffled = otherGames.sort(() => 0.5 - Math.random());
-    const suggestedGames = shuffled.slice(0, 6); // Show 6 suggested games
+    const suggestedGames = shuffled.slice(0, 4); // Show only 4 suggested games to fit without scrolling
     console.log('Suggested games to display:', suggestedGames.length);
     
     const suggestedContainer = document.getElementById('suggestedGames');

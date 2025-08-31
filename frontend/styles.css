@@ -475,6 +475,7 @@ body {
     overflow-y: auto; /* Allow scrolling for content */
     display: flex;
     flex-direction: column;
+    min-height: 0; /* Allow shrinking */
 }
 
 #gameFrame {
@@ -490,11 +491,12 @@ body {
     padding: 16px;
     margin: 16px;
     margin-left: 8px; /* Half gap */
-    overflow-y: auto;
+    overflow: hidden; /* Remove scrollbar from sidebar */
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 104px); /* Full height minus header and margins */
+    height: calc(100vh - 120px); /* Adjust height to account for header and padding */
     background: transparent; /* Remove background to match page background */
+    max-height: calc(100vh - 120px); /* Ensure it doesn't exceed viewport */
 }
 
 .suggested-title {
@@ -508,12 +510,21 @@ body {
     padding: 0; /* Remove padding */
 }
 
+.suggested-games {
+    background: transparent; /* Remove background */
+    border: none; /* Remove border */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
 .suggested-games-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
     flex: 1; /* Take remaining space */
-    overflow-y: auto; /* Allow scrolling if needed */
+    overflow: hidden; /* Remove scrolling to prevent scrollbar */
+    max-height: 100%; /* Don't exceed parent height */
 }
 
 .suggested-game-card {
@@ -526,7 +537,8 @@ body {
     position: relative;
     opacity: 0;
     animation: fadeInUp 0.6s ease forwards;
-    height: 120px; /* Fixed height for suggested cards */
+    height: 100px; /* Reduced height to fit more games without scrolling */
+    flex-shrink: 0; /* Don't shrink individual cards */
 }
 
 .suggested-game-card:hover {
@@ -590,14 +602,17 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: transparent; /* Remove background */
+    background: #0d1117; /* Match page background for visibility */
     border: none; /* Remove border */
     border-radius: 0; /* Remove border radius */
-    padding: 8px 0; /* Remove horizontal padding, keep vertical */
-    height: 50px; /* Fixed height instead of percentage */
-    min-height: 50px; /* Minimum height */
+    padding: 12px 0; /* Increase padding for better visibility */
+    height: auto; /* Let height adjust to content */
+    min-height: 60px; /* Increase minimum height for better visibility */
     flex-shrink: 0; /* Don't shrink this section */
-    margin-bottom: 8px; /* Reduced margin */
+    margin-bottom: 16px; /* Increase margin for separation */
+    position: sticky; /* Make controls stick to top of scrollable area */
+    top: 0; /* Stick to top */
+    z-index: 2; /* Above other content */
 }
 
 .game-description {
