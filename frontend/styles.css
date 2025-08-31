@@ -70,22 +70,25 @@ body {
 }
 
 .sidebar-nav {
-    padding: 16px 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 120px); /* Adjust for header height */
-    justify-content: space-between; /* Ensure proper spacing */
+    height: calc(100vh - 72px); /* Full height minus header */
+    justify-content: space-between; /* Space between main nav and bottom nav */
 }
 
 .nav-list {
     list-style: none;
+    padding: 16px 0;
+}
+
+.nav-list:first-child {
+    flex-grow: 1; /* Main navigation takes available space */
 }
 
 .nav-bottom {
-    margin-top: auto; /* Push to bottom */
     border-top: 1px solid #30363d;
-    padding-top: 8px; /* Reduced padding */
-    padding-bottom: 20px; /* Increased bottom padding for proper spacing from edge */
+    padding: 8px 0 20px 0; /* Proper spacing */
     flex-shrink: 0; /* Prevent shrinking */
 }
 
@@ -455,7 +458,7 @@ body {
 }
 
 .game-frame-wrapper {
-    height: 90%; /* Set to 90% for iframe */
+    height: calc(100% - 70px); /* Take remaining space minus game info height */
     background: #000000;
     border-radius: 12px;
     overflow: hidden;
@@ -566,9 +569,9 @@ body {
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 12px;
-    padding: 12px 20px;
-    height: 10%; /* Increased to 10% to match remaining space */
-    min-height: 60px;
+    padding: 8px 16px; /* Reduced padding */
+    height: 50px; /* Fixed height instead of percentage */
+    min-height: 50px; /* Minimum height */
     flex-shrink: 0; /* Don't shrink this section */
     margin-bottom: 8px; /* Reduced margin */
 }

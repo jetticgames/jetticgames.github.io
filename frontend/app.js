@@ -3,7 +3,7 @@ console.log('🎮 WaterWall app.js is loading...');
 
 let games = [];
 let currentGame = null;
-let isProxyEnabled = true;
+let isProxyEnabled = false; // Start with proxy disabled to test direct loading first
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
 
 // DOM elements (will be initialized after DOM loads)
