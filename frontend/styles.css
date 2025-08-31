@@ -1880,3 +1880,5 @@ body {
 .proxy-toggle-visual.off .cloud-icon {color:#f85149;}
 .proxy-toggle-visual.off .times-icon {display:block; color:#f85149;}
 .proxy-toggle-visual:active {transform:scale(.95);} 
+.live-user-badge {position:fixed; bottom:10px; right:12px; background:#1b1f24c0; border:1px solid #30363d; backdrop-filter:blur(8px); padding:6px 10px; border-radius:10px; font-size:12px; color:#9aa1aa; z-index:9999; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.live-user-badge:hover {color:#fff; border-color:#1f6feb;}
