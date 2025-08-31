@@ -746,8 +746,8 @@ function showGamePage(game) {
         }
     });
     
-    if (gameTitle) gameTitle.textContent = game.title;
-    if (gameCategory) gameCategory.textContent = game.category;
+    if (gameTitle) gameTitle.textContent = sanitize(game.title);
+    if (gameCategory) gameCategory.textContent = sanitize(game.category);
     
     // Sync proxy toggle state
     if (proxyToggleGame) {
@@ -835,13 +835,12 @@ function loadSuggestedGames(currentGame) {
 function createSuggestedGameCard(game) {
     return `
         <div class="suggested-game-card" data-game-id="${game.id}">
-            <img src="${game.thumbnail}" alt="${game.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
+            <img src="${game.thumbnail}" alt="${sanitize(game.title)}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
             <div class="suggested-game-info">
-                <div class="suggested-game-title">${game.title}</div>
-                <div class="suggested-game-category">${game.category}</div>
+                <div class="suggested-game-title">${sanitize(game.title)}</div>
+                <div class="suggested-game-category">${sanitize(game.category)}</div>
             </div>
-        </div>
-    `;
+        </div>`;
 }
 
 function showCategoriesPage() {
@@ -973,13 +972,12 @@ function createGameCard(game, isFeatured = false) {
     
     return `
         <div class="game-card" data-game-id="${game.id}">
-            <img src="${thumbnailUrl}" alt="${game.title}" loading="lazy">
+            <img src="${thumbnailUrl}" alt="${sanitize(game.title)}" loading="lazy">
             <div class="game-card-overlay">
-                <div class="overlay-title">${game.title}</div>
-                <div class="overlay-category">${game.category}</div>
+                <div class="overlay-title">${sanitize(game.title)}</div>
+                <div class="overlay-category">${sanitize(game.category)}</div>
             </div>
-        </div>
-    `;
+        </div>`;
 }
 
 // Game loading
