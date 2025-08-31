@@ -279,8 +279,10 @@ body {
     border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     position: relative;
+    opacity: 0;
+    animation: fadeInUp 0.6s ease forwards;
 }
 
 .game-card:hover {
@@ -348,6 +350,45 @@ body {
     color: #7d8590;
     text-transform: capitalize;
 }
+
+/* Loading Message */
+.loading-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    font-size: 16px;
+    color: #8b949e;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    margin: 20px 0;
+    font-weight: 500;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.game-card:nth-child(2) { animation-delay: 0.1s; }
+.game-card:nth-child(3) { animation-delay: 0.2s; }
+.game-card:nth-child(4) { animation-delay: 0.3s; }
+.game-card:nth-child(5) { animation-delay: 0.4s; }
+.game-card:nth-child(6) { animation-delay: 0.5s; }
 
 /* Game Page */
 .game-page-header {

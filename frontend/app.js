@@ -25,77 +25,233 @@ let exitFullscreen;
 
 let isFullscreen = false;
 
-// Simple direct initialization - no complex DOM ready checks
+// Enhanced initialization with better error handling
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded, starting initialization...');
+    startApp();
+});
+
+// Fallback for older browsers or edge cases
 window.addEventListener('load', function() {
-    console.log('🚀 Window loaded, starting initialization...');
-    
-    // Test DOM access immediately
-    const featuredGrid = document.getElementById('featuredGames');
-    const allGamesGrid = document.getElementById('allGames');
-    
-    console.log('🔍 Featured grid found:', !!featuredGrid);
-    console.log('🔍 All games grid found:', !!allGamesGrid);
-    
-    if (featuredGrid) {
-        featuredGrid.innerHTML = '<div style="color: white; padding: 20px; background: red;">🎮 FEATURED GAMES TEST - JS IS WORKING!</div>';
+    console.log('🚀 Window loaded, ensuring initialization...');
+    // Only start if not already started (check if games are loaded)
+    if (games.length === 0) {
+        console.log('🔄 Games not loaded yet, retrying...');
+        startApp();
     }
-    
-    if (allGamesGrid) {
-        allGamesGrid.innerHTML = '<div style="color: white; padding: 20px; background: blue;">🎯 ALL GAMES TEST - JS IS WORKING!</div>';
+});
+
+// Additional safeguard - ensure games load after 2 seconds
+setTimeout(function() {
+    console.log('⏰ 2-second safeguard check...');
+    if (games.length === 0) {
+        console.log('🚨 Games still not loaded, forcing emergency fallback');
+        loadFallbackGames();
+        forceRenderGames();
+        updateNavigationStats();
+    } else {
+        console.log('✅ Games already loaded, safeguard not needed');
     }
+}, 2000);
+let gamePage;
+let homepage;
+let gameTitle;
+let gameDescription;
+let recommendedGames;
+let bottomRecommendedGames;
+let fullscreenBtn;
+let exitFullscreen;
+
+let isFullscreen = false;
+
+// Enhanced initialization with better error handling
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM loaded, starting initialization...');
     
-    // Start the real initialization
-    setTimeout(startApp, 1000);
+    // Initialize immediately
+    startApp();
+});
+
+// Fallback for older browsers
+window.addEventListener('load', function() {
+    console.log('� Window loaded, ensuring initialization...');
+    
+    // Only start if not already started
+    if (games.length === 0) {
+        startApp();
+    }
 });
 
 async function startApp() {
     console.log('🎯 Starting main app initialization...');
     
     try {
-        // Load games first
-        await loadGames();
-        
-        // Initialize DOM elements
+        // Initialize DOM elements first
         initializeDOMElements();
+        
+        // Load games (with immediate fallback)
+        await loadGamesWithFallback();
         
         // Setup event listeners
         setupEventListeners();
         
-        // Render games
-        renderGames();
+        // Force render games immediately
+        forceRenderGames();
         
         // Update stats
         updateNavigationStats();
         
-        console.log('✅ App initialization complete!');
+        console.log('✅ App initialization complete! Games loaded:', games.length);
     } catch (error) {
         console.error('❌ App initialization failed:', error);
+        
+        // Emergency fallback
+        emergencyFallback();
     }
 }
 
-function renderGames() {
-    console.log('🎨 Rendering games...');
+async function loadGamesWithFallback() {
+    try {
+        await loadGames();
+        
+        // If no games loaded, use fallback immediately
+        if (games.length === 0) {
+            console.log('⚠️ No games loaded from JSON, using fallback');
+            loadFallbackGames();
+        }
+    } catch (error) {
+        console.error('❌ Failed to load games:', error);
+        loadFallbackGames();
+    }
+}
+
+function loadFallbackGames() {
+    console.log('🔄 Loading fallback games...');
+    games = [
+        {
+            id: 1,
+            title: "2048",
+            description: "A sliding puzzle game where you combine tiles with the same number to reach 2048.",
+            category: "puzzle",
+            embed: "https://play2048.co/",
+            thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff?text=2048"
+        },
+        {
+            id: 2,
+            title: "Snake Game",
+            description: "Classic snake game where you eat food and grow longer.",
+            category: "arcade",
+            embed: "https://playsnake.org/",
+            thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake"
+        },
+        {
+            id: 3,
+            title: "Tetris",
+            description: "Classic block puzzle game.",
+            category: "puzzle",
+            embed: "https://tetris.com/play-tetris",
+            thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
+        },
+        {
+            id: 4,
+            title: "Pac-Man",
+            description: "Navigate mazes, eat dots, and avoid ghosts.",
+            category: "arcade",
+            embed: "https://pacman.com/en/",
+            thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff?text=Pac-Man"
+        },
+        {
+            id: 5,
+            title: "Chess",
+            description: "Strategic board game for two players.",
+            category: "strategy",
+            embed: "https://chess.com/play",
+            thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff?text=Chess"
+        },
+        {
+            id: 6,
+            title: "Solitaire",
+            description: "Classic card game.",
+            category: "puzzle",
+            embed: "https://solitaired.com/freecell",
+            thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff?text=Solitaire"
+        }
+    ];
+    console.log(`✅ Loaded ${games.length} fallback games`);
+}
+
+function forceRenderGames() {
+    console.log('🎨 Force rendering games...');
+    console.log('📊 Games to render:', games.length);
     
     const featuredGrid = document.getElementById('featuredGames');
     const allGamesGrid = document.getElementById('allGames');
     
+    if (!featuredGrid || !allGamesGrid) {
+        console.error('❌ Required DOM elements not found!');
+        return;
+    }
+    
     if (games.length === 0) {
-        console.log('⚠️ No games to render');
+        featuredGrid.innerHTML = '<div class="loading-message">⚠️ No games available</div>';
+        allGamesGrid.innerHTML = '<div class="loading-message">⚠️ No games available</div>';
         return;
     }
     
     // Render featured games (first 6)
-    if (featuredGrid) {
-        const featuredGames = games.slice(0, 6);
-        featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game)).join('');
-        console.log('✅ Featured games rendered:', featuredGames.length);
-    }
+    const featuredGames = games.slice(0, 6);
+    featuredGrid.innerHTML = featuredGames.map(game => createGameCard(game)).join('');
+    console.log('✅ Featured games rendered:', featuredGames.length);
     
     // Render all games
-    if (allGamesGrid) {
-        allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
-        console.log('✅ All games rendered:', games.length);
-    }
+    allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
+    console.log('✅ All games rendered:', games.length);
+}
+
+function emergencyFallback() {
+    console.log('🚨 Emergency fallback activated');
+    
+    const featuredGrid = document.getElementById('featuredGames');
+    const allGamesGrid = document.getElementById('allGames');
+    
+    const emergencyHTML = `
+        <div class="game-card" data-game-id="1">
+            <img src="https://via.placeholder.com/300x200/6366f1/ffffff?text=2048" alt="2048" loading="lazy">
+            <div class="game-card-content">
+                <div class="game-card-title">2048</div>
+                <div class="game-card-category">puzzle</div>
+            </div>
+        </div>
+        <div class="game-card" data-game-id="2">
+            <img src="https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake" alt="Snake" loading="lazy">
+            <div class="game-card-content">
+                <div class="game-card-title">Snake</div>
+                <div class="game-card-category">arcade</div>
+            </div>
+        </div>
+        <div class="game-card" data-game-id="3">
+            <img src="https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris" alt="Tetris" loading="lazy">
+            <div class="game-card-content">
+                <div class="game-card-title">Tetris</div>
+                <div class="game-card-category">puzzle</div>
+            </div>
+        </div>
+    `;
+    
+    if (featuredGrid) featuredGrid.innerHTML = emergencyHTML;
+    if (allGamesGrid) allGamesGrid.innerHTML = emergencyHTML;
+    
+    // Set fallback games data
+    games = [
+        {id: 1, title: "2048", category: "puzzle", embed: "https://play2048.co/"},
+        {id: 2, title: "Snake", category: "arcade", embed: "https://playsnake.org/"},
+        {id: 3, title: "Tetris", category: "puzzle", embed: "https://tetris.com/play-tetris"}
+    ];
+}
+
+function renderGames() {
+    console.log('🎨 Rendering games (delegating to forceRenderGames)...');
+    forceRenderGames();
 }
 
 function initializeDOMElements() {
@@ -117,34 +273,40 @@ function initializeDOMElements() {
     exitFullscreen = document.querySelector('.exit-fullscreen-btn');
     
     console.log('🔧 DOM elements initialized');
+    console.log('🔍 Key elements check:');
+    console.log('  - Featured games grid:', !!document.getElementById('featuredGames'));
+    console.log('  - All games grid:', !!document.getElementById('allGames'));
+    console.log('  - Search input:', !!document.getElementById('searchInput'));
 }
 
 // Load games from JSON
 async function loadGames() {
     try {
-        console.log('🔄 Loading games...');
+        console.log('🔄 Loading games from games.json...');
+        
+        // Try to fetch games.json
         const response = await fetch('./games.json');
-        console.log('📡 Fetch response:', response.status, response.statusText);
+        console.log('📡 Fetch response status:', response.status, response.statusText);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('📊 JSON data received:', data ? `${data.length} games` : 'No data');
+        console.log('📊 Raw JSON data:', data);
         
-        games = Array.isArray(data) ? data : [];
-        console.log(`✅ Loaded ${games.length} games successfully`);
-        
-        // If no games loaded, use fallback
-        if (games.length === 0) {
-            throw new Error('No games found in JSON');
+        if (!Array.isArray(data) || data.length === 0) {
+            throw new Error('Invalid or empty games data');
         }
+        
+        games = data;
+        console.log(`✅ Successfully loaded ${games.length} games from JSON`);
         
         return games;
         
     } catch (error) {
-        console.error('❌ Error loading games:', error);
+        console.error('❌ Error loading games.json:', error);
+        console.log('🔄 Using fallback games...');
         
         // Use fallback games for testing
         games = [
@@ -171,6 +333,30 @@ async function loadGames() {
                 category: "puzzle",
                 embed: "https://tetris.com/play-tetris",
                 thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
+            },
+            {
+                id: 4,
+                title: "Pac-Man",
+                description: "Navigate mazes, eat dots, and avoid ghosts.",
+                category: "arcade",
+                embed: "https://pacman.com/en/",
+                thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff?text=Pac-Man"
+            },
+            {
+                id: 5,
+                title: "Chess",
+                description: "Strategic board game for two players.",
+                category: "strategy",
+                embed: "https://chess.com/play",
+                thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff?text=Chess"
+            },
+            {
+                id: 6,
+                title: "Solitaire",
+                description: "Classic card game.",
+                category: "puzzle",
+                embed: "https://solitaired.com/freecell",
+                thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff?text=Solitaire"
             }
         ];
         console.log(`🔄 Using ${games.length} fallback games`);
