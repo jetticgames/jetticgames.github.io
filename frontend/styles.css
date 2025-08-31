@@ -35,12 +35,20 @@ body {
     padding: 0 20px;
 }
 
-.logo h1 {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #00ffff;
-    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-    letter-spacing: 2px;
+.logo {
+    cursor: pointer;
+}
+
+.logo img {
+    height: 40px;
+    width: auto;
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.5));
+}
+
+.logo:hover img {
+    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.8));
+    transform: scale(1.05);
 }
 
 .nav-controls {
@@ -206,6 +214,13 @@ body {
     border: 1px solid rgba(0, 255, 255, 0.2);
 }
 
+.game-controls-section {
+    height: 10%;
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+}
+
 .game-sidebar {
     width: 300px;
     background: rgba(255, 255, 255, 0.05);
@@ -264,6 +279,8 @@ body {
 
 /* Game Info Section */
 .game-info {
+    display: flex;
+    gap: 20px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 15px;
     padding: 25px;
@@ -271,17 +288,69 @@ body {
     backdrop-filter: blur(10px);
 }
 
+.game-description {
+    flex: 0 0 80%;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.game-description::-webkit-scrollbar {
+    width: 6px;
+}
+
+.game-description::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.game-description::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 255, 0.4);
+    border-radius: 3px;
+}
+
+.game-description p {
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+
+.bottom-recommendations {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.bottom-recommendations .recommended-item {
+    height: 70px;
+}
+
+.bottom-recommendations .recommended-item img {
+    width: 50px;
+    height: 40px;
+}
+
+.bottom-recommendations .recommended-item-info h4 {
+    font-size: 0.85rem;
+}
+
+.bottom-recommendations .recommended-item-info .category {
+    font-size: 0.75rem;
+}
+
 .game-title-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    width: 100%;
 }
 
 #gameTitle {
     color: #00ffff;
     font-size: 1.8rem;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    margin: 0;
 }
 
 .game-controls {
@@ -360,32 +429,6 @@ body {
     transform: translateY(-2px);
 }
 
-.game-description {
-    max-height: 150px;
-    overflow-y: auto;
-    padding-right: 10px;
-}
-
-.game-description::-webkit-scrollbar {
-    width: 6px;
-}
-
-.game-description::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-}
-
-.game-description::-webkit-scrollbar-thumb {
-    background: rgba(0, 255, 255, 0.4);
-    border-radius: 3px;
-}
-
-.game-description p {
-    color: rgba(255, 255, 255, 0.9);
-    line-height: 1.6;
-    font-size: 0.95rem;
-}
-
 /* Fullscreen Overlay */
 .fullscreen-overlay {
     position: fixed;
@@ -453,6 +496,20 @@ body {
     #gameFrame {
         height: 500px;
     }
+    
+    .game-info {
+        flex-direction: column;
+    }
+    
+    .game-description {
+        flex: none;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .bottom-recommendations {
+        width: 100%;
+    }
 }
 
 @media (max-width: 768px) {
@@ -493,5 +550,9 @@ body {
     
     #gameFrame {
         height: 400px;
+    }
+    
+    .logo img {
+        height: 30px;
     }
 }

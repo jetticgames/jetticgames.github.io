@@ -11,6 +11,7 @@ const gameFrame = document.getElementById('gameFrame');
 const gameTitle = document.getElementById('gameTitle');
 const gameDescription = document.getElementById('gameDescription');
 const recommendedGames = document.getElementById('recommendedGames');
+const bottomRecommendedGames = document.getElementById('bottomRecommendedGames');
 const proxyToggle = document.getElementById('proxyToggle');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 const fullscreenOverlay = document.getElementById('fullscreenOverlay');
@@ -134,6 +135,12 @@ function setupEventListeners() {
 
     // Logo click to go back to homepage
     document.querySelector('.logo').addEventListener('click', showHomepage);
+    
+    // Also handle logo image click specifically
+    const logoImg = document.getElementById('logoImg');
+    if (logoImg) {
+        logoImg.addEventListener('click', showHomepage);
+    }
 }
 
 // Display games in the grid
@@ -199,9 +206,7 @@ function loadGame(game) {
 
 // Get proxy URL
 function getProxyUrl(originalUrl) {
-    // In production, this would point to your Cloudflare Worker
-    // For now, we'll use the original URL as fallback
-    const proxyBaseUrl = '/backend/proxy?url=';
+    const proxyBaseUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy?url=';
     return proxyBaseUrl + encodeURIComponent(originalUrl);
 }
 
@@ -209,25 +214,69 @@ function getProxyUrl(originalUrl) {
 function loadRecommendedGames(currentGame) {
     const otherGames = gamesData.filter(game => game.id !== currentGame.id);
     const shuffled = shuffleArray([...otherGames]);
-    const recommended = shuffled.slice(0, 4);
     
+    // Load sidebar recommendations (fixed number)
+    const sidebarRecommended = shuffled.slice(0, 4);
     recommendedGames.innerHTML = '';
     
-    recommended.forEach(game => {
-        const item = document.createElement('div');
-        item.className = 'recommended-item';
-        item.addEventListener('click', () => showGamePage(game));
-        
-        item.innerHTML = `
-            <img src="${game.thumbnail}" alt="${game.title}" onerror="this.src='https://via.placeholder.com/60x45/0ff/000?text=${encodeURIComponent(game.title.charAt(0))}'">
-            <div class="recommended-item-info">
-                <h4>${game.title}</h4>
-                <div class="category">${game.category.charAt(0).toUpperCase() + game.category.slice(1)}</div>
-            </div>
-        `;
-        
+    sidebarRecommended.forEach(game => {
+        const item = createRecommendedItem(game);
         recommendedGames.appendChild(item);
     });
+    
+    // Load bottom recommendations based on available space
+    setTimeout(() => {
+        loadBottomRecommendations(shuffled.slice(4), currentGame);
+    }, 100); // Small delay to ensure description is rendered
+}
+
+// Load bottom recommendations based on available space
+function loadBottomRecommendations(availableGames, currentGame) {
+    const descriptionHeight = gameDescription.scrollHeight;
+    const containerHeight = 200; // Max height of game-info section
+    const itemHeight = 80; // Approximate height of each recommendation item
+    const padding = 20;
+    
+    // Calculate how many items can fit
+    const availableSpace = containerHeight - padding;
+    const maxItems = Math.floor(availableSpace / itemHeight);
+    
+    // Adjust based on description height - if description is short, show fewer items
+    const descriptionRatio = descriptionHeight / containerHeight;
+    let itemsToShow;
+    
+    if (descriptionRatio < 0.3) {
+        itemsToShow = Math.min(2, maxItems, availableGames.length);
+    } else if (descriptionRatio < 0.6) {
+        itemsToShow = Math.min(3, maxItems, availableGames.length);
+    } else {
+        itemsToShow = Math.min(4, maxItems, availableGames.length);
+    }
+    
+    bottomRecommendedGames.innerHTML = '';
+    
+    const bottomRecommended = availableGames.slice(0, itemsToShow);
+    bottomRecommended.forEach(game => {
+        const item = createRecommendedItem(game);
+        bottomRecommendedGames.appendChild(item);
+    });
+}
+
+// Create a recommended item element
+function createRecommendedItem(game) {
+    const item = document.createElement('div');
+    item.className = 'recommended-item';
+    item.addEventListener('click', () => showGamePage(game));
+    
+    item.innerHTML = `
+        <img src="${game.thumbnail}" alt="${game.title}" onerror="this.src='https://via.placeholder.com/60x45/0ff/000?text=${encodeURIComponent(game.title.charAt(0))}'">
+        <div class="recommended-item-info">
+            <h4>${game.title}</h4>
+            <div class="category">${game.category.charAt(0).toUpperCase() + game.category.slice(1)}</div>
+        </div>
+    `;
+    
+    return item;
 }
 
 // Shuffle array utility

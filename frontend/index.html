@@ -11,7 +11,7 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">
-                <h1>WaterWall</h1>
+                <img src="https://via.placeholder.com/200x50/00ffff/000000?text=WaterWall" alt="WaterWall Logo" id="logoImg">
             </div>
             <div class="nav-controls">
                 <div class="category-filters">
@@ -42,6 +42,21 @@
             <div class="game-container">
                 <div class="game-main">
                     <iframe id="gameFrame" src="" frameborder="0"></iframe>
+                    <div class="game-controls-section">
+                        <div class="game-title-row">
+                            <h2 id="gameTitle">Game Title</h2>
+                            <div class="game-controls">
+                                <label class="proxy-toggle">
+                                    <input type="checkbox" id="proxyToggle" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label">Proxy</span>
+                                </label>
+                                <button id="fullscreenBtn" class="control-btn">
+                                    <span>⛶</span> Fullscreen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="game-sidebar">
                     <h3>Recommended Games</h3>
@@ -51,21 +66,13 @@
                 </div>
             </div>
             <div class="game-info">
-                <div class="game-title-row">
-                    <h2 id="gameTitle">Game Title</h2>
-                    <div class="game-controls">
-                        <label class="proxy-toggle">
-                            <input type="checkbox" id="proxyToggle" checked>
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-label">Proxy</span>
-                        </label>
-                        <button id="fullscreenBtn" class="control-btn">
-                            <span>⛶</span> Fullscreen
-                        </button>
-                    </div>
-                </div>
                 <div class="game-description">
                     <p id="gameDescription">Game description will appear here...</p>
+                </div>
+                <div class="bottom-recommendations">
+                    <div id="bottomRecommendedGames" class="recommended-list">
+                        <!-- Additional recommended games will be loaded here -->
+                    </div>
                 </div>
             </div>
         </div>
