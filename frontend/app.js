@@ -28,54 +28,17 @@ let exitFullscreenBtn;
 
 let isFullscreen = false;
 
-// Enhanced initialization with better error handling
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM loaded, starting initialization...');
+// Single unified initialization (removed duplicates & destructive fallbacks)
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 DOM loaded, init start');
     loadSettingsFromCookies();
     loadFavoritesFromCookies();
-    if (typeof settings.defaultProxy === 'boolean') {
-        isProxyEnabled = settings.defaultProxy;
-    }
+    if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy;
     startApp();
 });
-
-// Fallback for older browsers or edge cases
-window.addEventListener('load', function() {
-    console.log('🚀 Window loaded, ensuring initialization...');
-    // Only start if not already started (check if games are loaded)
+window.addEventListener('load', () => {
     if (games.length === 0) {
-        console.log('🔄 Games not loaded yet, retrying...');
-        startApp();
-    }
-});
-
-// Additional safeguard - ensure games load after 2 seconds
-setTimeout(function() {
-    console.log('⏰ 2-second safeguard check...');
-    if (games.length === 0) {
-        console.log('🚨 Games still not loaded, forcing emergency fallback');
-        loadFallbackGames();
-        forceRenderGames();
-        updateNavigationStats();
-    } else {
-        console.log('✅ Games already loaded, safeguard not needed');
-    }
-}, 2000);
-
-// Enhanced initialization with better error handling
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM loaded, starting initialization...');
-    
-    // Initialize immediately
-    startApp();
-});
-
-// Fallback for older browsers
-window.addEventListener('load', function() {
-    console.log('� Window loaded, ensuring initialization...');
-    
-    // Only start if not already started
-    if (games.length === 0) {
+        console.log('⏱️ Post-load retry start');
         startApp();
     }
 });
@@ -114,71 +77,28 @@ async function startApp() {
 async function loadGamesWithFallback() {
     try {
         await loadGames();
-        
-        // If no games loaded, use fallback immediately
-        if (games.length === 0) {
-            console.log('⚠️ No games loaded from JSON, using fallback');
-            loadFallbackGames();
+        if (!Array.isArray(games) || games.length === 0) {
+            console.warn('⚠️ games.json empty or invalid');
+            games = [];
+            showGamesLoadFailure();
         }
-    } catch (error) {
-        console.error('❌ Failed to load games:', error);
-        loadFallbackGames();
+    } catch (e) {
+        console.error('❌ games.json load failed', e);
+        games = [];
+        showGamesLoadFailure();
     }
 }
 
-function loadFallbackGames() {
-    console.log('🔄 Loading fallback games...');
-    games = [
-        {
-            id: 1,
-            title: "2048",
-            description: "A sliding puzzle game where you combine tiles with the same number to reach 2048.",
-            category: "puzzle",
-            embed: "https://play2048.co/",
-            thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff"
-        },
-        {
-            id: 2,
-            title: "Snake Game",
-            description: "Classic snake game where you eat food and grow longer.",
-            category: "arcade",
-            embed: "https://playsnake.org/",
-            thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff"
-        },
-        {
-            id: 3,
-            title: "Tetris",
-            description: "Classic block puzzle game.",
-            category: "puzzle",
-            embed: "https://tetris.com/play-tetris",
-            thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff"
-        },
-        {
-            id: 4,
-            title: "Pac-Man",
-            description: "Navigate mazes, eat dots, and avoid ghosts.",
-            category: "arcade",
-            embed: "https://pacman.com/en/",
-            thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff"
-        },
-        {
-            id: 5,
-            title: "Chess",
-            description: "Strategic board game for two players.",
-            category: "strategy",
-            embed: "https://chess.com/play",
-            thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff"
-        },
-        {
-            id: 6,
-            title: "Solitaire",
-            description: "Classic card game.",
-            category: "puzzle",
-            embed: "https://solitaired.com/freecell",
-            thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff"
-        }
-    ];
-    console.log(`✅ Loaded ${games.length} fallback games`);
+function showGamesLoadFailure(){
+    const grid=document.getElementById('allGames');
+    if(grid){
+        grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1; text-align:center; padding:40px 20px;">
+            <div style="font-size:52px; margin-bottom:12px;">⚠️</div>
+            <h3 style="margin:0 0 8px; font-size:22px;">Games failed to load</h3>
+            <p style="margin:0 0 16px; color:#7d8590;">Please reload the page and try again.</p>
+            <button style="background:#238636; border:none; padding:10px 18px; border-radius:8px; cursor:pointer;" onclick="location.reload()">Reload Page</button>
+        </div>`;
+    }
 }
 
 function forceRenderGames() {
@@ -590,40 +510,19 @@ function handleKeyboardShortcuts(e) {
 }
 
 // Page display functions
-function showHomePage() {
-    console.log('Showing home page');
+function showHomePage(){
+    ensureHomePage();
     hideAllPages();
-    
-    // Clear current game state
-    currentGame = null;
-    
-    // Clear iframe when going back to homepage
-    const gameFrame = document.getElementById('gameFrame');
-    if (gameFrame) {
-        gameFrame.src = 'about:blank';
-    }
-    
-    const homepage = document.getElementById('homePage');
-    if (homepage) {
-        homepage.classList.add('active');
-    } else {
-        console.error('Home page element not found');
-        return;
-    }
-    
-    // Update navigation
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    const homeNavItem = document.querySelector('[data-page="home"]');
-    if (homeNavItem) {
-        homeNavItem.classList.add('active');
-    }
-    
-    const searchEl = document.getElementById('searchInput');
-    if (searchEl) searchEl.value='';
-    const titleEl = document.querySelector('#homePage .section-title');
-    if (titleEl) titleEl.textContent='All Games';
+    currentGame=null;
+    const gf=document.getElementById('gameFrame'); if(gf) gf.src='about:blank';
+    const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    const homeNavItem=document.querySelector('[data-page="home"]'); if(homeNavItem) homeNavItem.classList.add('active');
+    const searchEl=document.getElementById('searchInput'); if(searchEl) searchEl.value='';
+    const titleEl=document.querySelector('#homePage .section-title'); if(titleEl) titleEl.textContent='All Games';
+    forceRenderGames();
+    buildCategoryTabs();
     renderFavoritesSection();
-    console.log('Home page displayed successfully');
 }
 
 function showCategoriesPage() {
@@ -674,61 +573,18 @@ function showCategoriesPage() {
     `;
 }
 
-function showFavoritesPage() {
+function showFavoritesPage(){
+    ensureFavoritesPage();
     hideAllPages();
-    
-    const contentArea = document.querySelector('.content-area');
-    contentArea.innerHTML = `
-        <div class="page active">
-            <section class="games-section">
-                <div class="section-header">
-                    <h2 class="section-title">Favorite Games</h2>
-                </div>
-                <div class="favorites-content">
-                    <div class="empty-state">
-                        <div class="empty-icon">❤️</div>
-                        <h3>No favorites yet</h3>
-                        <p>Games you mark as favorites will appear here</p>
-                    </div>
-                </div>
-            </section>
-        </div>
-    `;
+    const fav=document.getElementById('favoritesPage'); if(fav) fav.classList.add('active');
+    renderFavoritesPage();
 }
 
-function showSettingsPage() {
+function showSettingsPage(){
+    ensureSettingsPage();
     hideAllPages();
-    
-    const contentArea = document.querySelector('.content-area');
-    contentArea.innerHTML = `
-        <div class="page active">
-            <section class="games-section">
-                <div class="section-header">
-                    <h2 class="section-title">Settings</h2>
-                </div>
-                <div class="settings-content">
-                    <div class="setting-group">
-                        <h3>Game Settings</h3>
-                        <div class="setting-item">
-                            <label>
-                                <input type="checkbox" id="proxyToggle" ${isProxyEnabled ? 'checked' : ''}>
-                                Enable Proxy for Games
-                            </label>
-                        </div>
-                    </div>
-                    <div class="setting-group">
-                        <h3>Display Settings</h3>
-                        <div class="setting-item">
-                            <label>
-                                <input type="checkbox" checked>
-                                Dark Theme
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-    `;
+    const pg=document.getElementById('settingsPage'); if(pg) pg.classList.add('active');
+    const chk=document.getElementById('proxyToggleSetting'); if(chk) chk.checked=isProxyEnabled;
 }
 
 function showGamePage(game) {
@@ -861,74 +717,26 @@ function showCategoriesPage() {
 }
 
 
-function filterByCategory(category) {
-    console.log('Filtering by category:', category);
-    hideAllPages();
-    homepage.classList.add('active');
-    
-    let filteredGames = [];
-    
-    switch (category) {
-        case 'new':
-            // Show newest games (assume they have higher IDs)
-            filteredGames = games.slice(-6).reverse();
-            break;
-        case 'popular':
-            // Show random selection as "popular"
-            filteredGames = games.slice(0, 8);
-            break;
-        case 'updated':
-            // Show a different selection as "updated"
-            filteredGames = games.slice(2, 8);
-            break;
-        default:
-            // Filter by actual category
-            filteredGames = games.filter(game => game.category.toLowerCase() === category.toLowerCase());
-            break;
+function filterByCategory(category){
+    ensureHomePage(); hideAllPages(); const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
+    let filtered=[];
+    switch(category){
+        case 'new': filtered=[...games].sort((a,b)=>b.id-a.id).slice(0,12); break;
+        case 'popular': filtered=games.slice(0,12); break; // placeholder metric
+        case 'updated': filtered=games.slice(-12); break; // placeholder metric
+        default: filtered=games.filter(g=> (g.category||'').toLowerCase()===category.toLowerCase());
     }
-    
-    // Clear and update content
-    const contentArea = document.querySelector('.content-area');
-    contentArea.innerHTML = `
-        <div class="category-results-section">
-            <div class="section-header">
-                <h2 class="section-title">${category.charAt(0).toUpperCase() + category.slice(1)} Games (${filteredGames.length} games)</h2>
-            </div>
-            <div class="games-grid" id="categoryResults"></div>
-        </div>
-    `;
-    
-    // Render filtered games
-    const categoryResultsContainer = document.getElementById('categoryResults');
-    if (filteredGames.length === 0) {
-        categoryResultsContainer.innerHTML = '<p style="color: #7d8590; text-align: center; grid-column: 1 / -1;">No games found in this category.</p>';
-    } else {
-        categoryResultsContainer.innerHTML = filteredGames.map(game => createGameCard(game)).join('');
-    }
+    const grid=document.getElementById('allGames');
+    const title=document.querySelector('#homePage .section-title');
+    if(grid) grid.innerHTML = filtered.length? filtered.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
+    if(title) title.textContent=`${capitalize(category)} Games (${filtered.length})`;
 }
 
-function showSearchResults(query, results) {
-    hideAllPages();
-    document.getElementById('homePage').classList.add('active');
-    
-    // Clear existing content
-    const contentArea = document.querySelector('.content-area');
-    contentArea.innerHTML = `
-        <div class="search-results-section">
-            <div class="section-header">
-                <h2 class="section-title">Search Results for "${query}" (${results.length} games)</h2>
-            </div>
-            <div class="games-grid" id="searchResults"></div>
-        </div>
-    `;
-    
-    // Render search results
-    const searchResultsContainer = document.getElementById('searchResults');
-    if (results.length === 0) {
-        searchResultsContainer.innerHTML = '<p style="color: #7d8590; text-align: center; grid-column: 1 / -1;">No games found matching your search.</p>';
-    } else {
-        searchResultsContainer.innerHTML = results.map(game => createGameCard(game)).join('');
-    }
+function showSearchResults(query, results){
+    ensureHomePage(); hideAllPages(); const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
+    const grid=document.getElementById('allGames'); const title=document.querySelector('#homePage .section-title');
+    if(title) title.textContent=`Results for "${query}" (${results.length})`;
+    if(grid) grid.innerHTML = results.length? results.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
 }
 
 function hideAllPages() {
@@ -1265,6 +1073,85 @@ function updateProxyVisuals(){
         el.title = isProxyEnabled ? 'Proxy Enabled' : 'Proxy Disabled';
     });
 }
+
+// ===== Added Utility / Page Helpers =====
+function sanitize(str){
+    return (str==null?''+'' : String(str))
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+function capitalize(s){ return s? s.charAt(0).toUpperCase()+s.slice(1):''; }
+
+function ensureHomePage(){
+    if(document.getElementById('homePage')) return;
+    const ca=document.querySelector('.content-area'); if(!ca) return;
+    ca.insertAdjacentHTML('afterbegin', `
+        <div id="homePage" class="page active">
+            <section id="favoriteGamesSection" class="games-section" style="display:none;">
+                <div class="section-header"><h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Your Favorites</h2></div>
+                <div class="games-grid" id="favoriteGamesGrid"></div>
+            </section>
+            <section class="games-section">
+                <div class="section-header"><h2 class="section-title">All Games</h2><div id="categoryTabs" class="category-tabs"></div></div>
+                <div class="games-grid" id="allGames"></div>
+            </section>
+        </div>`);
+}
+function ensureFavoritesPage(){
+    if(document.getElementById('favoritesPage')) return;
+    const ca=document.querySelector('.content-area'); if(!ca) return;
+    ca.insertAdjacentHTML('beforeend', `
+        <div id="favoritesPage" class="page">
+            <section class="games-section">
+                <div class="section-header"><h2 class="section-title">Favorite Games</h2></div>
+                <div class="games-grid" id="favoritesPageGrid"></div>
+                <div id="favoritesEmptyState" class="empty-state" style="display:none; grid-column:1/-1; text-align:center; padding:40px 20px;">
+                    <div style="font-size:48px; margin-bottom:10px;">❤️</div>
+                    <h3 style="margin:0 0 6px; font-size:22px;">No favorites yet</h3>
+                    <p style="margin:0; color:#7d8590;">Open a game and tap the heart to add it.</p>
+                </div>
+            </section>
+        </div>`);
+}
+function ensureSettingsPage(){
+    if(document.getElementById('settingsPage')) return;
+    const ca=document.querySelector('.content-area'); if(!ca) return;
+    ca.insertAdjacentHTML('beforeend', `
+        <div id="settingsPage" class="page">
+            <section class="games-section">
+                <div class="section-header"><h2 class="section-title">Settings</h2></div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <h3>Game Settings</h3>
+                        <div class="setting-item"><label style="cursor:pointer;"><input type="checkbox" id="proxyToggleSetting" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)"> Enable Proxy for Games</label></div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Display Settings</h3>
+                        <div class="setting-item"><label><input type="checkbox" checked disabled> Dark Theme (default)</label></div>
+                    </div>
+                </div>
+            </section>
+        </div>`);
+}
+function renderFavoritesPage(){
+    const grid=document.getElementById('favoritesPageGrid');
+    const empty=document.getElementById('favoritesEmptyState');
+    if(!grid||!empty) return;
+    const favGames=games.filter(g=>favorites.includes(g.id));
+    if(favGames.length===0){ grid.innerHTML=''; empty.style.display='block'; }
+    else { empty.style.display='none'; grid.innerHTML=favGames.map(g=>createGameCard(g)).join(''); }
+}
+
+// Extend existing renderFavoritesSection to also update the dedicated page
+const __origRenderFavoritesSection = renderFavoritesSection;
+renderFavoritesSection = function(){
+    __origRenderFavoritesSection();
+    renderFavoritesPage();
+};
+
 
 
 
