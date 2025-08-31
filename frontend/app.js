@@ -197,7 +197,18 @@ function forceRenderGames() {
         return;
     }
     
-    // Render all games
+    // Validate and de-duplicate by id before render
+    const seen = new Set();
+    const cleaned = games.filter(g => {
+        if (!g || typeof g !== 'object') return false;
+        if (!g.id || seen.has(g.id)) return false;
+        seen.add(g.id);
+        return !!g.title && !!g.category && !!g.embed;
+    });
+    if (cleaned.length !== games.length) {
+        console.warn('⚠️ Some game entries invalid or duplicate; cleaned:', cleaned.length, 'original:', games.length);
+        games = cleaned;
+    }
     allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
     console.log('✅ All games rendered:', games.length);
     renderFavoritesSection();
@@ -507,11 +518,12 @@ function handleSearch() {
         return;
     }
     
-    const filteredGames = games.filter(game => 
-        game.title.toLowerCase().includes(query) ||
-        game.category.toLowerCase().includes(query) ||
-        (game.description && game.description.toLowerCase().includes(query))
-    );
+    const filteredGames = games.filter(game => {
+        const t = (game.title||'').toLowerCase();
+        const c = (game.category||'').toLowerCase();
+        const d = (game.description||'').toLowerCase();
+        return t.includes(query) || c.includes(query) || d.includes(query);
+    });
     
     showSearchResults(query, filteredGames);
 }
@@ -992,6 +1004,10 @@ function loadGame(game) {
     
     try {
         let gameUrl = game.embed; // Use 'embed' field from JSON
+        if (!isValidUrl(gameUrl)) {
+            showGameError('Invalid game URL');
+            return;
+        }
         
         // Apply proxy if enabled
         if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
@@ -1007,10 +1023,7 @@ function loadGame(game) {
         }
         
         // Validate URL
-        if (!isValidUrl(gameUrl)) {
-            showError('Invalid game URL');
-            return;
-        }
+    // Final sanity check already performed above
         
         console.log('Loading game URL:', gameUrl);
         
@@ -1205,6 +1218,10 @@ window.debugWaterWall = function() {
     renderFeaturedGames();
     renderGamesByCategory();
 };
+
+// Offline / online indicator
+window.addEventListener('offline', ()=> showError('You are offline. Cached games only.'));
+window.addEventListener('online', ()=> showError('Back online.'));
 
 // ===== New Helpers (Favorites, Settings, Category Tabs, Current Game Tab) =====
 function toggleFavorite(game) {
