@@ -1,53 +1,6 @@
-// Global variables
-let games = [];
-let currentGame = null;
-let isProxyEnabled = true;
-const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
-
-// Initialize app
-document.addEventListener('DOMContentLoaded', init);
-
-async function init() {
-    await loadGames();
-    setupEventListeners();
-    showHomePage();
-    updateNavigationStats();
-}
-
-// Load games from JSON
-async function loadGames() {
-    try {
-        const response = await fetch('./games.json');
-        games = await response.json();
-    } catch (error) {
-        console.error('Error loading games:', error);
-        showError('Failed to load games. Please try again later.');
-    }
-}
-
-// Setup event listeners
-function setupEventListeners() {
-    // Navigation
-    document.addEventListener('click', handleNavigation);
-    
-    // Search functionality
-    const searchInput = document.getElementById('searchInput');
-    const searchBtn = document.querySelector('.search-btn');
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', handleSearch);
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleSearch();
-            }
-        });
-    }
-    
-    if (searchBtn) {
-        searchBtn.addEventListener('click', handleSearch);
-    }
-    
-    // Game controls
+// This file has been removed - duplicate of app.js
+// All functionality has been consolidated into app.js
+// This file can be safely deleted
     document.addEventListener('change', handleProxyToggle);
     document.addEventListener('click', handleGameActions);
     
