@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
     }
+    initCustomCursor();
 });
 window.addEventListener('load', () => {
     if (games.length === 0) {
@@ -1188,6 +1189,38 @@ function finishGameLoadingOverlay(success){
     // Ensure at least 5s display
     const delay = overlay.dataset.min==='done'? 400 : 5200; // if min not reached, wait remainder ~5s
     setTimeout(()=>{ overlay.style.display='none'; }, delay);
+}
+
+// ===== Custom Cursor =====
+function initCustomCursor(){
+    if(matchMedia('(hover: none)').matches) return; // Skip on touch devices
+    const ring=document.createElement('div');
+    ring.className='custom-cursor-ring';
+    const dot=document.createElement('div');
+    dot.className='custom-cursor-dot';
+    document.body.appendChild(ring); document.body.appendChild(dot);
+    let x=0,y=0, tx=0, ty=0; // target and current
+    const speed=0.18;
+    function raf(){
+        x += (tx - x) * speed; y += (ty - y) * speed;
+        ring.style.transform=`translate3d(${x}px, ${y}px,0)`;
+        dot.style.transform=`translate3d(${tx}px, ${ty}px,0)`;
+        requestAnimationFrame(raf);
+    }
+    window.addEventListener('mousemove', e=>{ tx=e.clientX; ty=e.clientY; document.documentElement.style.setProperty('--cx', tx+'px'); document.documentElement.style.setProperty('--cy', ty+'px'); show(); });
+    window.addEventListener('mousedown', ()=> document.body.classList.add('cursor-active'));
+    window.addEventListener('mouseup', ()=> document.body.classList.remove('cursor-active'));
+    const interactiveSel='a, button, .nav-link, .game-card, .icon-btn, input, .category-tab, .proxy-toggle-visual';
+    document.addEventListener('mouseover', e=>{ if(e.target.closest(interactiveSel)) document.body.classList.add('cursor-hover'); });
+    document.addEventListener('mouseout', e=>{ if(e.target.closest(interactiveSel)) document.body.classList.remove('cursor-hover'); });
+    let hideTimer=null;
+    function show(){
+        document.body.classList.remove('cursor-hidden');
+        clearTimeout(hideTimer);
+        hideTimer=setTimeout(()=> document.body.classList.add('cursor-hidden'), 2500);
+    }
+    show();
+    raf();
 }
 
 
