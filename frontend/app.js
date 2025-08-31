@@ -246,6 +246,8 @@ function initializeDOMElements() {
     gamePage = document.getElementById('gamePage');
     homepage = document.getElementById('homePage');
     gameTitle = document.getElementById('gameTitle');
+    gameDescription = document.getElementById('gameDescription');
+    recommendedGames = document.getElementById('suggestedGames');
     fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
     exitFullscreenBtn = document.querySelector('.exit-fullscreen-btn');
     
@@ -255,6 +257,7 @@ function initializeDOMElements() {
     console.log('  - All games grid:', !!document.getElementById('allGames'));
     console.log('  - Search input:', !!document.getElementById('searchInput'));
     console.log('  - Game frame:', !!document.getElementById('gameFrame'));
+    console.log('  - Suggested games:', !!document.getElementById('suggestedGames'));
 }
 
 // Load games from JSON
@@ -759,15 +762,26 @@ function generateGameDescription(game) {
 
 function loadSuggestedGames(currentGame) {
     console.log('Loading suggested games for:', currentGame.title);
+    console.log('Total available games:', games.length);
     
     // Get random games excluding the current one
     const otherGames = games.filter(game => game.id !== currentGame.id);
+    console.log('Other games after filtering:', otherGames.length);
+    
     const shuffled = otherGames.sort(() => 0.5 - Math.random());
     const suggestedGames = shuffled.slice(0, 6); // Show 6 suggested games
+    console.log('Suggested games to display:', suggestedGames.length);
     
     const suggestedContainer = document.getElementById('suggestedGames');
     if (!suggestedContainer) {
-        console.warn('Suggested games container not found');
+        console.error('❌ Suggested games container not found');
+        return;
+    }
+    
+    console.log('✅ Found suggested games container, rendering games...');
+    
+    if (suggestedGames.length === 0) {
+        suggestedContainer.innerHTML = '<div class="no-games-message">No other games available</div>';
         return;
     }
     
@@ -775,6 +789,8 @@ function loadSuggestedGames(currentGame) {
         const card = createSuggestedGameCard(game);
         return card.replace('<div class="suggested-game-card"', `<div class="suggested-game-card" style="animation-delay: ${index * 0.1}s"`);
     }).join('');
+    
+    console.log('✅ Suggested games rendered successfully');
 }
 
 function createSuggestedGameCard(game) {

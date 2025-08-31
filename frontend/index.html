@@ -108,30 +108,33 @@
                                 <iframe id="gameFrame" src="" title="Game"></iframe>
                             </div>
                             
-                            <!-- Game Info Below Frame -->
-                            <div class="game-info-bottom">
-                                <div class="game-info-left">
-                                    <h1 id="gameTitle">Game Title</h1>
-                                    <span id="gameCategory">Category</span>
+                            <!-- Scrollable content area for info and description -->
+                            <div class="game-content-wrapper">
+                                <!-- Game Info Below Frame -->
+                                <div class="game-info-bottom">
+                                    <div class="game-info-left">
+                                        <h1 id="gameTitle">Game Title</h1>
+                                        <span id="gameCategory">Category</span>
+                                    </div>
+                                    
+                                    <div class="game-info-right">
+                                        <div class="proxy-toggle-container">
+                                            <label class="proxy-toggle-label">
+                                                <input type="checkbox" id="proxyToggleGame" checked>
+                                                <span class="proxy-toggle-text">Proxy</span>
+                                            </label>
+                                        </div>
+                                        <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
+                                            <i class="fas fa-expand"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 
-                                <div class="game-info-right">
-                                    <div class="proxy-toggle-container">
-                                        <label class="proxy-toggle-label">
-                                            <input type="checkbox" id="proxyToggleGame" checked>
-                                            <span class="proxy-toggle-text">Proxy</span>
-                                        </label>
-                                    </div>
-                                    <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
-                                        <i class="fas fa-expand"></i>
-                                    </button>
+                                <!-- Game Description Below the fold -->
+                                <div class="game-description">
+                                    <h3>About this game</h3>
+                                    <p id="gameDescription">Game description will appear here...</p>
                                 </div>
-                            </div>
-                            
-                            <!-- Game Description Below the fold -->
-                            <div class="game-description">
-                                <h3>About this game</h3>
-                                <p id="gameDescription">Game description will appear here...</p>
                             </div>
                         </div>
                         
