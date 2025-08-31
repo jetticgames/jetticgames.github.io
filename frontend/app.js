@@ -1176,8 +1176,15 @@ function renderFavoritesPage(){
     const empty=document.getElementById('favoritesEmptyState');
     if(!grid||!empty) return;
     const favGames=games.filter(g=>favorites.includes(g.id));
-    if(favGames.length===0){ grid.innerHTML=''; empty.style.display='block'; }
-    else { empty.style.display='none'; grid.innerHTML=favGames.map(g=>createGameCard(g)).join(''); }
+    if(favGames.length===0){
+        grid.innerHTML='';
+        grid.style.display='none';
+        empty.style.display='flex';
+    } else {
+        empty.style.display='none';
+        grid.style.display='grid';
+        grid.innerHTML=favGames.map(g=>createGameCard(g)).join('');
+    }
 }
 
 // Extend existing renderFavoritesSection to also update the dedicated page

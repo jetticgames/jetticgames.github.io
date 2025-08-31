@@ -433,6 +433,18 @@ body {
 .fav-btn { color:#7d8590; }
 .fav-btn.active { color:#e25555; }
 
+/* Centered favorites empty state */
+#favoritesEmptyState {
+    min-height: 50vh;
+    display: none; /* toggled to flex in JS */
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+}
+#favoritesEmptyState h3 { font-size:24px; }
+#favoritesEmptyState p { font-size:14px; }
+
 /* Loading Message */
 .loading-message {
     display: flex;
