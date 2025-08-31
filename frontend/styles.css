@@ -183,9 +183,8 @@ body {
 .header-content {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 32px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .welcome-section {
@@ -246,7 +245,7 @@ body {
 }
 
 .header-actions {
-    margin-left: auto;
+    margin-left: auto; /* push search fully to the right */
 }
 
 .search-container {
@@ -417,16 +416,18 @@ body {
     text-transform: capitalize;
 }
 
-/* Suggested Games (sidebar) */
+/* Suggested Games (sidebar) – full-width 16:9 thumbnails */
 .suggested-games { margin-top: 24px; }
-.suggested-games-list { display: flex; flex-direction: column; gap: 12px; }
-.suggested-game-card { display:flex; align-items:center; gap:12px; padding:8px 10px; background:#161b22; border:1px solid #30363d; border-radius:10px; cursor:pointer; position:relative; overflow:hidden; min-height:48px; transition:background .2s, border-color .2s, transform .2s; }
-.suggested-game-card:hover { background:#1d2230; border-color:#1f6feb; transform:translateY(-2px); }
-.suggested-game-card img { width:96px; aspect-ratio:16/9; height:auto; object-fit:cover; border-radius:6px; flex-shrink:0; background:#21262d; }
-.suggested-game-info { display:flex; flex-direction:column; line-height:1.2; }
-.suggested-game-title { font-size:13px; font-weight:600; color:#fff; margin-bottom:2px; }
-.suggested-game-category { font-size:11px; color:#7d8590; text-transform:capitalize; }
-.no-games-message { color:#7d8590; font-size:13px; text-align:center; padding:12px 4px; }
+.suggested-games-list { display:flex; flex-direction:column; gap:14px; }
+.suggested-game-card { position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; border:1px solid #30363d; border-radius:14px; cursor:pointer; background:#161b22; transition: border-color .25s ease, transform .25s ease, box-shadow .25s ease; }
+.suggested-game-card::after { content:""; position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.65) 100%); opacity:.9; pointer-events:none; transition:opacity .25s; }
+.suggested-game-card:hover { border-color:#1f6feb; transform:translateY(-3px); box-shadow:0 6px 18px -4px rgba(0,0,0,0.5); }
+.suggested-game-card:hover::after { opacity:1; }
+.suggested-game-card img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.suggested-game-info { position:absolute; left:0; right:0; bottom:0; padding:8px 10px 9px; display:flex; flex-direction:column; gap:2px; z-index:2; }
+.suggested-game-title { font-size:13px; font-weight:600; color:#fff; line-height:1.15; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+.suggested-game-category { font-size:11px; font-weight:500; color:#9ca3af; text-transform:capitalize; }
+.no-games-message { color:#7d8590; font-size:13px; text-align:center; padding:14px 4px; }
 
 /* Favorite heart button clarity */
 .fav-btn { color:#7d8590; }
