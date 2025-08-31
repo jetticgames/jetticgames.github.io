@@ -3,10 +3,10 @@ console.log('🎮 WaterWall app.js is loading...');
 
 let games = [];
 let currentGame = null;
-let isProxyEnabled = true; // Enable proxy by default since most games need it
+let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
 let favorites = [];
-let settings = { defaultProxy: true };
+let settings = { defaultProxy: false };
 let currentGameTabTimeout = null;
 // Per-game proxy overrides (true = enabled, false = disabled); undefined -> use settings.defaultProxy
 const gameProxyOverrides = {};
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
     loadSettingsFromCookies();
     loadFavoritesFromCookies();
-    if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy;
+    if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy; else settings.defaultProxy = false;
     startApp();
     // Sticky header shadow on scroll
     const header = document.querySelector('.top-header');
@@ -652,16 +652,8 @@ function showGamePage(game) {
         gameDescription.textContent = description;
     }
     
-    // Load suggested games
-    loadSuggestedGames(game);
-    // Fallback: if no suggested games rendered after short delay, try again once
-    setTimeout(() => {
-        const sg = document.getElementById('suggestedGames');
-        if (sg && sg.children.length === 0) {
-            console.warn('Retrying suggested games render');
-            loadSuggestedGames(game);
-        }
-    }, 500);
+    // Build ads in sidebar instead of suggested games
+    renderAdColumn();
     
     // Load the game after a brief delay to ensure iframe is ready
     setTimeout(() => {
@@ -686,56 +678,27 @@ function generateGameDescription(game) {
     return descriptions[game.category.toLowerCase()] || descriptions['default'];
 }
 
-function loadSuggestedGames(currentGame) {
-    console.log('Loading suggested games for:', currentGame.title);
-    console.log('Total available games:', games.length);
-    const suggestedContainer = document.getElementById('suggestedGames');
-    if (games.length === 0) {
-        console.warn('Games not loaded yet when requesting suggestions; retrying in 250ms');
-        setTimeout(() => loadSuggestedGames(currentGame), 250);
-        return;
+// Replace suggested games with ads
+function renderAdColumn(){
+    const col=document.getElementById('adColumn');
+    if(!col) return;
+    col.innerHTML='';
+    // Determine number of ads based on viewport & content height (min 2, up to 6)
+    const base = Math.ceil(window.innerHeight / 300); // rough vertical capacity
+    const count = Math.min(Math.max(base,2),6);
+    for(let i=0;i<count;i++){
+        const slot=document.createElement('div');
+        slot.className='ad-slot loading';
+        const frame=document.createElement('iframe');
+        frame.src='https://www.example.com';
+        frame.loading='lazy';
+        frame.onload=()=> slot.classList.remove('loading');
+        slot.appendChild(frame);
+        col.appendChild(slot);
     }
-    
-    // Get random games excluding the current one
-    const otherGames = games.filter(game => game.id !== currentGame.id);
-    console.log('Other games after filtering:', otherGames.length);
-    
-    const shuffled = otherGames.sort(() => 0.5 - Math.random());
-    const suggestedGames = shuffled.slice(0, 4); // Show only 4 suggested games to fit without scrolling
-    console.log('Suggested games to display:', suggestedGames.length);
-    
-    if (!suggestedContainer) {
-        console.error('❌ Suggested games container not found');
-        return;
-    }
-    
-    console.log('✅ Found suggested games container, rendering games...');
-    
-    if (suggestedGames.length === 0) {
-        suggestedContainer.innerHTML = '<div class="no-games-message">No other games available</div>';
-        return;
-    }
-    
-    suggestedContainer.innerHTML = suggestedGames.map((game, index) => {
-        const card = createSuggestedGameCard(game);
-        return card.replace('<div class="suggested-game-card"', `<div class="suggested-game-card" style="animation-delay: ${index * 0.1}s"`);
-    }).join('');
-    suggestedContainer.style.opacity = '1';
-    suggestedContainer.style.visibility = 'visible';
-    
-    console.log('✅ Suggested games rendered successfully');
 }
 
-function createSuggestedGameCard(game) {
-    return `
-        <div class="suggested-game-card" data-game-id="${game.id}">
-            <img src="${game.thumbnail}" alt="${sanitize(game.title)}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
-            <div class="suggested-game-info">
-                <div class="suggested-game-title">${sanitize(game.title)}</div>
-                <div class="suggested-game-category">${sanitize(game.category)}</div>
-            </div>
-        </div>`;
-}
+// (Removed suggested game card creation in favor of ads)
 
 function showCategoriesPage() {
     hideAllPages();
