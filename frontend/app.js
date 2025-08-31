@@ -3,7 +3,7 @@ console.log('🎮 WaterWall app.js is loading...');
 
 let games = [];
 let currentGame = null;
-let isProxyEnabled = false; // Start with proxy disabled to test direct loading first
+let isProxyEnabled = true; // Enable proxy by default since most games need it
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/';
 
 // DOM elements (will be initialized after DOM loads)
@@ -780,7 +780,7 @@ function loadSuggestedGames(currentGame) {
 function createSuggestedGameCard(game) {
     return `
         <div class="suggested-game-card" data-game-id="${game.id}">
-            <img src="${game.image}" alt="${game.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
+            <img src="${game.thumbnail}" alt="${game.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjMTYxYjIyIi8+CjxwYXRoIGQ9Ik05NS41IDQySDEwNC41VjUySDk1LjVWNDJaIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik05MC41IDQ3SDk1LjVWNTJIOTAuNVY0N1oiIGZpbGw9IiM0NDQ4NTQiLz4KPHBhdGggZD0iTTEwNC41IDQ3SDEwOS41VjUySDEwNC41VjQ3WiIgZmlsbD0iIzQ0NDg1NCIvPgo8cGF0aCBkPSJNOTUuNSA1Mkg5NS41VjY3SDEwNC41VjUyIiBmaWxsPSIjNDQ0ODU0Ii8+CjxwYXRoIGQ9Ik04NS41IDUySDkwLjVWNTdIODUuNVY1MloiIGZpbGw9IiM0NDQ4NTQiLz4KPHA+PCEtLSBHYW1lIGljb24gLS0+PC9wPgo8dGV4dCB4PSIxMDAiIHk9IjY4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNzE3ODg2IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiI+R2FtZTwvdGV4dD4KPC9zdmc+'" />
             <div class="suggested-game-info">
                 <div class="suggested-game-title">${game.title}</div>
                 <div class="suggested-game-category">${game.category}</div>
@@ -980,17 +980,70 @@ function loadGame(game) {
         // Handle iframe load events
         gameFrame.onload = () => {
             console.log('Game loaded successfully:', game.title);
+            // Hide any error messages
+            const errorMsg = gameFrame.parentElement.querySelector('.game-error');
+            if (errorMsg) errorMsg.remove();
         };
-        
+
         gameFrame.onerror = () => {
             console.error('Failed to load game:', game.title);
-            showError('Failed to load game. Please try again.');
+            showGameError('Failed to load game. Try enabling/disabling proxy or try another game.');
         };
-        
-    } catch (error) {
+
+        // Add timeout for games that don't trigger load events
+        setTimeout(() => {
+            try {
+                // Try to access iframe content to see if it loaded
+                if (gameFrame.contentDocument || gameFrame.contentWindow) {
+                    console.log('Game appears to be loading...');
+                } else {
+                    console.warn('Game may be blocked by X-Frame-Options');
+                    if (!isProxyEnabled) {
+                        showGameError('Game blocked. Try enabling proxy to bypass restrictions.');
+                    }
+                }
+            } catch (e) {
+                // This is expected for cross-origin content
+                console.log('Cross-origin content detected (normal for external games)');
+            }
+        }, 3000);    } catch (error) {
         console.error('Error loading game:', error);
-        showError('Error loading game. Please check the URL and try again.');
+        showGameError('Error loading game. Please check the URL and try again.');
     }
+}
+
+function showGameError(message) {
+    const gameFrame = document.getElementById('gameFrame');
+    if (!gameFrame) return;
+    
+    // Remove any existing error messages
+    const existingError = gameFrame.parentElement.querySelector('.game-error');
+    if (existingError) existingError.remove();
+    
+    // Create error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'game-error';
+    errorDiv.innerHTML = `
+        <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #161b22;
+            border: 1px solid #f85149;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #f85149;
+            z-index: 10;
+        ">
+            <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <div>${message}</div>
+        </div>
+    `;
+    
+    gameFrame.parentElement.style.position = 'relative';
+    gameFrame.parentElement.appendChild(errorDiv);
 }
 
 // Fullscreen functionality
