@@ -549,22 +549,13 @@ function handleGameActions(e) {
 
 // Proxy toggle handler
 function handleProxyToggle(e) {
-    if (e.target.type === 'checkbox' && (e.target.closest('.proxy-toggle') || e.target.id === 'proxyToggleGame')) {
-        isProxyEnabled = e.target.checked;
-        
-        // Sync all proxy toggles
-        const allProxyToggles = document.querySelectorAll('#proxyToggle, #proxyToggleGame');
-        allProxyToggles.forEach(toggle => {
-            if (toggle !== e.target) {
-                toggle.checked = isProxyEnabled;
-            }
-        });
-        
-        // Reload current game if one is playing
-        if (currentGame) {
-            loadGame(currentGame);
-        }
-        
+    const visual = e.target.closest('.proxy-toggle-visual');
+    if (visual) {
+        isProxyEnabled = !visual.classList.contains('on');
+        settings.defaultProxy = isProxyEnabled;
+        saveSettingsToCookies();
+        updateProxyVisuals();
+        if (currentGame) loadGame(currentGame);
         console.log('Proxy toggled:', isProxyEnabled ? 'enabled' : 'disabled');
     }
 }
@@ -1249,6 +1240,16 @@ function filterHomeByCategory(cat){ const grid=document.getElementById('allGames
 
 function addOrReplaceCurrentGameTab(game){ if(!game)return; clearTimeout(currentGameTabTimeout); let tab=document.querySelector('.current-game-tab'); if(tab) tab.remove(); const list=document.querySelector('.sidebar nav .nav-list'); if(!list)return; const li=document.createElement('li'); li.className='current-game-tab'; li.dataset.gameId=game.id; li.innerHTML=`<i class="fas fa-gamepad"></i><span>${game.title}</span>`; li.onclick=()=>{ if(currentGame && currentGame.id===game.id){ showGamePage(game);} else { const g=games.find(x=>x.id==li.dataset.gameId); if(g) showGamePage(g);} }; list.insertBefore(li, list.firstChild.nextSibling); }
 function scheduleCurrentGameTabRemoval(){ const tab=document.querySelector('.current-game-tab'); if(!tab)return; clearTimeout(currentGameTabTimeout); currentGameTabTimeout=setTimeout(()=>{ tab.classList.add('removing'); setTimeout(()=>{ if(tab.parentElement) tab.remove(); }, 350); }, 10000); }
+
+// Proxy visual sync
+function updateProxyVisuals(){
+    document.querySelectorAll('.proxy-toggle-visual').forEach(el=>{
+        el.classList.remove('on','off');
+        el.classList.add(isProxyEnabled ? 'on':'off');
+        el.setAttribute('aria-pressed', isProxyEnabled ? 'true':'false');
+        el.title = isProxyEnabled ? 'Proxy Enabled' : 'Proxy Disabled';
+    });
+}
 
 
 

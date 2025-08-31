@@ -1867,3 +1867,16 @@ body {
 .category-tab {font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
 .games-grid .game-card {height:auto !important; aspect-ratio:16/9;}
 .games-grid .game-card img {position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+/* Modern proxy toggle */
+.proxy-toggle-container {display:flex; align-items:center;}
+.proxy-toggle-visual {position:relative; width:44px; height:44px; border-radius:14px; background:#1b1f24; border:1px solid #30363d; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.3s;}
+.proxy-toggle-visual .cloud-icon {font-size:20px; color:#848d97; transition:.3s;}
+.proxy-toggle-visual .status-badge {position:absolute; bottom:-4px; right:-4px; width:22px; height:22px; border-radius:50%; background:#222; display:flex; align-items:center; justify-content:center; border:2px solid #0d1117;}
+.proxy-toggle-visual .check-icon, .proxy-toggle-visual .times-icon {font-size:12px; display:none;}
+.proxy-toggle-visual.on {border-color:#238636;}
+.proxy-toggle-visual.on .cloud-icon {color:#58d07c;}
+.proxy-toggle-visual.on .check-icon {display:block; color:#58d07c;}
+.proxy-toggle-visual.off {border-color:#f85149;}
+.proxy-toggle-visual.off .cloud-icon {color:#f85149;}
+.proxy-toggle-visual.off .times-icon {display:block; color:#f85149;}
+.proxy-toggle-visual:active {transform:scale(.95);} 

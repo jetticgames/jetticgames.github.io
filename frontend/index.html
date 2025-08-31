@@ -115,10 +115,13 @@
                                 </div>
                                 <div class="game-info-right">
                                     <div class="proxy-toggle-container">
-                                        <label class="proxy-toggle-label">
-                                            <input type="checkbox" id="proxyToggleGame" checked>
-                                            <span class="proxy-toggle-text">Proxy</span>
-                                        </label>
+                                        <div class="proxy-toggle-visual on" id="proxyToggleGame" data-proxy-toggle="game" role="button" aria-pressed="true" title="Proxy Enabled">
+                                            <i class="fas fa-cloud cloud-icon"></i>
+                                            <span class="status-badge">
+                                                <i class="fas fa-check check-icon"></i>
+                                                <i class="fas fa-times times-icon"></i>
+                                            </span>
+                                        </div>
                                     </div>
                                     <button class="icon-btn fav-btn" data-action="favorite" title="Add to Favorites">
                                         <i class="fas fa-heart"></i>
