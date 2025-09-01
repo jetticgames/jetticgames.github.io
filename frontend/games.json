@@ -1,11 +1,11 @@
 [
     {
         "id": 1,
-        "title": "2048",
-        "description": "A sliding puzzle game where you combine tiles with the same number to reach 2048. Use arrow keys to move tiles and try to reach the highest score possible!",
+        "title": "Cookie Clicker",
+        "description": "Click a cookie. Earn cookies. Use cookies to get autoclickers. Get more cookies. Repeat.",
         "category": "puzzle",
-        "embed": "https://play2048.co/",
-        "thumbnail": "https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=280&h=200&fit=crop&crop=center"
+        "embed": "https://unblockedgamesfree.github.io/cookie-clicker/",
+        "thumbnail": "images/cookieclicker.jpg"
     },
     {
         "id": 2,
