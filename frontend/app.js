@@ -1139,7 +1139,7 @@ function checkForUpdates(){
     const btn=document.getElementById('checkUpdatesBtn');
     if(btn){ btn.disabled=true; btn.textContent='Updating...'; }
     // Attempt to unregister service workers, clear caches, then reload
-    const doReload=()=> setTimeout(()=> location.reload(true), 400);
+    const doReload=()=> setTimeout(()=> { showUpdateModal(btn); }, 400);
     try {
         if('serviceWorker' in navigator){
             navigator.serviceWorker.getRegistrations().then(regs=>{
@@ -1155,6 +1155,21 @@ function checkForUpdates(){
     } catch(e){
         console.warn('Update check encountered error', e); doReload();
     }
+}
+
+function showUpdateModal(triggerBtn){
+    const modal=document.getElementById('updateModal'); if(!modal) { location.reload(); return; }
+    modal.style.display='flex'; modal.removeAttribute('aria-hidden');
+    const later=document.getElementById('updateLaterBtn');
+    const reload=document.getElementById('updateReloadBtn');
+    const close=()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='Check for Updates'; } };
+    later.onclick=()=> close();
+    reload.onclick=()=>{ reload.disabled=true; reload.textContent='Reloading...'; location.reload(); };
+    // Close on escape
+    function esc(e){ if(e.key==='Escape'){ close(); window.removeEventListener('keydown', esc); } }
+    window.addEventListener('keydown', esc);
+    // Focus management
+    setTimeout(()=> reload.focus(), 30);
 }
 function renderFavoritesPage(){
     const grid=document.getElementById('favoritesPageGrid');

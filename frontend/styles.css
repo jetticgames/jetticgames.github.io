@@ -23,6 +23,20 @@ body, * { cursor: none !important; }
 .update-check-btn {background:#238636; border:1px solid #2ea043; color:#fff; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:.25s;}
 .update-check-btn:hover:not(:disabled){background:#2ea043;}
 .update-check-btn:disabled{opacity:.6; cursor:wait;}
+/* Update modal */
+.update-modal {position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; font-family:inherit;}
+.update-modal-backdrop {position:absolute; inset:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);}
+.update-modal-dialog {position:relative; width:100%; max-width:400px; background:#161b22; border:1px solid #30363d; border-radius:16px; padding:22px 22px 18px; box-shadow:0 10px 40px rgba(0,0,0,.6); animation:scaleIn .35s cubic-bezier(.4,.8,.2,1);}
+@keyframes scaleIn {0%{transform:scale(.85) translateY(12px); opacity:0;} 100%{transform:scale(1) translateY(0); opacity:1;}}
+.update-modal-header h3 {margin:0 0 8px; font-size:20px; font-weight:600;}
+.update-modal-body p {margin:0 0 18px; color:#9ba3af; line-height:1.5;}
+.update-modal-actions {display:flex; justify-content:flex-end; gap:12px;}
+.update-btn-primary, .update-btn-secondary {border:1px solid #30363d; background:#1b2129; color:#fff; padding:8px 16px; font-size:14px; border-radius:8px; cursor:pointer; font-weight:600; transition:.25s;}
+.update-btn-primary {background:#238636; border-color:#2ea043;}
+.update-btn-primary:hover {background:#2ea043;}
+.update-btn-secondary:hover {background:#262e38;}
+.update-btn-primary:focus, .update-btn-secondary:focus {outline:2px solid #58a6ff; outline-offset:2px;}
+.update-modal[aria-hidden="true"] {display:none;}
 
 /* App Container */
 .app-container {

@@ -170,5 +170,21 @@
     </div>
 
     <script src="app.js"></script>
+    <!-- Update Confirmation Modal -->
+    <div id="updateModal" class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle" style="display:none;">
+        <div class="update-modal-backdrop"></div>
+        <div class="update-modal-dialog">
+            <div class="update-modal-header">
+                <h3 id="updateModalTitle">Reload Required</h3>
+            </div>
+            <div class="update-modal-body">
+                <p>Updates have been fetched. Reload now to apply the latest assets?</p>
+            </div>
+            <div class="update-modal-actions">
+                <button class="update-btn-secondary" id="updateLaterBtn">Later</button>
+                <button class="update-btn-primary" id="updateReloadBtn">Reload Now</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
