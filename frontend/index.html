@@ -9,6 +9,8 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- AuthPro Header Script -->
+    <script type="text/javascript" src="https://www.authpro.com/auth/CoolD1234/?action=pp"></script>
 </head>
 <body>
     <div class="app-container">
@@ -40,8 +42,14 @@
                 </ul>
                 
                 <ul class="nav-list nav-bottom">
+                    <li class="nav-item nav-account" data-page="account">
+                        <a href="#" class="nav-link account-link" style="justify-content:flex-start;">
+                            <i class="nav-icon fas fa-user-circle"></i>
+                            <span id="accountLabel">Sign in / Sign up</span>
+                        </a>
+                    </li>
                     <li class="nav-item nav-settings" data-page="settings">
-                        <a href="#" class="nav-link">
+                        <a href="#" class="nav-link" style="justify-content:flex-end;">
                             <i class="nav-icon fas fa-cog"></i>
                         </a>
                     </li>
@@ -97,6 +105,33 @@
                             <div id="categoryTabs" class="category-tabs"></div>
                         </div>
                         <div class="games-grid" id="allGames"></div>
+                    </section>
+                </div>
+                <!-- Account Page -->
+                <div id="accountPage" class="page">
+                    <section class="games-section">
+                        <div class="section-header"><h2 class="section-title">Account</h2></div>
+                        <div class="account-wrapper" id="accountWrapper">
+                            <div class="account-panels">
+                                <div class="account-panel" id="accountSignInPanel">
+                                    <h3>Sign In</h3>
+                                    <iframe title="Sign In" src="https://www.authpro.com/auth/CoolD1234/" loading="lazy" class="account-iframe"></iframe>
+                                </div>
+                                <div class="account-panel" id="accountSignUpPanel">
+                                    <h3>Create Account</h3>
+                                    <iframe title="Sign Up" src="https://www.authpro.com/auth/CoolD1234/?action=reg" loading="lazy" class="account-iframe"></iframe>
+                                </div>
+                                <div class="account-panel" id="accountInfoPanel" style="display:none;">
+                                    <h3>Your Account</h3>
+                                    <div class="account-info-box">
+                                        <span id="ap_welcome"></span>
+                                        <div class="account-actions">
+                                            <button class="account-logout-btn" id="accountLogoutBtn" type="button">Log Out</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
                 </div>
 

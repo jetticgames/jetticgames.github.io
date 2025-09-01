@@ -28,6 +28,7 @@ let bottomRecommendedGames;
 let fullscreenBtn;
 let exitFullscreenBtn;
 
+let accountLabelEl;
 let isFullscreen = false;
 
 // Single unified initialization (removed duplicates & destructive fallbacks)
@@ -63,12 +64,14 @@ async function startApp() {
     try {
         // Initialize DOM elements first
         initializeDOMElements();
+    accountLabelEl = document.getElementById('accountLabel');
         
         // Load games (with immediate fallback)
         await loadGamesWithFallback();
         
         // Setup event listeners
         setupEventListeners();
+    setupAccountSystem();
         
         // Force render games immediately
         forceRenderGames();
@@ -209,6 +212,34 @@ function renderGames() {
 function initializeDOMElements() {
     // Get DOM elements
     gamesGrid = document.getElementById('allGames');
+
+// ===== Account System (AuthPro integration) =====
+function setupAccountSystem(){
+    // AuthPro injects a global 'login' variable if logged in after header script executes
+    updateAccountUI();
+    // Provide logout button handler
+    const logoutBtn=document.getElementById('accountLogoutBtn');
+    if(logoutBtn){ logoutBtn.onclick=()=>{ window.open('https://www.authpro.com/auth/CoolD1234/?action=logout','_self'); setTimeout(()=> location.reload(), 600); } }
+}
+function updateAccountUI(){
+    const name = (typeof login !== 'undefined' && login) ? login : null;
+    if(accountLabelEl){ accountLabelEl.textContent = name ? name : 'Sign in / Sign up'; }
+    const infoPanel=document.getElementById('accountInfoPanel');
+    const signIn=document.getElementById('accountSignInPanel');
+    const signUp=document.getElementById('accountSignUpPanel');
+    if(!infoPanel||!signIn||!signUp) return;
+    if(name){
+        infoPanel.style.display='block';
+        signIn.style.display='none';
+        signUp.style.display='none';
+        const welcome=document.getElementById('ap_welcome');
+        if(welcome) welcome.textContent='Welcome, '+name;
+    } else {
+        infoPanel.style.display='none';
+        signIn.style.display='block';
+        signUp.style.display='block';
+    }
+}
     searchInput = document.getElementById('searchInput');
     filterBtns = document.querySelectorAll('.filter-btn');
     gameFrame = document.getElementById('gameFrame');
@@ -391,6 +422,9 @@ function handleNavigation(e) {
                     break;
                 case 'settings':
                     showSettingsPage();
+                    break;
+                case 'account':
+                    showAccountPage();
                     break;
                 default:
                     console.warn('Unknown page:', page);
@@ -622,6 +656,11 @@ function showSettingsPage(){
     hideAllPages();
     const pg=document.getElementById('settingsPage'); if(pg) pg.classList.add('active');
     const chk=document.getElementById('proxyToggleSetting'); if(chk) chk.checked=isProxyEnabled;
+}
+function showAccountPage(){
+    hideAllPages();
+    const pg=document.getElementById('accountPage'); if(pg) pg.classList.add('active');
+    updateAccountUI();
 }
 
 function showGamePage(game) {
