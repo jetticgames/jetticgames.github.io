@@ -215,29 +215,26 @@ function initializeDOMElements() {
 
 // ===== Account System (AuthPro integration) =====
 function setupAccountSystem(){
-    // AuthPro injects a global 'login' variable if logged in after header script executes
     updateAccountUI();
-    // Provide logout button handler
-    const logoutBtn=document.getElementById('accountLogoutBtn');
-    if(logoutBtn){ logoutBtn.onclick=()=>{ window.open('https://www.authpro.com/auth/CoolD1234/?action=logout','_self'); setTimeout(()=> location.reload(), 600); } }
+    const actions=document.getElementById('accountInlineActions');
+    if(actions){
+        actions.addEventListener('click', e=>{
+            const btn=e.target.closest('.account-action-btn'); if(!btn) return;
+            const act=btn.dataset.action;
+            const frame=document.getElementById('accountIframe');
+            if(act==='signin'){ if(frame) frame.src='https://www.authpro.com/auth/CoolD1234/'; }
+            else if(act==='signup'){ if(frame) frame.src='https://www.authpro.com/auth/CoolD1234/?action=reg'; }
+            else if(act==='logout'){ window.open('https://www.authpro.com/auth/CoolD1234/?action=logout','_self'); setTimeout(()=> location.reload(), 600); }
+        });
+    }
 }
 function updateAccountUI(){
     const name = (typeof login !== 'undefined' && login) ? login : null;
     if(accountLabelEl){ accountLabelEl.textContent = name ? name : 'Sign in / Sign up'; }
-    const infoPanel=document.getElementById('accountInfoPanel');
-    const signIn=document.getElementById('accountSignInPanel');
-    const signUp=document.getElementById('accountSignUpPanel');
-    if(!infoPanel||!signIn||!signUp) return;
-    if(name){
-        infoPanel.style.display='block';
-        signIn.style.display='none';
-        signUp.style.display='none';
-        const welcome=document.getElementById('ap_welcome');
-        if(welcome) welcome.textContent='Welcome, '+name;
-    } else {
-        infoPanel.style.display='none';
-        signIn.style.display='block';
-        signUp.style.display='block';
+    const actions=document.getElementById('accountInlineActions');
+    if(actions){
+        const logoutBtn=actions.querySelector('[data-action="logout"]');
+        if(logoutBtn) logoutBtn.style.display = name ? 'inline-block':'none';
     }
 }
     searchInput = document.getElementById('searchInput');

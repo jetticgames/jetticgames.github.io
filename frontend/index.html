@@ -111,25 +111,12 @@
                 <div id="accountPage" class="page">
                     <section class="games-section">
                         <div class="section-header"><h2 class="section-title">Account</h2></div>
-                        <div class="account-wrapper" id="accountWrapper">
-                            <div class="account-panels">
-                                <div class="account-panel" id="accountSignInPanel">
-                                    <h3>Sign In</h3>
-                                    <iframe title="Sign In" src="https://www.authpro.com/auth/CoolD1234/" loading="lazy" class="account-iframe"></iframe>
-                                </div>
-                                <div class="account-panel" id="accountSignUpPanel">
-                                    <h3>Create Account</h3>
-                                    <iframe title="Sign Up" src="https://www.authpro.com/auth/CoolD1234/?action=reg" loading="lazy" class="account-iframe"></iframe>
-                                </div>
-                                <div class="account-panel" id="accountInfoPanel" style="display:none;">
-                                    <h3>Your Account</h3>
-                                    <div class="account-info-box">
-                                        <span id="ap_welcome"></span>
-                                        <div class="account-actions">
-                                            <button class="account-logout-btn" id="accountLogoutBtn" type="button">Log Out</button>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="single-account-frame">
+                            <iframe id="accountIframe" class="account-iframe" src="https://www.authpro.com/auth/CoolD1234/" title="Account" loading="lazy"></iframe>
+                            <div class="account-inline-actions" id="accountInlineActions">
+                                <button type="button" class="account-action-btn" data-action="signin">Sign In</button>
+                                <button type="button" class="account-action-btn" data-action="signup">Sign Up</button>
+                                <button type="button" class="account-action-btn danger" data-action="logout" style="display:none;">Log Out</button>
                             </div>
                         </div>
                     </section>
