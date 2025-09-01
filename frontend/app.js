@@ -212,6 +212,27 @@ function renderGames() {
 function initializeDOMElements() {
     // Get DOM elements
     gamesGrid = document.getElementById('allGames');
+    searchInput = document.getElementById('searchInput');
+    filterBtns = document.querySelectorAll('.filter-btn');
+    gameFrame = document.getElementById('gameFrame');
+    fullscreenFrame = document.getElementById('fullscreenFrame');
+    fullscreenOverlay = document.getElementById('fullscreenOverlay');
+    gamePage = document.getElementById('gamePage');
+    homepage = document.getElementById('homePage');
+    gameTitle = document.getElementById('gameTitle');
+    gameDescription = document.getElementById('gameDescription');
+    recommendedGames = document.getElementById('suggestedGames');
+    fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
+    exitFullscreenBtn = document.querySelector('.exit-fullscreen-btn');
+    
+    console.log('🔧 DOM elements initialized');
+    console.log('🔍 Key elements check:');
+    console.log('  - Featured games grid:', !!document.getElementById('featuredGames'));
+    console.log('  - All games grid:', !!document.getElementById('allGames'));
+    console.log('  - Search input:', !!document.getElementById('searchInput'));
+    console.log('  - Game frame:', !!document.getElementById('gameFrame'));
+    console.log('  - Suggested games:', !!document.getElementById('suggestedGames'));
+}
 
 // ===== Account System (AuthPro integration) =====
 function setupAccountSystem(){
@@ -236,27 +257,6 @@ function updateAccountUI(){
         const logoutBtn=actions.querySelector('[data-action="logout"]');
         if(logoutBtn) logoutBtn.style.display = name ? 'inline-block':'none';
     }
-}
-    searchInput = document.getElementById('searchInput');
-    filterBtns = document.querySelectorAll('.filter-btn');
-    gameFrame = document.getElementById('gameFrame');
-    fullscreenFrame = document.getElementById('fullscreenFrame');
-    fullscreenOverlay = document.getElementById('fullscreenOverlay');
-    gamePage = document.getElementById('gamePage');
-    homepage = document.getElementById('homePage');
-    gameTitle = document.getElementById('gameTitle');
-    gameDescription = document.getElementById('gameDescription');
-    recommendedGames = document.getElementById('suggestedGames');
-    fullscreenBtn = document.querySelector('[data-action="fullscreen"]');
-    exitFullscreenBtn = document.querySelector('.exit-fullscreen-btn');
-    
-    console.log('🔧 DOM elements initialized');
-    console.log('🔍 Key elements check:');
-    console.log('  - Featured games grid:', !!document.getElementById('featuredGames'));
-    console.log('  - All games grid:', !!document.getElementById('allGames'));
-    console.log('  - Search input:', !!document.getElementById('searchInput'));
-    console.log('  - Game frame:', !!document.getElementById('gameFrame'));
-    console.log('  - Suggested games:', !!document.getElementById('suggestedGames'));
 }
 
 // Load games from JSON
