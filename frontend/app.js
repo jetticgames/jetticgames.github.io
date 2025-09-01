@@ -33,6 +33,8 @@ let isFullscreen = false;
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
+    // Block mobile devices
+    if(isMobileDevice()) { showMobileUnsupported(); return; }
     loadSettingsFromCookies();
     loadFavoritesFromCookies();
     if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy; else settings.defaultProxy = false;
@@ -84,6 +86,20 @@ async function startApp() {
         // Emergency fallback
         emergencyFallback();
     }
+}
+
+function isMobileDevice(){
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const smallViewport = Math.max(window.innerWidth, window.innerHeight) < 900; // treat narrow screens as mobile
+    return (/android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/i.test(ua) || smallViewport);
+}
+function showMobileUnsupported(){
+    const overlay=document.getElementById('mobileUnsupported');
+    if(overlay){ overlay.style.display='flex'; overlay.removeAttribute('aria-hidden'); }
+    // Remove main app container to reduce CPU usage
+    const app=document.querySelector('.app-container'); if(app) app.style.display='none';
+    // Attempt to unregister service workers so they don't run on mobile
+    if('serviceWorker' in navigator){ navigator.serviceWorker.getRegistrations().then(regs=> regs.forEach(r=>r.unregister())); }
 }
 
 async function loadGamesWithFallback() {
