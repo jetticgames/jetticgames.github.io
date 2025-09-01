@@ -1034,7 +1034,19 @@ function saveSettingsToCookies(){ document.cookie='ww_settings='+encodeURICompon
 function loadSettingsFromCookies(){ const m=document.cookie.match(/ww_settings=([^;]+)/); if(m){ try{ settings=JSON.parse(decodeURIComponent(m[1])); isProxyEnabled=settings.defaultProxy; }catch(e){} } }
 
 function buildCategoryTabs(){ const iconMap={puzzle:'fa-puzzle-piece',action:'fa-bolt',adventure:'fa-map',sports:'fa-football-ball',strategy:'fa-chess',arcade:'fa-ghost'}; const c=document.getElementById('categoryTabs'); if(!c||games.length===0)return; const cats=[...new Set(games.map(g=>g.category.toLowerCase()))].sort(); const all=['all',...cats]; c.innerHTML=all.map(x=>{ if(x==='all') return `<button class="category-tab" data-cat="all"><i class="fas fa-th-large"></i> All</button>`; const icon=iconMap[x]||'fa-tag'; return `<button class="category-tab" data-cat="${x}"><i class="fas ${icon}"></i> ${capitalize(x)}</button>`; }).join(''); c.onclick=e=>{const b=e.target.closest('.category-tab'); if(!b)return; c.querySelectorAll('.category-tab').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); filterHomeByCategory(b.dataset.cat);}; const first=c.querySelector('[data-cat="all"]'); if(first) first.classList.add('active'); }
-function filterHomeByCategory(cat){ const grid=document.getElementById('allGames'); const titleEl=document.querySelector('#homePage .section-title'); if(!grid)return; if(cat==='all'){ grid.innerHTML=games.map(g=>createGameCard(g)).join(''); if(titleEl) titleEl.textContent='All Games'; return;} const filtered=games.filter(g=>g.category.toLowerCase()===cat.toLowerCase()); grid.innerHTML=filtered.map(g=>createGameCard(g)).join(''); if(titleEl) titleEl.textContent=capitalize(cat)+' Games'; }
+function filterHomeByCategory(cat){
+    const grid=document.getElementById('allGames');
+    const titleEl=document.getElementById('allGamesTitle');
+    if(!grid) return;
+    if(cat==='all'){
+        grid.innerHTML=games.map(g=>createGameCard(g)).join('');
+        if(titleEl) titleEl.textContent='All Games';
+        return;
+    }
+    const filtered=games.filter(g=>g.category.toLowerCase()===cat.toLowerCase());
+    grid.innerHTML=filtered.map(g=>createGameCard(g)).join('');
+    if(titleEl) titleEl.textContent=capitalize(cat)+' Games';
+}
 
 function addOrReplaceCurrentGameTab(game){ if(!game)return; clearTimeout(currentGameTabTimeout); let tab=document.querySelector('.current-game-tab'); if(tab) tab.remove(); const list=document.querySelector('.sidebar nav .nav-list'); if(!list)return; const li=document.createElement('li'); li.className='current-game-tab'; li.dataset.gameId=game.id; li.innerHTML=`<i class="fas fa-gamepad"></i><span>${game.title}</span>`; li.onclick=()=>{ if(currentGame && currentGame.id===game.id){ showGamePage(game);} else { const g=games.find(x=>x.id==li.dataset.gameId); if(g) showGamePage(g);} }; list.insertBefore(li, list.firstChild.nextSibling); }
 function scheduleCurrentGameTabRemoval(){ const tab=document.querySelector('.current-game-tab'); if(!tab)return; clearTimeout(currentGameTabTimeout); currentGameTabTimeout=setTimeout(()=>{ tab.classList.add('removing'); setTimeout(()=>{ if(tab.parentElement) tab.remove(); }, 350); }, 10000); }
