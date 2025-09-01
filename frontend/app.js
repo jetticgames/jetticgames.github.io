@@ -1123,6 +1123,7 @@ function ensureSettingsPage(){
                     <div class="setting-group">
                         <h3>Game Settings</h3>
                         <div class="setting-item"><label style="cursor:pointer;"><input type="checkbox" id="proxyToggleSetting" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)"> Enable Proxy for Games (Beta Feature)</label></div>
+                        <div class="setting-item"><button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button> <small style="display:block; margin-top:6px; color:#7d8590;">Force refresh assets & service worker.</small></div>
                     </div>
                     <div class="setting-group">
                         <h3>Display Settings</h3>
@@ -1131,6 +1132,29 @@ function ensureSettingsPage(){
                 </div>
             </section>
         </div>`);
+}
+
+// ===== Update / Cache Refresh =====
+function checkForUpdates(){
+    const btn=document.getElementById('checkUpdatesBtn');
+    if(btn){ btn.disabled=true; btn.textContent='Updating...'; }
+    // Attempt to unregister service workers, clear caches, then reload
+    const doReload=()=> setTimeout(()=> location.reload(true), 400);
+    try {
+        if('serviceWorker' in navigator){
+            navigator.serviceWorker.getRegistrations().then(regs=>{
+                Promise.all(regs.map(r=>r.unregister())).finally(()=>{
+                    if(window.caches){
+                        caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).finally(doReload);
+                    } else doReload();
+                });
+            });
+        } else if(window.caches){
+            caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).finally(doReload);
+        } else doReload();
+    } catch(e){
+        console.warn('Update check encountered error', e); doReload();
+    }
 }
 function renderFavoritesPage(){
     const grid=document.getElementById('favoritesPageGrid');

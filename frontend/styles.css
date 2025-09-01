@@ -19,6 +19,10 @@ body, * { cursor: none !important; }
 .custom-cursor-dot { position:fixed; top:0; left:0; width:8px; height:8px; border-radius:50%; background:#ffffff; pointer-events:none; z-index:100000; transform:translate(-50%, -50%); box-shadow:0 0 0 4px rgba(255,255,255,0.15), 0 0 6px 2px rgba(255,255,255,0.25); transition:opacity .25s; }
 .cursor-hidden .custom-cursor-dot { opacity:0; }
 @media (hover:none), (pointer:coarse) { body, * { cursor:auto !important; } .custom-cursor-dot { display:none; } }
+/* Update check button */
+.update-check-btn {background:#238636; border:1px solid #2ea043; color:#fff; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:.25s;}
+.update-check-btn:hover:not(:disabled){background:#2ea043;}
+.update-check-btn:disabled{opacity:.6; cursor:wait;}
 
 /* App Container */
 .app-container {
