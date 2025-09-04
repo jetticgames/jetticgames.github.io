@@ -250,8 +250,11 @@ function initializeDOMElements() {
 
 // ===== Auth0 Integration (SPA) =====
 async function initAuth0(){
-    if(!window.createAuth0Client){
-        console.warn('Auth0 SDK not loaded yet');
+    // Ensure SDK is present (handles rare race where script not parsed yet)
+    try { await ensureAuth0SdkLoaded(); } catch(e){
+        console.error('Auth0 SDK failed to load', e);
+        const loadingEl=document.getElementById('authLoading');
+        if(loadingEl) loadingEl.textContent = 'Auth failed to load (SDK).';
         return;
     }
     try {
@@ -273,6 +276,25 @@ async function initAuth0(){
         const loadingEl=document.getElementById('authLoading');
         if(loadingEl) loadingEl.textContent = 'Auth initialization failed.';
     }
+}
+
+// Poll for SDK availability (in case of slow network or head parsing race)
+async function ensureAuth0SdkLoaded(timeoutMs=8000){
+    if(window.createAuth0Client) return true;
+    // If script tag missing, inject it
+    if(!document.querySelector('script[src*="auth0-spa-js"]')){
+        const s=document.createElement('script');
+        s.src='https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.js';
+        s.async=true; document.head.appendChild(s);
+    }
+    const start=performance.now();
+    return await new Promise((resolve,reject)=>{
+        (function wait(){
+            if(window.createAuth0Client) return resolve(true);
+            if(performance.now()-start>timeoutMs) return reject(new Error('timeout waiting for Auth0 SDK'));
+            setTimeout(wait,100);
+        })();
+    });
 }
 
 function bindAuthButtons(){
