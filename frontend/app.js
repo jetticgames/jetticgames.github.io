@@ -29,6 +29,7 @@ let fullscreenBtn;
 let exitFullscreenBtn;
 
 let accountLabelEl;
+let logoutModalEl, logoutConfirmBtn, logoutCancelBtn;
 let isFullscreen = false;
 
 // Auth0 variables
@@ -79,6 +80,9 @@ async function startApp() {
         // Initialize DOM elements first
         initializeDOMElements();
     accountLabelEl = document.getElementById('accountLabel');
+    logoutModalEl = document.getElementById('logoutConfirmModal');
+    logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+    logoutCancelBtn = document.getElementById('logoutCancelBtn');
         
         // Load games (with immediate fallback)
         await loadGamesWithFallback();
@@ -363,53 +367,43 @@ function markAuthUnavailable(){
 }
 
 function bindAuthButtons(){
+    // Sidebar account item acts as unified auth control
+    const accountNav=document.getElementById('accountNavItem');
+    if(accountNav){
+        accountNav.onclick=(e)=>{ e.preventDefault(); handleAccountButton(); };
+    }
     const loginBtn=document.getElementById('loginBtn');
+    if(loginBtn){ loginBtn.onclick=()=> auth0Client.loginWithRedirect(); }
     const logoutBtn=document.getElementById('logoutBtn');
-    if(loginBtn){
-        loginBtn.addEventListener('click', ()=> auth0Client.loginWithRedirect());
-    }
-    if(logoutBtn){
-        logoutBtn.addEventListener('click', ()=> auth0Client.logout({ logoutParams: { returnTo: window.location.origin }}));
-    }
+    if(logoutBtn){ logoutBtn.onclick=()=> openLogoutModal(); }
+    if(logoutConfirmBtn){ logoutConfirmBtn.onclick=()=> { if(auth0Client){ auth0Client.logout({ logoutParams:{ returnTo: window.location.origin }}); } }; }
+    if(logoutCancelBtn){ logoutCancelBtn.onclick=()=> closeLogoutModal(); }
 }
 
+function handleAccountButton(){
+    if(!auth0Client){ markAuthUnavailable(); return; }
+    auth0Client.isAuthenticated().then(isAuth=>{
+        if(!isAuth){ auth0Client.loginWithRedirect(); }
+        else { openLogoutModal(); }
+    }).catch(()=>{ markAuthUnavailable(); });
+}
+function openLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='flex'; setTimeout(()=> logoutConfirmBtn?.focus(), 30);} }
+function closeLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='none'; } }
+
 async function updateAuthUI(){
-    const loading=document.getElementById('authLoading');
-    const loggedOut=document.getElementById('authLoggedOut');
-    const loggedIn=document.getElementById('authLoggedIn');
-    if(!auth0Client){
-        if(loading) loading.textContent='Auth library not ready';
-        return;
-    }
+    if(!auth0Client){ if(accountLabelEl) accountLabelEl.textContent='Auth...'; return; }
     try {
         const isAuth = await auth0Client.isAuthenticated();
-        if(loading) loading.style.display='none';
         if(isAuth){
-            if(loggedOut) loggedOut.style.display='none';
-            if(loggedIn) loggedIn.style.display='block';
             const user = await auth0Client.getUser();
-            if(accountLabelEl) accountLabelEl.textContent = user && (user.given_name || user.nickname || user.name) ? (user.given_name || user.nickname || user.name) : 'Account';
-            const pic=document.getElementById('userPicture');
-            const nm=document.getElementById('userName');
-            const em=document.getElementById('userEmail');
-            if(user){
-                if(pic){
-                    if(user.picture){ pic.src=user.picture; pic.style.display='block'; } else { pic.style.display='none'; }
-                }
-                if(nm){ nm.textContent = user.name || user.nickname || 'User'; }
-                if(em){ em.textContent = user.email || ''; }
-                const idTokenClaims = await auth0Client.getIdTokenClaims();
-                const pre=document.getElementById('idTokenPreview');
-                if(pre){ pre.textContent = idTokenClaims ? JSON.stringify(idTokenClaims, null, 2) : '(no token claims)'; }
-            }
+            const label = user && (user.given_name || user.nickname || user.name || user.email);
+            if(accountLabelEl) accountLabelEl.textContent = label || 'Account';
         } else {
-            if(loggedIn) loggedIn.style.display='none';
-            if(loggedOut) loggedOut.style.display='block';
             if(accountLabelEl) accountLabelEl.textContent='Sign in / Sign up';
         }
-    } catch (e){
+    } catch(e){
         console.error('updateAuthUI error', e);
-        if(loading) loading.textContent='Auth error';
+        if(accountLabelEl) accountLabelEl.textContent='Auth error';
     }
 }
 
@@ -555,12 +549,15 @@ function handleNavigation(e) {
         
         console.log('Navigating to page:', page, 'or category:', category);
         
-        // Update active nav state
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-        navItem.classList.add('active');
+        // Update active nav state (account button does not toggle pages)
+        if(navItem.id !== 'accountNavItem'){
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            navItem.classList.add('active');
+        }
         
         // Show appropriate page or filter by category
-        if (page) {
+    if (navItem.id === 'accountNavItem') { handleAccountButton(); return; }
+    if (page) {
             switch (page) {
                 case 'home':
                     showHomePage();
@@ -573,9 +570,6 @@ function handleNavigation(e) {
                     break;
                 case 'settings':
                     showSettingsPage();
-                    break;
-                case 'account':
-                    showAccountPage();
                     break;
                 default:
                     console.warn('Unknown page:', page);
@@ -807,11 +801,6 @@ function showSettingsPage(){
     hideAllPages();
     const pg=document.getElementById('settingsPage'); if(pg) pg.classList.add('active');
     const chk=document.getElementById('proxyToggleSetting'); if(chk) chk.checked=isProxyEnabled;
-}
-function showAccountPage(){
-    hideAllPages();
-    const pg=document.getElementById('accountPage'); if(pg) pg.classList.add('active');
-    updateAuthUI();
 }
 
 function showGamePage(game) {

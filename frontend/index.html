@@ -42,7 +42,7 @@
                 </ul>
                 
                 <ul class="nav-list nav-bottom">
-                    <li class="nav-item nav-account" data-page="account">
+                    <li class="nav-item nav-account" id="accountNavItem">
                         <a href="#" class="nav-link account-link" style="justify-content:flex-start;">
                             <i class="nav-icon fas fa-user-circle"></i>
                             <span id="accountLabel">Sign in / Sign up</span>
@@ -107,37 +107,19 @@
                         <div class="games-grid" id="allGames"></div>
                     </section>
                 </div>
-                <!-- Account Page (Auth0) -->
-                <div id="accountPage" class="page">
-                    <section class="games-section">
-                        <div class="section-header"><h2 class="section-title">Account</h2></div>
-                        <div class="single-account-frame" id="accountContent">
-                            <div id="authLoading">Loading authentication...</div>
-                            <div id="authLoggedOut" style="display:none;">
-                                <p>You are not signed in.</p>
-                                <button type="button" class="account-action-btn" id="loginBtn">Sign In / Sign Up</button>
-                            </div>
-                            <div id="authLoggedIn" style="display:none;">
-                                <div class="profile" style="display:flex; gap:16px; align-items:center;">
-                                    <img id="userPicture" alt="User picture" style="width:72px;height:72px;border-radius:50%;object-fit:cover;display:none;" />
-                                    <div class="profile-texts">
-                                        <h3 id="userName" style="margin:0 0 4px;font-size:20px;line-height:1.2;">User</h3>
-                                        <p id="userEmail" style="margin:0;color:#a0a6ad;font-size:14px;">&nbsp;</p>
-                                    </div>
-                                </div>
-                                <div class="account-inline-actions" style="margin-top:16px;" id="authActions">
-                                    <button type="button" class="account-action-btn danger" id="logoutBtn">Log Out</button>
-                                </div>
-                                <details style="margin-top:16px;">
-                                    <summary style="cursor:pointer;">ID Token (debug)</summary>
-                                    <pre id="idTokenPreview" style="max-width:100%;overflow:auto;font-size:11px;background:#0d1117;padding:12px;border:1px solid #30363d;border-radius:8px;">(hidden)</pre>
-                                </details>
-                            </div>
-                            <div style="margin-top:12px;font-size:12px;color:#6b7280;">
-                                <em>Authentication powered by Auth0. Replace placeholders in app.js with your actual domain & client ID.</em>
-                            </div>
-                        </div>
-                    </section>
+                <!-- Inline auth status elements (minimal) -->
+                <div style="display:none;" aria-hidden="true">
+                    <div id="authLoading">Loading authentication...</div>
+                    <div id="authLoggedOut" style="display:none;">
+                        <button type="button" id="loginBtn" aria-label="Sign in" hidden></button>
+                    </div>
+                    <div id="authLoggedIn" style="display:none;">
+                        <img id="userPicture" alt="User picture" hidden />
+                        <span id="userName" hidden>User</span>
+                        <span id="userEmail" hidden></span>
+                        <pre id="idTokenPreview" hidden></pre>
+                        <button type="button" id="logoutBtn" hidden>Logout</button>
+                    </div>
                 </div>
 
                 <!-- Game Page -->
@@ -231,6 +213,17 @@
         <div class="mu-content">
             <h1>Mobile Not Supported</h1>
             <p>WaterWall is currently available on desktop devices only. Please visit from a larger screen.</p>
+        </div>
+    </div>
+    <!-- Logout Confirm Modal -->
+    <div id="logoutConfirmModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div style="background:#161b22; border:1px solid #30363d; padding:20px 24px; border-radius:12px; width:320px; font-family:inherit;">
+            <h3 style="margin:0 0 12px; font-size:18px;">Log out?</h3>
+            <p style="margin:0 0 18px; font-size:14px; line-height:1.4; color:#a0a6ad;">You are currently signed in. Do you want to log out now?</p>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button id="logoutCancelBtn" style="background:#30363d; border:1px solid #3d444d; color:#c9d1d9; padding:6px 14px; border-radius:6px; cursor:pointer;">Cancel</button>
+                <button id="logoutConfirmBtn" style="background:#da3633; border:1px solid #f85149; color:#fff; padding:6px 14px; border-radius:6px; cursor:pointer;">Log Out</button>
+            </div>
         </div>
     </div>
 </body>
