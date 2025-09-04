@@ -51,6 +51,13 @@ body, * { cursor: none !important; }
 .update-btn-secondary:hover {background:#262e38;}
 .update-btn-primary:focus, .update-btn-secondary:focus {outline:2px solid #58a6ff; outline-offset:2px;}
 .update-modal[aria-hidden="true"] {display:none;}
+/* Logout confirm modal buttons */
+#logoutConfirmModal button {font-family:inherit;}
+#logoutConfirmModal .logout-btn {background:#1b1f24; border:1px solid #30363d; color:#fff; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:.25s;}
+#logoutConfirmModal .logout-btn:hover {background:#262e36;}
+#logoutConfirmModal .logout-btn.danger {background:#f85149; border-color:#da3633;}
+#logoutConfirmModal .logout-btn.danger:hover {background:#da3633;}
+#logoutConfirmModal .logout-btn:focus {outline:2px solid #58a6ff; outline-offset:2px;}
 /* Mobile unsupported overlay */
 .mobile-unsupported {position:fixed; inset:0; background:#0d1117; z-index:20000; display:flex; align-items:center; justify-content:center; padding:40px; text-align:center;}
 .mobile-unsupported .mu-content {max-width:520px;}
