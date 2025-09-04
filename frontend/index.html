@@ -13,6 +13,18 @@
     <script>window.__PREFERRED_AUTH0_VERSION='2.7';</script>
 </head>
 <body>
+    <!-- Global Page Loader -->
+    <div id="appPageLoader" class="app-page-loader" aria-live="polite" aria-busy="true">
+        <div class="apl-inner">
+            <div class="apl-spinner" aria-hidden="true">
+                <div></div><div></div><div></div><div></div>
+            </div>
+            <h2 class="apl-title">Loading WaterWall</h2>
+            <p class="apl-sub">Preparing games & assets...</p>
+            <div class="apl-progress-bar"><span class="apl-progress-fill" id="aplProgressFill"></span></div>
+            <div class="apl-hint" id="aplHint" role="status"></div>
+        </div>
+    </div>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">

@@ -55,9 +55,70 @@ const auth0Config = {
 };
 console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redirect_uri);
 
+// ===== Global Page Loader (initial page load experience) =====
+let __pageLoaderEl=null, __pageLoaderStart=performance.now(), __pageLoaderMin=2000, __pageLoaderDone=false;
+let __pageLoaderStages={ dom:false, games:false, auth:false, ui:false, final:false };
+let __pageLoaderWarnTimer=null, __pageLoaderSafetyTimer=null;
+
+function initPageLoader(){
+    __pageLoaderEl = document.getElementById('appPageLoader');
+    if(!__pageLoaderEl){ return; }
+    __pageLoaderStart = performance.now();
+    // Connectivity warning at 30s
+    __pageLoaderWarnTimer = setTimeout(()=>{
+        if(__pageLoaderDone) return;
+        const warn = __pageLoaderEl.querySelector('.apl-warning');
+        if(warn){ warn.style.display='block'; }
+    }, 30000);
+    // Hard safety removal at 45s even if something wedged
+    __pageLoaderSafetyTimer = setTimeout(()=>{
+        if(!__pageLoaderDone){ hidePageLoader(true); }
+    }, 45000);
+    signalPageLoaderStage('dom');
+}
+
+function signalPageLoaderStage(stage){
+    if(!__pageLoaderEl) return;
+    if(!(__pageLoaderStages.hasOwnProperty(stage))) return;
+    if(__pageLoaderStages[stage]) return; // already signaled
+    __pageLoaderStages[stage] = true;
+    const stages = Object.values(__pageLoaderStages).filter(Boolean).length;
+    const pct = Math.min(90, Math.round((stages/5)*90)); // Reserve last 10% for final hide
+    const bar = __pageLoaderEl.querySelector('.apl-progress-inner');
+    if(bar){ bar.style.width = pct+'%'; }
+    maybeHidePageLoader();
+}
+
+function maybeHidePageLoader(){
+    if(!__pageLoaderEl) return;
+    // All required stages except 'final' must be done before we consider hiding
+    const coreDone = __pageLoaderStages.games && __pageLoaderStages.auth && __pageLoaderStages.ui;
+    if(!coreDone) return;
+    const elapsed = performance.now() - __pageLoaderStart;
+    const remaining = Math.max(0, __pageLoaderMin - elapsed);
+    clearTimeout(__pageLoaderWarnTimer);
+    setTimeout(()=> hidePageLoader(false), remaining);
+}
+
+function hidePageLoader(force){
+    if(!__pageLoaderEl || __pageLoaderDone) return;
+    __pageLoaderDone = true;
+    clearTimeout(__pageLoaderWarnTimer); clearTimeout(__pageLoaderSafetyTimer);
+    const bar = __pageLoaderEl.querySelector('.apl-progress-inner');
+    if(bar){ bar.style.width='100%'; }
+    // Trigger fade-out animation class
+    requestAnimationFrame(()=>{
+        __pageLoaderEl.classList.add('fade-out');
+        // Remove from DOM after animation (match CSS ~600ms + small buffer)
+        setTimeout(()=>{ if(__pageLoaderEl){ __pageLoaderEl.remove(); __pageLoaderEl=null; } }, 800);
+    });
+}
+
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
+    // Initialize global page loader first
+    initPageLoader();
     // Block mobile devices
     if(isMobileDevice()) { showMobileUnsupported(); return; }
     loadSettingsFromCookies();
@@ -97,10 +158,12 @@ async function startApp() {
         
         // Load games (with immediate fallback)
         await loadGamesWithFallback();
+        signalPageLoaderStage('games');
         
         // Setup event listeners
         setupEventListeners();
     await initAuth0();
+    signalPageLoaderStage('auth');
         
         // Force render games immediately
         forceRenderGames();
@@ -110,13 +173,17 @@ async function startApp() {
     buildCategoryTabs();
     renderFavoritesSection();
     updateFavoriteButtonState();
+    signalPageLoaderStage('ui');
         
         console.log('✅ App initialization complete! Games loaded:', games.length);
+        // Final stage triggers hide after min duration
+        signalPageLoaderStage('final');
     } catch (error) {
         console.error('❌ App initialization failed:', error);
         
         // Emergency fallback
         emergencyFallback();
+        hidePageLoader(true);
     }
 }
 
@@ -1462,8 +1529,16 @@ function finishGameLoadingOverlay(success){
     status.textContent = success ? 'Loaded!' : 'Load ended';
     hint.textContent = success ? '' : 'You can retry or toggle proxy.';
     // Ensure at least 5s display
-    const delay = overlay.dataset.min==='done'? 400 : 5200; // if min not reached, wait remainder ~5s
-    setTimeout(()=>{ overlay.style.display='none'; }, delay);
+    const delay = overlay.dataset.min==='done'? 150 : 5200; // if min not reached, wait remainder ~5s
+    setTimeout(()=>{
+        // Apply fade-out animation class defined in CSS
+        overlay.classList.add('fade-out');
+        overlay.style.pointerEvents='none';
+        const removeFn=()=>{ overlay.style.display='none'; overlay.classList.remove('fade-out'); overlay.removeEventListener('transitionend', removeFn); };
+        overlay.addEventListener('transitionend', removeFn);
+        // Fallback removal in case transition event not fired
+        setTimeout(removeFn, 800);
+    }, delay);
 }
 
 // ===== Custom Cursor =====
