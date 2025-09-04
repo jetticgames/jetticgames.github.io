@@ -281,20 +281,42 @@ async function initAuth0(){
 // Poll for SDK availability (in case of slow network or head parsing race)
 async function ensureAuth0SdkLoaded(timeoutMs=8000){
     if(window.createAuth0Client) return true;
-    // If script tag missing, inject it
-    if(!document.querySelector('script[src*="auth0-spa-js"]')){
-        const s=document.createElement('script');
-        s.src='https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.js';
-        s.async=true; document.head.appendChild(s);
+    const candidateVersions=[
+        '2.5.3',
+        '2.5.2',
+        '2.5.0',
+        '2.4.3'
+    ];
+    const base='https://cdn.auth0.com/js/auth0-spa-js';
+    const tried=[];
+    function loadVersion(v){
+        return new Promise((resolve,reject)=>{
+            const existing=document.querySelectorAll('script[data-auth0-sdk]');
+            existing.forEach(n=>n.parentNode.removeChild(n));
+            const s=document.createElement('script');
+            s.src=`${base}/${v}/auth0-spa-js.production.js`;
+            s.async=true;
+            s.dataset.auth0Sdk=v;
+            s.onload=()=>resolve(v);
+            s.onerror=()=>reject(new Error('load failed '+v));
+            document.head.appendChild(s);
+        });
     }
-    const start=performance.now();
-    return await new Promise((resolve,reject)=>{
-        (function wait(){
-            if(window.createAuth0Client) return resolve(true);
-            if(performance.now()-start>timeoutMs) return reject(new Error('timeout waiting for Auth0 SDK'));
-            setTimeout(wait,100);
-        })();
-    });
+    for(const v of candidateVersions){
+        try {
+            tried.push(v);
+            await loadVersion(v);
+            // wait until global available or timeout
+            const start=performance.now();
+            while(!window.createAuth0Client && performance.now()-start < 2500){
+                await new Promise(r=>setTimeout(r,50));
+            }
+            if(window.createAuth0Client) return true;
+        } catch(e){
+            console.warn('Auth0 SDK load attempt failed for', v, e);
+        }
+    }
+    throw new Error('Failed to load Auth0 SDK versions tried: '+tried.join(', '));
 }
 
 function bindAuthButtons(){
