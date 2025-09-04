@@ -36,8 +36,8 @@
         "title": "Chess",
         "description": "Strategic board game for two players on a checkered board. Plan your moves carefully and outmaneuver your opponent to achieve checkmate!",
         "category": "strategy",
-        "embed": "https://chess.com/play",
-        "thumbnail": "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=280&h=200&fit=crop&crop=center"
+        "embed": "https://chessunblock.github.io/file/",
+        "thumbnail": "images/chess.png"
     },
     {
         "id": 6,
