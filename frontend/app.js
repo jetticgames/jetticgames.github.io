@@ -80,12 +80,8 @@ function initPageLoader(){
 function signalPageLoaderStage(stage){
     if(!__pageLoaderEl) return;
     if(!(__pageLoaderStages.hasOwnProperty(stage))) return;
-    if(__pageLoaderStages[stage]) return; // already signaled
+    if(__pageLoaderStages[stage]) return;
     __pageLoaderStages[stage] = true;
-    const stages = Object.values(__pageLoaderStages).filter(Boolean).length;
-    const pct = Math.min(90, Math.round((stages/5)*90)); // Reserve last 10% for final hide
-    const bar = __pageLoaderEl.querySelector('.apl-progress-inner');
-    if(bar){ bar.style.width = pct+'%'; }
     maybeHidePageLoader();
 }
 
@@ -104,12 +100,8 @@ function hidePageLoader(force){
     if(!__pageLoaderEl || __pageLoaderDone) return;
     __pageLoaderDone = true;
     clearTimeout(__pageLoaderWarnTimer); clearTimeout(__pageLoaderSafetyTimer);
-    const bar = __pageLoaderEl.querySelector('.apl-progress-inner');
-    if(bar){ bar.style.width='100%'; }
-    // Trigger fade-out animation class
     requestAnimationFrame(()=>{
         __pageLoaderEl.classList.add('fade-out');
-        // Remove from DOM after animation (match CSS ~600ms + small buffer)
         setTimeout(()=>{ if(__pageLoaderEl){ __pageLoaderEl.remove(); __pageLoaderEl=null; } }, 800);
     });
 }

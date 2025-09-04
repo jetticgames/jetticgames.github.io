@@ -13,16 +13,16 @@
     <script>window.__PREFERRED_AUTH0_VERSION='2.7';</script>
 </head>
 <body>
-    <!-- Global Page Loader -->
+    <!-- Global Page Loader (Logo + Ring Spinner) -->
     <div id="appPageLoader" class="app-page-loader" aria-live="polite" aria-busy="true">
-        <div class="apl-inner">
-            <div class="apl-spinner" aria-hidden="true">
-                <div></div><div></div><div></div><div></div>
+        <div class="apl-full">
+            <div class="apl-logo-wrap">
+                <img src="logo.png" alt="WaterWall" class="apl-logo" draggable="false" />
+                <div class="apl-ring-spinner" aria-hidden="true"></div>
             </div>
-            <h2 class="apl-title">Loading WaterWall</h2>
-            <p class="apl-sub">Preparing games & assets...</p>
-            <div class="apl-progress-bar"><span class="apl-progress-fill" id="aplProgressFill"></span></div>
-            <div class="apl-hint" id="aplHint" role="status"></div>
+            <h2 class="apl-title">WaterWall</h2>
+            <p class="apl-sub" id="aplHint">Loading games & features...</p>
+            <div class="apl-warning" style="display:none;">Connection seems slow... still preparing assets.</div>
         </div>
     </div>
     <div class="app-container">
