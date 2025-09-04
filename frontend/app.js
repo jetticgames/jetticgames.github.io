@@ -34,17 +34,23 @@ let isFullscreen = false;
 
 // Auth0 variables
 let auth0Client = null;
+const __redirectBase = (()=>{
+    // Normalize redirect URI (Auth0 can be picky about trailing slash differences)
+    const origin = window.location.origin.replace(/\/$/, '');
+    const path = window.location.pathname === '/' ? '' : window.location.pathname.replace(/index\.html$/i,'');
+    return origin + path + '/';
+})();
 const auth0Config = {
     domain: 'dev-lciqwnyb52wdezeo.us.auth0.com',
     clientId: 'sbABJXSUTPmROG9WTrdB0LrUBtTwnWxO',
     authorizationParams: {
-        redirect_uri: window.location.origin,
-        // audience: 'YOUR_API_AUDIENCE', // (optional) if calling a protected API
-        // scope: 'openid profile email' // default scopes
+        redirect_uri: __redirectBase,
+        // scope kept default openid profile email implicitly
     },
-    cacheLocation: 'memory', // can switch to 'localstorage' if you need SSO across tabs (trade-off: XSS risk)
+    cacheLocation: 'memory',
     useRefreshTokens: false
 };
+console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redirect_uri);
 
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
@@ -268,10 +274,18 @@ async function initAuth0(){
         if(window.location.search.includes('code=') && window.location.search.includes('state=')){
             try {
                 await auth0Client.handleRedirectCallback();
-                // Remove code/state params from URL for cleanliness
                 window.history.replaceState({}, document.title, window.location.pathname);
             } catch (e){
                 console.error('Auth0 redirect error', e);
+                if(e && (e.error || e.error_description)){
+                    console.warn('[Auth0] OAuth error detail:', e.error, e.error_description);
+                } else {
+                    console.warn('[Auth0] 401/redirect issue possible causes:\n' +
+                        ' - Mismatched Allowed Callback URLs (add both '+auth0Config.authorizationParams.redirect_uri+' and '+window.location.origin+')\n' +
+                        ' - Missing Allowed Web Origins (add '+window.location.origin+')\n' +
+                        ' - PKCE / code_verifier mismatch (try clearing site data and retry)\n' +
+                        ' - Using a different Client ID than configured in dashboard');
+                }
             }
         }
         bindAuthButtons();
