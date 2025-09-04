@@ -255,6 +255,7 @@ async function initAuth0(){
         console.error('Auth0 SDK failed to load', e);
         const loadingEl=document.getElementById('authLoading');
         if(loadingEl) loadingEl.textContent = 'Auth failed to load (SDK).';
+    markAuthUnavailable();
         return;
     }
     try {
@@ -281,7 +282,12 @@ async function initAuth0(){
 // Poll for SDK availability (in case of slow network or head parsing race)
 async function ensureAuth0SdkLoaded(timeoutMs=10000){
     // If already present (e.g. loaded via <script> in index.html) we're done.
-    if(window.createAuth0Client) return true;
+    if(window.createAuth0Client || (window.auth0 && window.auth0.createAuth0Client)){
+        if(!window.createAuth0Client && window.auth0?.createAuth0Client){
+            window.createAuth0Client = window.auth0.createAuth0Client; // normalize for downstream code
+        }
+        return true;
+    }
 
     // Use generic, unversioned CDN endpoints that resolve to the latest published build.
     // The previously attempted versioned paths returned AccessDenied or 404 (serving HTML -> MIME error).
@@ -317,8 +323,11 @@ async function ensureAuth0SdkLoaded(timeoutMs=10000){
             await inject(src);
             // Wait briefly for global to appear
             const start=performance.now();
-            while(!window.createAuth0Client && performance.now()-start < 3000){
+            while(!(window.createAuth0Client || (window.auth0 && window.auth0.createAuth0Client)) && performance.now()-start < 3000){
                 await new Promise(r=>setTimeout(r,75));
+            }
+            if(window.auth0 && window.auth0.createAuth0Client && !window.createAuth0Client){
+                window.createAuth0Client = window.auth0.createAuth0Client; // alias for legacy expectation
             }
             if(window.createAuth0Client){
                 console.log('[Auth0] SDK loaded from', src);
@@ -331,6 +340,26 @@ async function ensureAuth0SdkLoaded(timeoutMs=10000){
         }
     }
     throw new Error('Failed to load Auth0 SDK from sources: '+tried.join(' | '));
+}
+
+// If authentication is completely unavailable, provide a graceful UI downgrade.
+function markAuthUnavailable(){
+    const loading=document.getElementById('authLoading');
+    if(loading){
+        loading.textContent='Authentication temporarily unavailable';
+        loading.style.color='#f85149';
+    }
+    const loggedOut=document.getElementById('authLoggedOut');
+    if(loggedOut){
+        loggedOut.style.display='block';
+        const btn=loggedOut.querySelector('button#loginBtn');
+        if(btn){
+            btn.disabled=true;
+            btn.textContent='Auth Unavailable';
+            btn.style.opacity='0.6';
+            btn.style.cursor='not-allowed';
+        }
+    }
 }
 
 function bindAuthButtons(){
