@@ -10,18 +10,18 @@
     {
         "id": 2,
         "title": "Tetris",
-        "description": "Classic block-stacking puzzle game where you arrange falling pieces to create complete lines. Clear lines to score points and prevent the blocks from reaching the top!",
+        "description": "Litterally just tetris. If you don't know how to play, you are not a gamer.",
         "category": "puzzle",
-        "embed": "https://tetris.com/play-tetris",
-        "thumbnail": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=280&h=200&fit=crop&crop=center"
+        "embed": "https://djblue.github.io/tetris",
+        "thumbnail": "images/tetris.webp"
     },
     {
         "id": 3,
         "title": "Snake",
         "description": "Control a snake to eat food and grow longer without hitting walls or yourself. A classic arcade game that tests your reflexes and strategic thinking!",
         "category": "arcade",
-        "embed": "https://playsnake.org/",
-        "thumbnail": "https://images.unsplash.com/photo-1578662015908-c2d3bb1e7100?w=280&h=200&fit=crop&crop=center"
+        "embed": "https://snake-google-online.github.io/file",
+        "thumbnail": "images/snake.gif"
     },
     {
         "id": 4,
