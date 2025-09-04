@@ -28,8 +28,8 @@
         "title": "Pac-Man",
         "description": "Navigate mazes, eat dots, and avoid ghosts in this classic arcade game. Collect power pellets to turn the tables on your ghostly pursuers!",
         "category": "arcade",
-        "embed": "https://pacman.com/en/",
-        "thumbnail": "https://images.unsplash.com/photo-1580234839249-341c0cd6b928?w=280&h=200&fit=crop&crop=center"
+        "embed": "https://smashkartsonlinegames.github.io/v88/pac-man",
+        "thumbnail": "images/pacman.avif"
     },
     {
         "id": 5,
