@@ -1,9 +1,12 @@
 Place the Auth0 SPA SDK locally if external CDNs are blocked.
 
 Steps:
-1. Download (one of):
-   - https://cdn.auth0.com/js/auth0-spa-js/2.5.3/auth0-spa-js.production.js
-   - or: https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.5.3/dist/auth0-spa-js.production.js
+1. Download ONE of the following VALID versions (newest first):
+   - https://cdn.auth0.com/js/auth0-spa-js/2.7/auth0-spa-js.production.js
+   - https://cdn.auth0.com/js/auth0-spa-js/2.6/auth0-spa-js.production.js
+   - https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.js
+   - https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js
+   (Earlier 2.5.3 URL referenced previously was invalid and returned 404/HTML.)
 2. Save the file as:
    frontend/vendor/auth0/auth0-spa-js.production.js
 3. Do NOT modify its contents.

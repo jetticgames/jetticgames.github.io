@@ -280,21 +280,24 @@ async function initAuth0(){
 
 // Poll for SDK availability (in case of slow network or head parsing race)
 async function ensureAuth0SdkLoaded(timeoutMs=10000){
+    // If already present (e.g. loaded via <script> in index.html) we're done.
     if(window.createAuth0Client) return true;
-    const sources=[
-        // Primary (pinned patch)
-        'https://cdn.auth0.com/js/auth0-spa-js/2.5.3/auth0-spa-js.production.js',
-        // Alternate public CDNs
-        'https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.5.3/dist/auth0-spa-js.production.js',
-        'https://unpkg.com/@auth0/auth0-spa-js@2.5.3/dist/auth0-spa-js.production.js',
-        // Local fallback (user must place file manually)
-        './vendor/auth0/auth0-spa-js.production.js'
-    ];
+
+    // NOTE: Previous version hard‑coded 2.5.3 which does not exist on the CDN – causing 404s & MIME type HTML responses.
+    // We now try a small curated list of VALID versions (newest first) plus local fallback.
+    const AUTH0_CANDIDATE_VERSIONS = ['2.7','2.6','2.5','2.0'];
+    const sources=[];
+    AUTH0_CANDIDATE_VERSIONS.forEach(v=>{
+        sources.push(`https://cdn.auth0.com/js/auth0-spa-js/${v}/auth0-spa-js.production.js`);
+    });
+    // Local/manual fallback (only if user has placed the file)
+    sources.push('./vendor/auth0/auth0-spa-js.production.js');
+
     const tried=[];
+
     function inject(src){
         return new Promise((resolve,reject)=>{
-            const existing=document.querySelectorAll('script[data-auth0-sdk]');
-            existing.forEach(n=>n.parentNode.removeChild(n));
+            // Do not purge earlier successful script tags; just add new attempts.
             const s=document.createElement('script');
             s.src=src;
             s.async=true;
@@ -304,18 +307,24 @@ async function ensureAuth0SdkLoaded(timeoutMs=10000){
             document.head.appendChild(s);
         });
     }
+
     for(const src of sources){
         try {
             tried.push(src);
             await inject(src);
+            // Wait briefly for global to appear
             const start=performance.now();
-            while(!window.createAuth0Client && performance.now()-start < 2500){
-                await new Promise(r=>setTimeout(r,60));
+            while(!window.createAuth0Client && performance.now()-start < 3000){
+                await new Promise(r=>setTimeout(r,75));
             }
-            if(window.createAuth0Client) return true;
-            console.warn('Script loaded but createAuth0Client missing for', src);
+            if(window.createAuth0Client){
+                console.log('[Auth0] SDK loaded from', src);
+                return true;
+            } else {
+                console.warn('[Auth0] Script fetched but window.createAuth0Client missing for', src);
+            }
         } catch(e){
-            console.warn('Auth0 SDK load attempt failed for', src, e);
+            console.warn('[Auth0] SDK load attempt failed for', src, e.message||e);
         }
     }
     throw new Error('Failed to load Auth0 SDK from sources: '+tried.join(' | '));
