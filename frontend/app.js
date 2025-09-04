@@ -2,6 +2,8 @@
 console.log('🎮 WaterWall app.js is loading...');
 
 let games = [];
+let __appInitStarted = false;
+let __authRedirectHandled = false;
 let currentGame = null;
 let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
@@ -47,8 +49,9 @@ const auth0Config = {
         redirect_uri: __redirectBase,
         // scope kept default openid profile email implicitly
     },
-    cacheLocation: 'memory',
-    useRefreshTokens: false
+    cacheLocation: 'localstorage', // persist across reload/redirect to avoid missing_transaction
+    useRefreshTokens: false,
+    useCookiesForTransactions: true // ensure state/nonce survive same-site navigations
 };
 console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redirect_uri);
 
@@ -80,6 +83,8 @@ window.addEventListener('load', () => {
 });
 
 async function startApp() {
+    if(__appInitStarted){ return; }
+    __appInitStarted = true;
     console.log('🎯 Starting main app initialization...');
     
     try {
@@ -271,20 +276,30 @@ async function initAuth0(){
     try {
         auth0Client = await createAuth0Client(auth0Config);
         // Handle redirect back from Auth0 (code/state present)
-        if(window.location.search.includes('code=') && window.location.search.includes('state=')){
+        if(!__authRedirectHandled && window.location.search.includes('code=') && window.location.search.includes('state=')){
             try {
+                console.log('[Auth0] Processing redirect callback...');
                 await auth0Client.handleRedirectCallback();
+                __authRedirectHandled = true;
                 window.history.replaceState({}, document.title, window.location.pathname);
+                console.log('[Auth0] Redirect handled successfully');
             } catch (e){
                 console.error('Auth0 redirect error', e);
+                const errCode = e?.error || e?.message;
                 if(e && (e.error || e.error_description)){
                     console.warn('[Auth0] OAuth error detail:', e.error, e.error_description);
+                }
+                if(errCode === 'missing_transaction' || /invalid state/i.test(e?.error_description||'')){
+                    console.warn('[Auth0] Detected missing transaction / invalid state. Retrying login flow...');
+                    // Clean query params to avoid looping
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    setTimeout(()=> auth0Client.loginWithRedirect(), 200);
+                    return; // halt further UI update until retry
                 } else {
-                    console.warn('[Auth0] 401/redirect issue possible causes:\n' +
-                        ' - Mismatched Allowed Callback URLs (add both '+auth0Config.authorizationParams.redirect_uri+' and '+window.location.origin+')\n' +
-                        ' - Missing Allowed Web Origins (add '+window.location.origin+')\n' +
-                        ' - PKCE / code_verifier mismatch (try clearing site data and retry)\n' +
-                        ' - Using a different Client ID than configured in dashboard');
+                    console.warn('[Auth0] Possible causes:\n' +
+                        ' - Callback URL mismatch (check Allowed Callback URLs)\n' +
+                        ' - Cleared storage between authorize and token exchange\n' +
+                        ' - Multiple inits; now guarded by __appInitStarted flag');
                 }
             }
         }
