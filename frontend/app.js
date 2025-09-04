@@ -283,15 +283,18 @@ async function ensureAuth0SdkLoaded(timeoutMs=10000){
     // If already present (e.g. loaded via <script> in index.html) we're done.
     if(window.createAuth0Client) return true;
 
-    // NOTE: Previous version hard‑coded 2.5.3 which does not exist on the CDN – causing 404s & MIME type HTML responses.
-    // We now try a small curated list of VALID versions (newest first) plus local fallback.
-    const AUTH0_CANDIDATE_VERSIONS = ['2.7','2.6','2.5','2.0'];
-    const sources=[];
-    AUTH0_CANDIDATE_VERSIONS.forEach(v=>{
-        sources.push(`https://cdn.auth0.com/js/auth0-spa-js/${v}/auth0-spa-js.production.js`);
-    });
-    // Local/manual fallback (only if user has placed the file)
-    sources.push('./vendor/auth0/auth0-spa-js.production.js');
+    // Use generic, unversioned CDN endpoints that resolve to the latest published build.
+    // The previously attempted versioned paths returned AccessDenied or 404 (serving HTML -> MIME error).
+    // Order chosen for reliability & cache performance.
+    const sources = [
+        // jsDelivr (auto version resolution)
+        'https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js/dist/auth0-spa-js.production.js',
+        // unpkg fallback
+        'https://unpkg.com/@auth0/auth0-spa-js/dist/auth0-spa-js.production.js',
+        // (Auth0 CDN versioned endpoints removed due to observed AccessDenied responses in this environment)
+        // Local/manual fallback (only if user has placed the file)
+        './vendor/auth0/auth0-spa-js.production.js'
+    ];
 
     const tried=[];
 
