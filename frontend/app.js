@@ -31,6 +31,20 @@ let exitFullscreenBtn;
 let accountLabelEl;
 let isFullscreen = false;
 
+// Auth0 variables
+let auth0Client = null;
+const auth0Config = {
+    domain: 'dev-lciqwnyb52wdezeo.us.auth0.com',
+    clientId: 'sbABJXSUTPmROG9WTrdB0LrUBtTwnWxO',
+    authorizationParams: {
+        redirect_uri: window.location.origin,
+        // audience: 'YOUR_API_AUDIENCE', // (optional) if calling a protected API
+        // scope: 'openid profile email' // default scopes
+    },
+    cacheLocation: 'memory', // can switch to 'localstorage' if you need SSO across tabs (trade-off: XSS risk)
+    useRefreshTokens: false
+};
+
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
@@ -71,7 +85,7 @@ async function startApp() {
         
         // Setup event listeners
         setupEventListeners();
-    setupAccountSystem();
+    await initAuth0();
         
         // Force render games immediately
         forceRenderGames();
@@ -234,28 +248,81 @@ function initializeDOMElements() {
     console.log('  - Suggested games:', !!document.getElementById('suggestedGames'));
 }
 
-// ===== Account System (AuthPro integration) =====
-function setupAccountSystem(){
-    updateAccountUI();
-    const actions=document.getElementById('accountInlineActions');
-    if(actions){
-        actions.addEventListener('click', e=>{
-            const btn=e.target.closest('.account-action-btn'); if(!btn) return;
-            const act=btn.dataset.action;
-            const frame=document.getElementById('accountIframe');
-            if(act==='signin'){ if(frame) frame.src='https://www.authpro.com/auth/CoolD1234/'; }
-            else if(act==='signup'){ if(frame) frame.src='https://www.authpro.com/auth/CoolD1234/?action=reg'; }
-            else if(act==='logout'){ window.open('https://www.authpro.com/auth/CoolD1234/?action=logout','_self'); setTimeout(()=> location.reload(), 600); }
-        });
+// ===== Auth0 Integration (SPA) =====
+async function initAuth0(){
+    if(!window.createAuth0Client){
+        console.warn('Auth0 SDK not loaded yet');
+        return;
+    }
+    try {
+        auth0Client = await createAuth0Client(auth0Config);
+        // Handle redirect back from Auth0 (code/state present)
+        if(window.location.search.includes('code=') && window.location.search.includes('state=')){
+            try {
+                await auth0Client.handleRedirectCallback();
+                // Remove code/state params from URL for cleanliness
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (e){
+                console.error('Auth0 redirect error', e);
+            }
+        }
+        bindAuthButtons();
+        await updateAuthUI();
+    } catch (e){
+        console.error('Failed to initialize Auth0', e);
+        const loadingEl=document.getElementById('authLoading');
+        if(loadingEl) loadingEl.textContent = 'Auth initialization failed.';
     }
 }
-function updateAccountUI(){
-    const name = (typeof login !== 'undefined' && login) ? login : null;
-    if(accountLabelEl){ accountLabelEl.textContent = name ? name : 'Sign in / Sign up'; }
-    const actions=document.getElementById('accountInlineActions');
-    if(actions){
-        const logoutBtn=actions.querySelector('[data-action="logout"]');
-        if(logoutBtn) logoutBtn.style.display = name ? 'inline-block':'none';
+
+function bindAuthButtons(){
+    const loginBtn=document.getElementById('loginBtn');
+    const logoutBtn=document.getElementById('logoutBtn');
+    if(loginBtn){
+        loginBtn.addEventListener('click', ()=> auth0Client.loginWithRedirect());
+    }
+    if(logoutBtn){
+        logoutBtn.addEventListener('click', ()=> auth0Client.logout({ logoutParams: { returnTo: window.location.origin }}));
+    }
+}
+
+async function updateAuthUI(){
+    const loading=document.getElementById('authLoading');
+    const loggedOut=document.getElementById('authLoggedOut');
+    const loggedIn=document.getElementById('authLoggedIn');
+    if(!auth0Client){
+        if(loading) loading.textContent='Auth library not ready';
+        return;
+    }
+    try {
+        const isAuth = await auth0Client.isAuthenticated();
+        if(loading) loading.style.display='none';
+        if(isAuth){
+            if(loggedOut) loggedOut.style.display='none';
+            if(loggedIn) loggedIn.style.display='block';
+            const user = await auth0Client.getUser();
+            if(accountLabelEl) accountLabelEl.textContent = user && (user.given_name || user.nickname || user.name) ? (user.given_name || user.nickname || user.name) : 'Account';
+            const pic=document.getElementById('userPicture');
+            const nm=document.getElementById('userName');
+            const em=document.getElementById('userEmail');
+            if(user){
+                if(pic){
+                    if(user.picture){ pic.src=user.picture; pic.style.display='block'; } else { pic.style.display='none'; }
+                }
+                if(nm){ nm.textContent = user.name || user.nickname || 'User'; }
+                if(em){ em.textContent = user.email || ''; }
+                const idTokenClaims = await auth0Client.getIdTokenClaims();
+                const pre=document.getElementById('idTokenPreview');
+                if(pre){ pre.textContent = idTokenClaims ? JSON.stringify(idTokenClaims, null, 2) : '(no token claims)'; }
+            }
+        } else {
+            if(loggedIn) loggedIn.style.display='none';
+            if(loggedOut) loggedOut.style.display='block';
+            if(accountLabelEl) accountLabelEl.textContent='Sign in / Sign up';
+        }
+    } catch (e){
+        console.error('updateAuthUI error', e);
+        if(loading) loading.textContent='Auth error';
     }
 }
 
@@ -657,7 +724,7 @@ function showSettingsPage(){
 function showAccountPage(){
     hideAllPages();
     const pg=document.getElementById('accountPage'); if(pg) pg.classList.add('active');
-    updateAccountUI();
+    updateAuthUI();
 }
 
 function showGamePage(game) {

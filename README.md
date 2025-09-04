@@ -226,3 +226,49 @@ MIT License - Feel free to use this code for your own projects with proper attri
 
 **WaterWall** - Bringing unblocked gaming to everyone, everywhere. 🌊🎮
 </div>
+
+---
+
+## 🔐 Authentication (Auth0 Integration)
+
+The legacy embedded AuthPro iframe system has been replaced with a modern Auth0 SPA flow.
+
+### Current Configuration
+Configured domain: `dev-lciqwnyb52wdezeo.us.auth0.com`
+
+### How It Works
+- The frontend loads the Auth0 SPA SDK (`auth0-spa-js`).
+- On load, `initAuth0()` creates the client and processes any `code/state` redirect params.
+- UI states are toggled between: loading, logged-out, logged-in.
+- The sidebar label updates with the user's preferred name.
+- A debug `<details>` section shows ID token claims (remove in production if not needed).
+
+### Files Touched
+- `frontend/index.html`: Added Auth0 script tag & new Account page markup.
+- `frontend/app.js`: Added config (`auth0Config`), init logic, UI update helpers.
+
+### Required Dashboard Settings (Auth0 Application > Settings)
+Add these (adjust domain/host as deployed):
+```
+Allowed Callback URLs: https://your-domain.example/ , http://localhost:8000/
+Allowed Logout URLs:  https://your-domain.example/ , http://localhost:8000/
+Allowed Web Origins:  https://your-domain.example , http://localhost:8000
+```
+If you deploy under a subpath, ensure redirect URI matches exactly.
+
+### Optional Enhancements
+- Add an API audience + scopes (uncomment in `auth0Config.authorizationParams`).
+- Persist sessions across tabs: set `cacheLocation: 'localstorage'` & `useRefreshTokens: true` (trade-off: higher XSS exposure risk).
+- Role / permission display: call `getIdTokenClaims()` and inspect namespaced claims.
+- Guard pages: before showing content, call `auth0Client.isAuthenticated()`; if false, redirect to login.
+
+### Removing Debug Output
+Delete the `<details>` block containing `idTokenPreview` in `index.html` and its corresponding assignment in `updateAuthUI()`.
+
+### Security Notes
+- Never expose management API tokens client-side.
+- Avoid storing raw tokens in `localStorage` unless necessary for multi-tab resilience.
+- Consider CSP headers on hosting platform to restrict script origins.
+
+---
+</div>
