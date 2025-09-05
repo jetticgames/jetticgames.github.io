@@ -500,13 +500,24 @@ body, * { cursor: none !important; }
 
 /* Centered favorites empty state */
 #favoritesEmptyState {
-    min-height: 40vh;
+    min-height: 0;
     width: 100%;
+    height: 100%;
     display: none; /* toggled to flex in JS */
     align-items: center;
     justify-content: center;
     flex-direction: column;
     gap: 12px;
+}
+
+/* Center the entire section when empty state is visible */
+#favoritesPage .games-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 60vh;
+    justify-content: center;
+    align-items: center;
+    position: relative;
 }
 #favoritesEmptyState h3 { font-size:24px; }
 #favoritesEmptyState p { font-size:14px; }
