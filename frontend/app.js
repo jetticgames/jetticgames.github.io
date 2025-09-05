@@ -1270,7 +1270,17 @@ function ensureSettingsPage(){
                             <button id="exportDataBtn" class="update-check-btn" onclick="showExportPreview()" style="margin-bottom: 8px;">
                                 <i class="fas fa-download" style="margin-right: 6px;"></i>Export All Data
                             </button>
-                            <small class="muted-hint">Download all your game saves, settings, and favorites as a compressed file.</small>
+                            <small class="muted-hint">Download all your game saves, settings, and favorites as a file.</small>
+                        </div>
+                        <div class="setting-item">
+                            <label class="switch-row" for="disableCompressionSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Disable Data Compression</span>
+                                    <span class="setting-sub">Export as readable JSON instead of compressed data</span>
+                                </div>
+                                <input type="checkbox" id="disableCompressionSetting" class="ww-switch-input" ${settings.disableCompression?'checked':''} onchange="(function(el){settings.disableCompression=el.checked;saveSettingsToCookies();})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
                         </div>
                         <div class="setting-item">
                             <input type="file" id="importDataFile" accept=".json,.txt" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
@@ -1601,16 +1611,18 @@ function exportSiteData() {
         
         const dataStr = JSON.stringify(exportData, null, 2);
         
-        // Try to compress if LZString is available, otherwise use plain JSON
+        // Try to compress if LZString is available, but use Base64 encoding for safety
         let finalData = dataStr;
         let isCompressed = false;
         let fileExtension = 'json';
         
-        if (typeof LZString !== 'undefined' && LZString.compress) {
+        // Only compress if compression is not disabled in settings
+        if (!settings.disableCompression && typeof LZString !== 'undefined' && LZString.compressToBase64) {
             try {
-                const compressed = LZString.compress(dataStr);
+                const compressed = LZString.compressToBase64(dataStr);
                 if (compressed && compressed.length < dataStr.length) {
-                    finalData = compressed;
+                    // Add a header to identify this as compressed WaterWall data
+                    finalData = 'WATERWALL-COMPRESSED-DATA-V1\n' + compressed;
                     isCompressed = true;
                     fileExtension = 'txt';
                 }
@@ -1654,17 +1666,26 @@ function importSiteData(file) {
         try {
             let dataStr = e.target.result;
             
-            // Try to decompress if LZString is available and the data looks compressed
-            if (typeof LZString !== 'undefined' && LZString.decompress) {
+            // Try to decompress if LZString is available and detect compression format
+            if (typeof LZString !== 'undefined' && LZString.decompressFromBase64) {
                 try {
-                    // Check if the data might be compressed (doesn't start with '{' or '[')
-                    if (!dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
+                    // Check if this is our compressed format
+                    if (dataStr.startsWith('WATERWALL-COMPRESSED-DATA-V1\n')) {
+                        const compressedData = dataStr.substring('WATERWALL-COMPRESSED-DATA-V1\n'.length);
+                        const decompressed = LZString.decompressFromBase64(compressedData);
+                        if (decompressed) {
+                            dataStr = decompressed;
+                        } else {
+                            throw new Error('Failed to decompress Base64 data');
+                        }
+                    }
+                    // Also try legacy format for backwards compatibility
+                    else if (!dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
                         const decompressed = LZString.decompress(dataStr);
                         if (decompressed) {
                             dataStr = decompressed;
                         }
                     }
-                    // If decompression fails or returns null, assume it's already uncompressed JSON
                 } catch (e) {
                     console.warn('Decompression failed, trying as uncompressed data:', e);
                 }
