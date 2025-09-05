@@ -1273,17 +1273,7 @@ function ensureSettingsPage(){
                             <small class="muted-hint">Download all your game saves, settings, and favorites as a file.</small>
                         </div>
                         <div class="setting-item">
-                            <label class="switch-row" for="disableCompressionSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Disable Data Compression</span>
-                                    <span class="setting-sub">Export as readable JSON instead of compressed data</span>
-                                </div>
-                                <input type="checkbox" id="disableCompressionSetting" class="ww-switch-input" ${settings.disableCompression?'checked':''} onchange="(function(el){settings.disableCompression=el.checked;saveSettingsToCookies();})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <input type="file" id="importDataFile" accept=".json,.txt" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
+                            <input type="file" id="importDataFile" accept=".wwd" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
                             <button id="importDataBtn" class="update-check-btn" onclick="document.getElementById('importDataFile').click()">
                                 <i class="fas fa-upload" style="margin-right: 6px;"></i>Import Data
                             </button>
@@ -1611,42 +1601,19 @@ function exportSiteData() {
         
         const dataStr = JSON.stringify(exportData, null, 2);
         
-        // Try to compress if LZString is available, but use Base64 encoding for safety
-        let finalData = dataStr;
-        let isCompressed = false;
-        let fileExtension = 'json';
-        
-        // Only compress if compression is not disabled in settings
-        if (!settings.disableCompression && typeof LZString !== 'undefined' && LZString.compressToBase64) {
-            try {
-                const compressed = LZString.compressToBase64(dataStr);
-                if (compressed && compressed.length < dataStr.length) {
-                    // Add a header to identify this as compressed WaterWall data
-                    finalData = 'WATERWALL-COMPRESSED-DATA-V1\n' + compressed;
-                    isCompressed = true;
-                    fileExtension = 'txt';
-                }
-            } catch (e) {
-                console.warn('Compression failed, using uncompressed data:', e);
-            }
-        }
-        
-        // Create download
-        const blob = new Blob([finalData], { 
-            type: isCompressed ? 'text/plain' : 'application/json' 
-        });
+        // Create download as plain JSON
+        const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `waterwall-data-${new Date().toISOString().split('T')[0]}.${fileExtension}`;
+        a.download = `waterwall-data-${new Date().toISOString().split('T')[0]}.wwd`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        const size = (finalData.length / 1024).toFixed(1);
-        const compression = isCompressed ? ' (compressed)' : '';
-        showNotification(`Data exported successfully! Size: ${size}KB${compression}`, 'success');
+        const size = (dataStr.length / 1024).toFixed(1);
+        showNotification(`Data exported successfully! Size: ${size}KB`, 'success');
     } catch (error) {
         console.error('Export failed:', error);
         showNotification('Export failed: ' + error.message, 'error');
@@ -1656,41 +1623,15 @@ function exportSiteData() {
 function importSiteData(file) {
     if (!file) return;
     
-    if (!file.name.match(/\.(json|txt)$/i)) {
-        showNotification('Please select a valid WaterWall data file (.json or .txt)', 'error');
+    if (!file.name.endsWith('.wwd')) {
+        showNotification('Please select a valid WaterWall data file (.wwd)', 'error');
         return;
     }
     
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            let dataStr = e.target.result;
-            
-            // Try to decompress if LZString is available and detect compression format
-            if (typeof LZString !== 'undefined' && LZString.decompressFromBase64) {
-                try {
-                    // Check if this is our compressed format
-                    if (dataStr.startsWith('WATERWALL-COMPRESSED-DATA-V1\n')) {
-                        const compressedData = dataStr.substring('WATERWALL-COMPRESSED-DATA-V1\n'.length);
-                        const decompressed = LZString.decompressFromBase64(compressedData);
-                        if (decompressed) {
-                            dataStr = decompressed;
-                        } else {
-                            throw new Error('Failed to decompress Base64 data');
-                        }
-                    }
-                    // Also try legacy format for backwards compatibility
-                    else if (!dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
-                        const decompressed = LZString.decompress(dataStr);
-                        if (decompressed) {
-                            dataStr = decompressed;
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Decompression failed, trying as uncompressed data:', e);
-                }
-            }
-            
+            const dataStr = e.target.result;
             const importData = JSON.parse(dataStr);
             
             if (!importData.version) {
