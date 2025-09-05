@@ -1273,7 +1273,7 @@ function ensureSettingsPage(){
                             <small class="muted-hint">Download all your game saves, settings, and favorites as a compressed file.</small>
                         </div>
                         <div class="setting-item">
-                            <input type="file" id="importDataFile" accept=".wwd" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
+                            <input type="file" id="importDataFile" accept=".json,.txt" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
                             <button id="importDataBtn" class="update-check-btn" onclick="document.getElementById('importDataFile').click()">
                                 <i class="fas fa-upload" style="margin-right: 6px;"></i>Import Data
                             </button>
@@ -1604,10 +1604,16 @@ function exportSiteData() {
         // Try to compress if LZString is available, otherwise use plain JSON
         let finalData = dataStr;
         let isCompressed = false;
+        let fileExtension = 'json';
+        
         if (typeof LZString !== 'undefined' && LZString.compress) {
             try {
-                finalData = LZString.compress(dataStr);
-                isCompressed = true;
+                const compressed = LZString.compress(dataStr);
+                if (compressed && compressed.length < dataStr.length) {
+                    finalData = compressed;
+                    isCompressed = true;
+                    fileExtension = 'txt';
+                }
             } catch (e) {
                 console.warn('Compression failed, using uncompressed data:', e);
             }
@@ -1615,12 +1621,12 @@ function exportSiteData() {
         
         // Create download
         const blob = new Blob([finalData], { 
-            type: isCompressed ? 'application/octet-stream' : 'application/json' 
+            type: isCompressed ? 'text/plain' : 'application/json' 
         });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `waterwall-data-${new Date().toISOString().split('T')[0]}.wwd`;
+        a.download = `waterwall-data-${new Date().toISOString().split('T')[0]}.${fileExtension}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1638,8 +1644,8 @@ function exportSiteData() {
 function importSiteData(file) {
     if (!file) return;
     
-    if (!file.name.endsWith('.wwd')) {
-        showNotification('Please select a valid WaterWall data file (.wwd)', 'error');
+    if (!file.name.match(/\.(json|txt)$/i)) {
+        showNotification('Please select a valid WaterWall data file (.json or .txt)', 'error');
         return;
     }
     
@@ -1648,14 +1654,17 @@ function importSiteData(file) {
         try {
             let dataStr = e.target.result;
             
-            // Try to decompress if LZString is available
+            // Try to decompress if LZString is available and the data looks compressed
             if (typeof LZString !== 'undefined' && LZString.decompress) {
                 try {
-                    const decompressed = LZString.decompress(dataStr);
-                    if (decompressed) {
-                        dataStr = decompressed;
+                    // Check if the data might be compressed (doesn't start with '{' or '[')
+                    if (!dataStr.trim().startsWith('{') && !dataStr.trim().startsWith('[')) {
+                        const decompressed = LZString.decompress(dataStr);
+                        if (decompressed) {
+                            dataStr = decompressed;
+                        }
                     }
-                    // If decompression fails, assume it's already uncompressed JSON
+                    // If decompression fails or returns null, assume it's already uncompressed JSON
                 } catch (e) {
                     console.warn('Decompression failed, trying as uncompressed data:', e);
                 }
