@@ -46,29 +46,6 @@
     background: var(--accent-color) !important;
 }
 
-/* Light mode colors */
-[data-theme="light"] {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f6f8fa;
-    --bg-tertiary: #f1f3f4;
-    --text-primary: #24292f;
-    --text-secondary: #656d76;
-    --text-muted: #8b949e;
-    --border-primary: #d0d7de;
-    --border-secondary: #d8dee4;
-    --accent-primary: #0969da;
-    --accent-hover: #0850c4;
-    --success: #1a7f37;
-    --error: #cf222e;
-    --warning: #bf8700;
-    --bg-secondary-transparent: rgba(246, 248, 250, 0.85);
-    
-    /* Use the main variables we've defined */
-    --accent-color: var(--accent-primary);
-    --hover-color: var(--bg-tertiary);
-    --cursor-color: var(--text-primary);
-}
-
 * {
     margin: 0;
     padding: 0;
@@ -2226,6 +2203,71 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 .range-setting .range-input {
     width: 100%;
     margin: 8px 0;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    outline: none;
+    border: 1px solid var(--border-primary);
+    transition: all 0.2s ease;
+}
+
+.range-setting .range-input:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.range-setting .range-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+.range-setting .range-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.range-setting .range-input::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.range-setting .range-input::-webkit-slider-thumb:active {
+    transform: scale(1.05);
+}
+
+/* Firefox */
+.range-setting .range-input::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.range-setting .range-input::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.range-setting .range-input::-moz-range-track {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    border: 1px solid var(--border-primary);
 }
 
 .range-setting span:last-child {

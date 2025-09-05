@@ -11,7 +11,6 @@ let favorites = [];
 let settings = { 
     defaultProxy: false,
     // Theme settings
-    darkMode: true,
     accentColor: '#58a6ff',
     // Particle settings
     particlesEnabled: true,
@@ -1259,16 +1258,6 @@ function ensureSettingsPage(){
                     <div class="setting-group">
                         <h3>Appearance</h3>
                         <div class="setting-item">
-                            <label class="switch-row" for="darkModeSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Dark Mode</span>
-                                    <span class="setting-sub">Toggle between dark and light themes</span>
-                                </div>
-                                <input type="checkbox" id="darkModeSetting" class="ww-switch-input" ${settings.darkMode?'checked':''} onchange="(function(el){settings.darkMode=el.checked;saveSettingsToCookies();applyTheme();})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
                             <label class="color-setting">
                                 <span class="setting-title">Accent Color</span>
                                 <span class="setting-sub">Choose your preferred accent color</span>
@@ -1687,12 +1676,8 @@ function saveFavoritesToCookies(){
 function applyTheme() {
     const root = document.documentElement;
     
-    // Apply theme mode
-    if (settings.darkMode) {
-        root.removeAttribute('data-theme');
-    } else {
-        root.setAttribute('data-theme', 'light');
-    }
+    // Remove any theme attribute (always use dark mode)
+    root.removeAttribute('data-theme');
     
     // Apply custom accent color
     root.style.setProperty('--accent-color', settings.accentColor);
@@ -1708,10 +1693,14 @@ function applyCustomCursor() {
     const root = document.documentElement;
     
     if (!settings.customCursorEnabled) {
-        // Use default cursor
+        // Hide custom cursor and restore default cursors
         root.style.setProperty('--cursor-display', 'none');
-        document.body.style.cursor = 'auto';
-        document.querySelectorAll('*').forEach(el => el.style.cursor = 'auto');
+        document.body.style.cursor = '';
+        document.querySelectorAll('*').forEach(el => {
+            if (el.style.cursor) {
+                el.style.cursor = '';
+            }
+        });
         return;
     }
     
@@ -1754,14 +1743,14 @@ class ParticleSystem {
         this.mouse = { x: 0, y: 0 };
         this.animationId = null;
         
-        // Initialize with current global settings
+        // Start with default settings - will be updated by applyParticleSettings()
         this.settings = {
-            enabled: settings.particlesEnabled,
-            speed: settings.particleSpeed,
-            count: settings.particleCount,
-            color: settings.particleColor,
-            lineDistance: settings.particleLineDistance,
-            mouseInteraction: settings.particleMouseInteraction
+            enabled: true,
+            speed: 0.5,
+            count: 50,
+            color: '#58a6ff',
+            lineDistance: 150,
+            mouseInteraction: true
         };
         this.init();
     }
@@ -1816,6 +1805,7 @@ class ParticleSystem {
     }
     
     updateSettings(newSettings) {
+        const oldSpeed = this.settings.speed;
         this.settings = { ...this.settings, ...newSettings };
         
         if (this.settings.enabled && !this.animationId) {
@@ -1840,6 +1830,15 @@ class ParticleSystem {
                 }
             } else if (countDiff < 0) {
                 this.particles = this.particles.slice(0, this.settings.count);
+            }
+            
+            // Update speed of existing particles if speed changed
+            if (oldSpeed !== this.settings.speed && this.particles.length > 0) {
+                const speedRatio = this.settings.speed / oldSpeed;
+                this.particles.forEach(particle => {
+                    particle.vx *= speedRatio;
+                    particle.vy *= speedRatio;
+                });
             }
         }
     }
@@ -2148,9 +2147,6 @@ function importSiteData(file) {
                 }
                 
                 // Update other setting controls
-                const darkModeToggle = document.getElementById('darkModeSetting');
-                if (darkModeToggle) darkModeToggle.checked = settings.darkMode;
-                
                 const accentColorInput = document.getElementById('accentColorSetting');
                 if (accentColorInput) accentColorInput.value = settings.accentColor;
                 
