@@ -1370,7 +1370,7 @@ function ensureHomePage(){
     ca.insertAdjacentHTML('afterbegin', `
         <div id="homePage" class="page active">
             <section id="favoriteGamesSection" class="games-section" style="display:none;">
-                <div class="section-header"><h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Your Favorites</h2></div>
+                <div class="section-header"><h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Favorite Games</h2></div>
                 <div class="games-grid" id="favoriteGamesGrid"></div>
             </section>
             <section class="games-section">
