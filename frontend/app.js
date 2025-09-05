@@ -1166,23 +1166,20 @@ if ('serviceWorker' in navigator) {
 
 // Debug function for testing
 window.debugWaterWall = function() {
+    // Safe lightweight debug helper (removed stray async/await & undefined vars)
     console.log('=== WaterWall Debug Info ===');
-    console.log('Games array:', games);
-    console.log('Featured games element:', document.getElementById('featuredGames'));
-    console.log('All games element:', document.getElementById('allGames'));
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
-        games = data;
-        console.log(`✅ Successfully loaded ${games.length} games from JSON`);
-        return games;
-    } catch (error) {
-        console.error('❌ Error loading games.json:', error);
-        showPopupError('Failed to load games. Please try again later.');
-        games = [];
-        return games;
-    }
-}
+    console.log('Games array length:', games.length);
+    console.log('Sample game:', games[0]);
+    console.log('Favorites:', favorites);
+    console.log('Settings:', settings, 'Proxy Enabled:', isProxyEnabled);
+    console.log('Current Game:', currentGame?.title || null);
+    console.log('Auth0 Client init:', !!auth0Client);
+    console.log('DOM Elements:', {
+        featured: !!document.getElementById('featuredGames'),
+        all: !!document.getElementById('allGames'),
+        gameFrame: !!document.getElementById('gameFrame')
+    });
+};
 
 // ===== Added Utility / Page Helpers =====
 function sanitize(str){
@@ -1432,6 +1429,120 @@ function initParticles(){
     }
     initPool();
     draw();
+}
+
+
+
+
+// ===== Missing Helper Implementations (added to fix runtime errors) =====
+// Persistence helpers (using localStorage instead of fragile cookies)
+function loadSettingsFromCookies(){
+    try {
+        const raw = localStorage.getItem('ww_settings');
+        if(raw){ const parsed = JSON.parse(raw); if(typeof parsed === 'object') settings = { ...settings, ...parsed }; }
+    } catch(e){ console.warn('Failed to load settings', e); }
+}
+function saveSettingsToCookies(){
+    try { localStorage.setItem('ww_settings', JSON.stringify(settings)); } catch(e){ console.warn('Failed to save settings', e); }
+}
+function loadFavoritesFromCookies(){
+    try { const raw = localStorage.getItem('ww_favorites'); if(raw){ const arr = JSON.parse(raw); if(Array.isArray(arr)) favorites = arr; } } catch(e){ console.warn('Failed to load favorites', e); }
+}
+function saveFavoritesToCookies(){
+    try { localStorage.setItem('ww_favorites', JSON.stringify(favorites)); } catch(e){ console.warn('Failed to save favorites', e); }
+}
+
+function buildCategoryTabs(){
+    const el = document.getElementById('categoryTabs'); if(!el || !Array.isArray(games)) return;
+    const cats = [...new Set(games.map(g=> g.category).filter(Boolean))].sort((a,b)=> a.localeCompare(b));
+    if(cats.length === 0){ el.innerHTML=''; return; }
+    el.innerHTML = ['all', ...cats].map(c=>`<button class="cat-tab" data-cat="${sanitize(c)}">${sanitize(capitalize(c))}</button>`).join('');
+    el.querySelectorAll('button.cat-tab').forEach(btn=>{
+        btn.onclick=()=>{
+            if(btn.dataset.cat==='all'){ showHomePage(); return; }
+            filterByCategory(btn.dataset.cat);
+        };
+    });
+}
+
+function renderFavoritesSection(){
+    const section = document.getElementById('favoriteGamesSection');
+    const grid = document.getElementById('favoriteGamesGrid');
+    if(!section || !grid) return;
+    if(!favorites.length){ section.style.display='none'; grid.innerHTML=''; return; }
+    const favGames = games.filter(g=> favorites.includes(g.id));
+    if(favGames.length){
+        section.style.display='block';
+        grid.innerHTML = favGames.map(g=> createGameCard(g)).join('');
+    } else { section.style.display='none'; }
+}
+
+function renderFavoritesPage(){
+    const grid = document.getElementById('favoritesPageGrid');
+    const empty = document.getElementById('favoritesEmptyState');
+    if(!grid) return;
+    const favGames = games.filter(g=> favorites.includes(g.id));
+    if(favGames.length){
+        grid.innerHTML = favGames.map(g=> createGameCard(g)).join('');
+        if(empty) empty.style.display='none';
+    } else {
+        grid.innerHTML='';
+        if(empty) empty.style.display='block';
+    }
+}
+
+function toggleFavorite(game){
+    if(!game) return;
+    if(favorites.includes(game.id)) favorites = favorites.filter(id=> id!==game.id); else favorites.push(game.id);
+    saveFavoritesToCookies();
+}
+
+function updateFavoriteButtonState(){
+    const btn = document.querySelector('[data-action="favorite"]');
+    if(!btn) return;
+    if(currentGame && favorites.includes(currentGame.id)){
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed','true');
+    } else {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed','false');
+    }
+}
+
+function toggleGameProxy(){
+    if(!currentGame) return;
+    const cur = gameProxyOverrides[currentGame.id] !== undefined ? gameProxyOverrides[currentGame.id] : settings.defaultProxy;
+    gameProxyOverrides[currentGame.id] = !cur;
+    isProxyEnabled = gameProxyOverrides[currentGame.id];
+    updateProxyVisuals();
+    loadGame(currentGame);
+}
+
+function updateProxyVisuals(){
+    // Global toggle (settings page)
+    const settingToggle = document.getElementById('proxyToggleSetting'); if(settingToggle) settingToggle.checked = isProxyEnabled;
+    // Game page visual button
+    const gameToggle = document.getElementById('proxyToggleGame');
+    if(gameToggle){
+        gameToggle.classList.toggle('on', isProxyEnabled);
+        gameToggle.classList.toggle('off', !isProxyEnabled);
+        gameToggle.setAttribute('aria-pressed', isProxyEnabled? 'true':'false');
+        gameToggle.title = isProxyEnabled? 'Proxy Enabled' : 'Proxy Disabled';
+    }
+}
+
+function showPopupError(msg){
+    // Alias to existing toast error system for now
+    showError(msg);
+}
+
+function showUpdateModal(triggerBtn){
+    // Minimal ephemeral notice (no blocking modal implemented yet)
+    const note = document.createElement('div');
+    note.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:12px 20px;border-radius:8px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:14px;';
+    note.textContent='Updating assets & refreshing...';
+    document.body.appendChild(note);
+    setTimeout(()=>{ note.remove(); if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='Check for Updates'; } }, 4000);
 }
 
 
