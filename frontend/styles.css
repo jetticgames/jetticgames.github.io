@@ -2146,7 +2146,7 @@ body, * { cursor: none !important; }
 }
 
 .setting-group-content {
-    padding: 24px 20px 36px 20px;
+    padding: 24px 20px 48px 20px;
     max-height: 1000px;
     overflow: hidden;
     transition: max-height 0.3s ease, padding 0.3s ease;
