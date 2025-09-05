@@ -1481,7 +1481,9 @@ function toggleSettingGroup(header) {
     if (group.classList.contains('collapsed')) {
         // Expand
         group.classList.remove('collapsed');
-        content.style.maxHeight = content.scrollHeight + 'px';
+        // Calculate full height including padding
+        const fullHeight = content.scrollHeight + 84; // 24px top + 60px bottom padding
+        content.style.maxHeight = fullHeight + 'px';
         arrow.style.transform = 'rotate(0deg)';
     } else {
         // Collapse
