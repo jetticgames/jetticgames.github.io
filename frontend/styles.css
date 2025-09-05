@@ -753,6 +753,8 @@ body, * { cursor: none !important; }
 .cat-tab:active {transform:translateY(1px);}
 .cat-tab.active {background:#1f6feb; color:#fff; border-color:#1f6feb; box-shadow:0 0 0 3px rgba(31,111,235,0.25);}
 .cat-tab:focus-visible {outline:2px solid #58a6ff; outline-offset:2px;}
+.cat-tab i {font-size:14px; color:inherit; opacity:.9;}
+.cat-tab.active i {opacity:1;}
 
 /* Current game sidebar tab */
 .current-game-tab {display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; background:#1b1f24; margin:8px 12px; cursor:pointer; animation:slideIn .35s ease; position:relative;}

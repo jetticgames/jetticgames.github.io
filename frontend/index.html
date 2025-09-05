@@ -7,8 +7,31 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logo.png">
     <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-snS4N2tGQXGJPD7WvVManIeZDV4xQdlqzTeWY5AvzkdxlIo0NGdisz8Iky3Uczdlz7YT1DoP70uEJY6c7b+Ytg==" crossorigin="anonymous" referrerpolicy="no-referrer" id="faCdnPrimary">
+        <script>
+            // Fallback loader for Font Awesome if primary CDN blocked
+            (function(){
+                function ensureFA(){
+                    if(document.querySelector('.fa, .fas, .fa-solid')) return true;
+                    return false;
+                }
+                window.addEventListener('load', function(){
+                    setTimeout(function(){
+                        if(!ensureFA()){
+                            console.warn('[Icons] Primary Font Awesome stylesheet may have failed, injecting fallback.');
+                            var alt=document.createElement('link');
+                            alt.rel='stylesheet';
+                            alt.href='https://unpkg.com/@fortawesome/fontawesome-free@6.5.2/css/all.min.css';
+                            alt.id='faCdnFallback';
+                            document.head.appendChild(alt);
+                        }
+                    }, 1200);
+                });
+            })();
+        </script>
     <!-- Auth0 SPA SDK removed here; dynamic loader in app.js now attempts multiple valid versions (2.7→2.0) with local fallback. -->
     <script>window.__PREFERRED_AUTH0_VERSION='2.7';</script>
 </head>

@@ -1456,8 +1456,23 @@ function buildCategoryTabs(){
     const el = document.getElementById('categoryTabs'); if(!el || !Array.isArray(games)) return;
     const cats = [...new Set(games.map(g=> g.category).filter(Boolean))].sort((a,b)=> a.localeCompare(b));
     if(cats.length === 0){ el.innerHTML=''; return; }
+    const iconMap = {
+        all: 'fa-layer-group',
+        action: 'fa-bolt',
+        puzzle: 'fa-puzzle-piece',
+        adventure: 'fa-map',
+        strategy: 'fa-chess-knight',
+        arcade: 'fa-gamepad',
+        sports: 'fa-futbol',
+        new: 'fa-sparkles',
+        popular: 'fa-fire',
+        updated: 'fa-rotate'
+    };
     const allList = ['all', ...cats];
-    el.innerHTML = allList.map(c=>`<button class="cat-tab" data-cat="${sanitize(c)}" aria-pressed="false">${sanitize(capitalize(c))}</button>`).join('');
+    el.innerHTML = allList.map(c=>{
+        const icon = iconMap[c.toLowerCase()] || 'fa-circle';
+        return `<button class="cat-tab" data-cat="${sanitize(c)}" aria-pressed="false"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${sanitize(capitalize(c))}</span></button>`;
+    }).join('');
     const buttons = Array.from(el.querySelectorAll('button.cat-tab'));
     function activate(cat){
         buttons.forEach(b=>{ const active = b.dataset.cat===cat; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active? 'true':'false'); });
