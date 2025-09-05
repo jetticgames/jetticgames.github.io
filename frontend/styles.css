@@ -2053,3 +2053,39 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 /* Particle background */
 .particle-bg-canvas {position:fixed; inset:0 0 0 0; width:100%; height:100%; z-index:0; pointer-events:none;}
 .main-content, .content-area, .page {position:relative; z-index:1;}
+
+/* ===== Notification Animations ===== */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.notification {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    border-left: 4px solid rgba(255, 255, 255, 0.3);
+}
+
+.notification button {
+    transition: opacity 0.2s ease;
+}
+
+.notification button:hover {
+    opacity: 0.8;
+}

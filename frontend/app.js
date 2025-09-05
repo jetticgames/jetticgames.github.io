@@ -1264,6 +1264,22 @@ function ensureSettingsPage(){
                             <small class="muted-hint">Force refresh assets & service worker.</small>
                         </div>
                     </div>
+                    <div class="setting-group">
+                        <h3>Data Management</h3>
+                        <div class="setting-item">
+                            <button id="exportDataBtn" class="update-check-btn" onclick="showExportPreview()" style="margin-bottom: 8px;">
+                                <i class="fas fa-download" style="margin-right: 6px;"></i>Export All Data
+                            </button>
+                            <small class="muted-hint">Download all your game saves, settings, and favorites as a compressed file.</small>
+                        </div>
+                        <div class="setting-item">
+                            <input type="file" id="importDataFile" accept=".wwd" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
+                            <button id="importDataBtn" class="update-check-btn" onclick="document.getElementById('importDataFile').click()">
+                                <i class="fas fa-upload" style="margin-right: 6px;"></i>Import Data
+                            </button>
+                            <small class="muted-hint">Restore data from a previously exported file. This will overwrite current data.</small>
+                        </div>
+                    </div>
                     <div class="setting-group settings-links">
                         <h3>About & Legal</h3>
                         <div class="link-row">
@@ -1450,6 +1466,325 @@ function loadFavoritesFromCookies(){
 }
 function saveFavoritesToCookies(){
     try { localStorage.setItem('ww_favorites', JSON.stringify(favorites)); } catch(e){ console.warn('Failed to save favorites', e); }
+}
+
+// ===== Data Export/Import System =====
+function getAllGameData() {
+    const gameData = {};
+    
+    // Collect all localStorage data that might be game-related
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        
+        // Include all data except WaterWall's own settings
+        if (key && !key.startsWith('ww_') && !key.startsWith('auth0') && key !== 'debug') {
+            try {
+                // Try to parse as JSON, if it fails store as string
+                gameData[key] = JSON.parse(value);
+            } catch (e) {
+                gameData[key] = value;
+            }
+        }
+    }
+    
+    return gameData;
+}
+
+function showExportPreview() {
+    const gameData = getAllGameData();
+    const gameDataKeys = Object.keys(gameData);
+    const gameDataSize = JSON.stringify(gameData).length;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        inset: 0;
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(2px);
+        background: rgba(0,0,0,0.7);
+        font-family: 'Poppins', sans-serif;
+    `;
+    
+    modal.innerHTML = `
+        <div style="
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 24px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        ">
+            <h3 style="margin: 0 0 16px; font-size: 20px; color: #ffffff;">Export Preview</h3>
+            
+            <div style="margin-bottom: 16px;">
+                <h4 style="margin: 0 0 8px; font-size: 16px; color: #58a6ff;">WaterWall Settings</h4>
+                <ul style="margin: 0 0 0 20px; color: #a0a6ad; font-size: 14px;">
+                    <li>Proxy settings: ${settings.defaultProxy ? 'Enabled' : 'Disabled'}</li>
+                    <li>Favorites: ${favorites.length} games</li>
+                    <li>Game proxy overrides: ${Object.keys(gameProxyOverrides).length} games</li>
+                </ul>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 8px; font-size: 16px; color: #58a6ff;">Game Save Data</h4>
+                <p style="margin: 0 0 8px; color: #a0a6ad; font-size: 14px;">
+                    ${gameDataKeys.length} save data entries found (${(gameDataSize / 1024).toFixed(1)}KB)
+                </p>
+                ${gameDataKeys.length > 0 ? `
+                    <details style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #7d8590; font-size: 13px;">Show detected save data keys</summary>
+                        <div style="margin-top: 8px; max-height: 150px; overflow-y: auto; background: #0d1117; padding: 8px; border-radius: 6px; border: 1px solid #21262d;">
+                            ${gameDataKeys.map(key => `<div style="font-family: monospace; font-size: 12px; color: #79c0ff; margin-bottom: 2px;">${key}</div>`).join('')}
+                        </div>
+                    </details>
+                ` : '<p style="color: #7d8590; font-size: 13px; font-style: italic;">No game save data detected</p>'}
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="cancelExport" style="
+                    background: transparent;
+                    border: 1px solid #30363d;
+                    color: #a0a6ad;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-size: 14px;
+                ">Cancel</button>
+                <button id="confirmExport" style="
+                    background: #238636;
+                    border: 1px solid #238636;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-size: 14px;
+                ">
+                    <i class="fas fa-download" style="margin-right: 6px;"></i>Export Data
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    modal.querySelector('#cancelExport').onclick = () => modal.remove();
+    modal.querySelector('#confirmExport').onclick = () => {
+        modal.remove();
+        exportSiteData();
+    };
+    
+    // Close on backdrop click
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+}
+
+function exportSiteData() {
+    try {
+        const exportData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            settings: settings,
+            favorites: favorites,
+            gameProxyOverrides: gameProxyOverrides,
+            gameData: getAllGameData()
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        
+        // Try to compress if LZString is available, otherwise use plain JSON
+        let finalData = dataStr;
+        let isCompressed = false;
+        if (typeof LZString !== 'undefined' && LZString.compress) {
+            try {
+                finalData = LZString.compress(dataStr);
+                isCompressed = true;
+            } catch (e) {
+                console.warn('Compression failed, using uncompressed data:', e);
+            }
+        }
+        
+        // Create download
+        const blob = new Blob([finalData], { 
+            type: isCompressed ? 'application/octet-stream' : 'application/json' 
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `waterwall-data-${new Date().toISOString().split('T')[0]}.wwd`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        const size = (finalData.length / 1024).toFixed(1);
+        const compression = isCompressed ? ' (compressed)' : '';
+        showNotification(`Data exported successfully! Size: ${size}KB${compression}`, 'success');
+    } catch (error) {
+        console.error('Export failed:', error);
+        showNotification('Export failed: ' + error.message, 'error');
+    }
+}
+
+function importSiteData(file) {
+    if (!file) return;
+    
+    if (!file.name.endsWith('.wwd')) {
+        showNotification('Please select a valid WaterWall data file (.wwd)', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let dataStr = e.target.result;
+            
+            // Try to decompress if LZString is available
+            if (typeof LZString !== 'undefined' && LZString.decompress) {
+                try {
+                    const decompressed = LZString.decompress(dataStr);
+                    if (decompressed) {
+                        dataStr = decompressed;
+                    }
+                    // If decompression fails, assume it's already uncompressed JSON
+                } catch (e) {
+                    console.warn('Decompression failed, trying as uncompressed data:', e);
+                }
+            }
+            
+            const importData = JSON.parse(dataStr);
+            
+            if (!importData.version) {
+                throw new Error('Invalid data format. This doesn\'t appear to be a WaterWall data file.');
+            }
+            
+            // Show confirmation dialog
+            if (!confirm(`Import data from ${importData.timestamp ? new Date(importData.timestamp).toLocaleDateString() : 'unknown date'}?\n\nThis will overwrite your current settings, favorites, and game saves. This action cannot be undone.`)) {
+                return;
+            }
+            
+            // Import settings
+            if (importData.settings) {
+                settings = { ...settings, ...importData.settings };
+                saveSettingsToCookies();
+                isProxyEnabled = settings.defaultProxy || false;
+            }
+            
+            // Import favorites
+            if (importData.favorites && Array.isArray(importData.favorites)) {
+                favorites = importData.favorites;
+                saveFavoritesToCookies();
+            }
+            
+            // Import game proxy overrides
+            if (importData.gameProxyOverrides) {
+                Object.assign(gameProxyOverrides, importData.gameProxyOverrides);
+            }
+            
+            // Import game data
+            if (importData.gameData) {
+                let importedCount = 0;
+                Object.keys(importData.gameData).forEach(key => {
+                    try {
+                        const value = importData.gameData[key];
+                        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                        importedCount++;
+                    } catch (e) {
+                        console.warn(`Failed to import data for key: ${key}`, e);
+                    }
+                });
+                
+                console.log(`Imported ${importedCount} game data entries`);
+            }
+            
+            showNotification(`Data imported successfully! ${importData.timestamp ? 'From: ' + new Date(importData.timestamp).toLocaleDateString() : ''}`, 'success');
+            
+            // Refresh UI
+            updateProxyVisuals();
+            renderFavoritesSection();
+            
+            // Update settings page if visible
+            const settingsPage = document.getElementById('settingsPage');
+            if (settingsPage && settingsPage.style.display !== 'none') {
+                const proxyToggle = document.getElementById('proxyToggleSetting');
+                if (proxyToggle) {
+                    proxyToggle.checked = isProxyEnabled;
+                }
+            }
+            
+        } catch (error) {
+            console.error('Import failed:', error);
+            showNotification('Import failed: ' + error.message, 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 10001;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    // Set background color based on type
+    const colors = {
+        success: '#28a745',
+        error: '#dc3545',
+        info: '#17a2b8',
+        warning: '#ffc107'
+    };
+    notification.style.backgroundColor = colors[type] || colors.info;
+    
+    notification.textContent = message;
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        margin-left: 10px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    `;
+    closeBtn.onclick = () => notification.remove();
+    notification.appendChild(closeBtn);
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOutRight 0.3s ease-in';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
 }
 
 function buildCategoryTabs(){
