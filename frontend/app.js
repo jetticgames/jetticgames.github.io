@@ -1456,13 +1456,21 @@ function buildCategoryTabs(){
     const el = document.getElementById('categoryTabs'); if(!el || !Array.isArray(games)) return;
     const cats = [...new Set(games.map(g=> g.category).filter(Boolean))].sort((a,b)=> a.localeCompare(b));
     if(cats.length === 0){ el.innerHTML=''; return; }
-    el.innerHTML = ['all', ...cats].map(c=>`<button class="cat-tab" data-cat="${sanitize(c)}">${sanitize(capitalize(c))}</button>`).join('');
-    el.querySelectorAll('button.cat-tab').forEach(btn=>{
+    const allList = ['all', ...cats];
+    el.innerHTML = allList.map(c=>`<button class="cat-tab" data-cat="${sanitize(c)}" aria-pressed="false">${sanitize(capitalize(c))}</button>`).join('');
+    const buttons = Array.from(el.querySelectorAll('button.cat-tab'));
+    function activate(cat){
+        buttons.forEach(b=>{ const active = b.dataset.cat===cat; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active? 'true':'false'); });
+    }
+    buttons.forEach(btn=>{
         btn.onclick=()=>{
-            if(btn.dataset.cat==='all'){ showHomePage(); return; }
-            filterByCategory(btn.dataset.cat);
+            const cat = btn.dataset.cat;
+            if(cat==='all'){ showHomePage(); activate('all'); return; }
+            filterByCategory(cat); activate(cat);
         };
     });
+    // Default active 'all'
+    activate('all');
 }
 
 function renderFavoritesSection(){
