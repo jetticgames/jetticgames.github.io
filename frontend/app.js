@@ -8,7 +8,25 @@ let currentGame = null;
 let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
 let favorites = [];
-let settings = { defaultProxy: false };
+let settings = { 
+    defaultProxy: false,
+    // Theme settings
+    darkMode: true,
+    accentColor: '#58a6ff',
+    // Particle settings
+    particlesEnabled: true,
+    particleSpeed: 0.5,
+    particleCount: 50,
+    particleColor: '#58a6ff',
+    particleLineDistance: 150,
+    particleMouseInteraction: true,
+    // Cursor settings
+    customCursorEnabled: true,
+    cursorSize: 8,
+    cursorColor: '#ffffff',
+    cursorType: 'circle', // 'circle', 'arrow', 'custom'
+    customCursorImage: null
+};
 let currentGameTabTimeout = null;
 // Per-game proxy overrides (true = enabled, false = disabled); undefined -> use settings.defaultProxy
 const gameProxyOverrides = {};
@@ -116,6 +134,13 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSettingsFromCookies();
     loadFavoritesFromCookies();
     if (typeof settings.defaultProxy === 'boolean') isProxyEnabled = settings.defaultProxy; else settings.defaultProxy = false;
+    
+    // Initialize particle system
+    window.particleSystem = new ParticleSystem();
+    
+    // Apply theme and customizations
+    applyTheme();
+    
     startApp();
     // Sticky header shadow on scroll
     const header = document.querySelector('.top-header');
@@ -1232,6 +1257,129 @@ function ensureSettingsPage(){
                 <div class="section-header"><h2 class="section-title">Settings</h2></div>
                 <div class="settings-content">
                     <div class="setting-group">
+                        <h3>Appearance</h3>
+                        <div class="setting-item">
+                            <label class="switch-row" for="darkModeSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Dark Mode</span>
+                                    <span class="setting-sub">Toggle between dark and light themes</span>
+                                </div>
+                                <input type="checkbox" id="darkModeSetting" class="ww-switch-input" ${settings.darkMode?'checked':''} onchange="(function(el){settings.darkMode=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="color-setting">
+                                <span class="setting-title">Accent Color</span>
+                                <span class="setting-sub">Choose your preferred accent color</span>
+                                <input type="color" id="accentColorSetting" value="${settings.accentColor}" onchange="(function(el){settings.accentColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Cursor Settings</h3>
+                        <div class="setting-item">
+                            <label class="switch-row" for="customCursorSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Custom Cursor</span>
+                                    <span class="setting-sub">Use custom cursor instead of system default</span>
+                                </div>
+                                <input type="checkbox" id="customCursorSetting" class="ww-switch-input" ${settings.customCursorEnabled?'checked':''} onchange="(function(el){settings.customCursorEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="range-setting">
+                                <span class="setting-title">Cursor Size</span>
+                                <span class="setting-sub">Adjust the size of the custom cursor</span>
+                                <input type="range" id="cursorSizeSetting" min="4" max="20" value="${settings.cursorSize}" onchange="(function(el){settings.cursorSize=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('cursorSizeValue').textContent=el.value+'px';})(this)" class="range-input">
+                                <span id="cursorSizeValue">${settings.cursorSize}px</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="color-setting">
+                                <span class="setting-title">Cursor Color</span>
+                                <span class="setting-sub">Choose your cursor color</span>
+                                <input type="color" id="cursorColorSetting" value="${settings.cursorColor}" onchange="(function(el){settings.cursorColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="select-setting">
+                                <span class="setting-title">Cursor Type</span>
+                                <span class="setting-sub">Choose cursor style</span>
+                                <select id="cursorTypeSetting" onchange="(function(el){settings.cursorType=el.value;saveSettingsToCookies();applyTheme();})(this)" class="select-input">
+                                    <option value="circle" ${settings.cursorType==='circle'?'selected':''}>Circle</option>
+                                    <option value="arrow" ${settings.cursorType==='arrow'?'selected':''}>Triangle Arrow</option>
+                                    <option value="custom" ${settings.cursorType==='custom'?'selected':''}>Custom Image</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="file-setting">
+                                <span class="setting-title">Custom Cursor Image</span>
+                                <span class="setting-sub">Upload a custom cursor image</span>
+                                <input type="file" id="customCursorImage" accept="image/*" onchange="handleCustomCursorUpload(this)" class="file-input">
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Background Particles</h3>
+                        <div class="setting-item">
+                            <label class="switch-row" for="particlesEnabledSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Enable Particles</span>
+                                    <span class="setting-sub">Show animated background particles</span>
+                                </div>
+                                <input type="checkbox" id="particlesEnabledSetting" class="ww-switch-input" ${settings.particlesEnabled?'checked':''} onchange="(function(el){settings.particlesEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="range-setting">
+                                <span class="setting-title">Particle Speed</span>
+                                <span class="setting-sub">Control how fast particles move</span>
+                                <input type="range" id="particleSpeedSetting" min="0.1" max="2" step="0.1" value="${settings.particleSpeed}" onchange="(function(el){settings.particleSpeed=parseFloat(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleSpeedValue').textContent=el.value;})(this)" class="range-input">
+                                <span id="particleSpeedValue">${settings.particleSpeed}</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="range-setting">
+                                <span class="setting-title">Particle Count</span>
+                                <span class="setting-sub">Number of particles on screen</span>
+                                <input type="range" id="particleCountSetting" min="10" max="200" value="${settings.particleCount}" onchange="(function(el){settings.particleCount=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleCountValue').textContent=el.value;})(this)" class="range-input">
+                                <span id="particleCountValue">${settings.particleCount}</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="color-setting">
+                                <span class="setting-title">Particle Color</span>
+                                <span class="setting-sub">Choose particle and line color</span>
+                                <input type="color" id="particleColorSetting" value="${settings.particleColor}" onchange="(function(el){settings.particleColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="range-setting">
+                                <span class="setting-title">Line Distance</span>
+                                <span class="setting-sub">Distance at which particles connect</span>
+                                <input type="range" id="particleLineSetting" min="50" max="300" value="${settings.particleLineDistance}" onchange="(function(el){settings.particleLineDistance=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleLineValue').textContent=el.value+'px';})(this)" class="range-input">
+                                <span id="particleLineValue">${settings.particleLineDistance}px</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label class="switch-row" for="particleMouseSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Mouse Interaction</span>
+                                    <span class="setting-sub">Particles react to mouse movement</span>
+                                </div>
+                                <input type="checkbox" id="particleMouseSetting" class="ww-switch-input" ${settings.particleMouseInteraction?'checked':''} onchange="(function(el){settings.particleMouseInteraction=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
                         <h3>Game Settings</h3>
                         <div class="setting-item">
                             <label class="switch-row" for="proxyToggleSetting">
@@ -1244,26 +1392,7 @@ function ensureSettingsPage(){
                             </label>
                         </div>
                     </div>
-                    <div class="setting-group">
-                        <h3>Display Settings</h3>
-                        <div class="setting-item">
-                            <label class="switch-row">
-                                <div class="switch-text">
-                                    <span class="setting-title">Dark Theme</span>
-                                    <span class="setting-sub">Default</span>
-                                </div>
-                                <input type="checkbox" class="ww-switch-input" checked disabled>
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="setting-group">
-                        <h3>Updates</h3>
-                        <div class="setting-item">
-                            <button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button>
-                            <small class="muted-hint">Force refresh assets & service worker.</small>
-                        </div>
-                    </div>
+                    
                     <div class="setting-group">
                         <h3>Data Management</h3>
                         <div class="setting-item">
@@ -1280,6 +1409,14 @@ function ensureSettingsPage(){
                             <small class="muted-hint">Restore data from a previously exported file. This will overwrite current data.</small>
                         </div>
                     </div>
+                    
+                    <div class="setting-group">
+                        <h3>Updates</h3>
+                        <div class="setting-item">
+                            <button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button>
+                            <small class="muted-hint">Force refresh assets & service worker.</small>
+                        </div>
+                    </div>
                     <div class="setting-group settings-links">
                         <h3>About & Legal</h3>
                         <div class="link-row">
@@ -1291,6 +1428,84 @@ function ensureSettingsPage(){
                 </div>
             </section>
         </div>`);
+}
+
+// ===== Custom Cursor Image Handler =====
+function handleCustomCursorUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showNotification('Please select a valid image file', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        settings.customCursorImage = e.target.result;
+        settings.cursorType = 'custom';
+        saveSettingsToCookies();
+        applyTheme();
+        
+        // Update the select dropdown
+        const cursorTypeSelect = document.getElementById('cursorTypeSetting');
+        if (cursorTypeSelect) {
+            cursorTypeSelect.value = 'custom';
+        }
+        
+        showNotification('Custom cursor image uploaded successfully!', 'success');
+    };
+    reader.readAsDataURL(file);
+}
+
+// ===== Settings Page Helper Functions =====
+function updateSettingsPageValues() {
+    // Update cursor size
+    const cursorSizeInput = document.getElementById('cursorSizeSetting');
+    const cursorSizeValue = document.getElementById('cursorSizeValue');
+    if (cursorSizeInput && cursorSizeValue) {
+        cursorSizeInput.value = settings.cursorSize;
+        cursorSizeValue.textContent = settings.cursorSize + 'px';
+    }
+    
+    // Update cursor color
+    const cursorColorInput = document.getElementById('cursorColorSetting');
+    if (cursorColorInput) cursorColorInput.value = settings.cursorColor;
+    
+    // Update cursor type
+    const cursorTypeSelect = document.getElementById('cursorTypeSetting');
+    if (cursorTypeSelect) cursorTypeSelect.value = settings.cursorType;
+    
+    // Update particle settings
+    const particlesToggle = document.getElementById('particlesEnabledSetting');
+    if (particlesToggle) particlesToggle.checked = settings.particlesEnabled;
+    
+    const particleSpeedInput = document.getElementById('particleSpeedSetting');
+    const particleSpeedValue = document.getElementById('particleSpeedValue');
+    if (particleSpeedInput && particleSpeedValue) {
+        particleSpeedInput.value = settings.particleSpeed;
+        particleSpeedValue.textContent = settings.particleSpeed;
+    }
+    
+    const particleCountInput = document.getElementById('particleCountSetting');
+    const particleCountValue = document.getElementById('particleCountValue');
+    if (particleCountInput && particleCountValue) {
+        particleCountInput.value = settings.particleCount;
+        particleCountValue.textContent = settings.particleCount;
+    }
+    
+    const particleColorInput = document.getElementById('particleColorSetting');
+    if (particleColorInput) particleColorInput.value = settings.particleColor;
+    
+    const particleLineInput = document.getElementById('particleLineSetting');
+    const particleLineValue = document.getElementById('particleLineValue');
+    if (particleLineInput && particleLineValue) {
+        particleLineInput.value = settings.particleLineDistance;
+        particleLineValue.textContent = settings.particleLineDistance + 'px';
+    }
+    
+    const particleMouseToggle = document.getElementById('particleMouseSetting');
+    if (particleMouseToggle) particleMouseToggle.checked = settings.particleMouseInteraction;
 }
 
 // ===== Update / Cache Refresh =====
@@ -1466,6 +1681,237 @@ function loadFavoritesFromCookies(){
 }
 function saveFavoritesToCookies(){
     try { localStorage.setItem('ww_favorites', JSON.stringify(favorites)); } catch(e){ console.warn('Failed to save favorites', e); }
+}
+
+// ===== Theme Management =====
+function applyTheme() {
+    const root = document.documentElement;
+    
+    // Apply theme mode
+    if (settings.darkMode) {
+        root.removeAttribute('data-theme');
+    } else {
+        root.setAttribute('data-theme', 'light');
+    }
+    
+    // Apply custom accent color
+    root.style.setProperty('--accent-color', settings.accentColor);
+    
+    // Apply custom cursor styles
+    applyCustomCursor();
+    
+    // Apply particle settings
+    applyParticleSettings();
+}
+
+function applyCustomCursor() {
+    const root = document.documentElement;
+    
+    if (!settings.customCursorEnabled) {
+        // Use default cursor
+        root.style.setProperty('--cursor-display', 'none');
+        document.body.style.cursor = 'auto';
+        document.querySelectorAll('*').forEach(el => el.style.cursor = 'auto');
+        return;
+    }
+    
+    root.style.setProperty('--cursor-display', 'block');
+    root.style.setProperty('--cursor-size', settings.cursorSize + 'px');
+    root.style.setProperty('--cursor-color', settings.cursorColor);
+    
+    // Apply cursor type
+    const cursorDot = document.querySelector('.custom-cursor-dot');
+    if (cursorDot) {
+        cursorDot.style.width = settings.cursorSize + 'px';
+        cursorDot.style.height = settings.cursorSize + 'px';
+        cursorDot.style.background = settings.cursorColor;
+        
+        if (settings.cursorType === 'arrow') {
+            cursorDot.style.borderRadius = '0';
+            cursorDot.style.transform = 'rotate(45deg) translate(-50%, -50%)';
+            cursorDot.style.clipPath = 'polygon(0% 0%, 0% 100%, 100% 0%)';
+        } else if (settings.cursorType === 'custom' && settings.customCursorImage) {
+            cursorDot.style.backgroundImage = `url(${settings.customCursorImage})`;
+            cursorDot.style.backgroundSize = 'contain';
+            cursorDot.style.backgroundRepeat = 'no-repeat';
+            cursorDot.style.borderRadius = '0';
+        } else {
+            // Circle
+            cursorDot.style.borderRadius = '50%';
+            cursorDot.style.transform = 'translate(-50%, -50%)';
+            cursorDot.style.clipPath = 'none';
+            cursorDot.style.backgroundImage = 'none';
+        }
+    }
+}
+
+// ===== Particle System =====
+class ParticleSystem {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.particles = [];
+        this.mouse = { x: 0, y: 0 };
+        this.animationId = null;
+        this.settings = {
+            enabled: true,
+            speed: 0.5,
+            count: 50,
+            color: '#58a6ff',
+            lineDistance: 150,
+            mouseInteraction: true
+        };
+        this.init();
+    }
+    
+    init() {
+        // Create canvas
+        this.canvas = document.createElement('canvas');
+        this.canvas.className = 'particle-bg-canvas';
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Insert canvas as first child of body
+        document.body.insertBefore(this.canvas, document.body.firstChild);
+        
+        // Set canvas size
+        this.resize();
+        
+        // Create particles
+        this.createParticles();
+        
+        // Start animation
+        if (this.settings.enabled) {
+            this.animate();
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', () => this.resize());
+        window.addEventListener('mousemove', (e) => {
+            this.mouse.x = e.clientX;
+            this.mouse.y = e.clientY;
+        });
+    }
+    
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+    
+    createParticles() {
+        this.particles = [];
+        for (let i = 0; i < this.settings.count; i++) {
+            this.particles.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                vx: (Math.random() - 0.5) * this.settings.speed,
+                vy: (Math.random() - 0.5) * this.settings.speed,
+                size: Math.random() * 2 + 1
+            });
+        }
+    }
+    
+    updateSettings(newSettings) {
+        this.settings = { ...this.settings, ...newSettings };
+        
+        if (this.settings.enabled && !this.animationId) {
+            this.createParticles();
+            this.animate();
+        } else if (!this.settings.enabled && this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        } else if (this.settings.enabled) {
+            // Update particle count if needed
+            const countDiff = this.settings.count - this.particles.length;
+            if (countDiff > 0) {
+                for (let i = 0; i < countDiff; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        vx: (Math.random() - 0.5) * this.settings.speed,
+                        vy: (Math.random() - 0.5) * this.settings.speed,
+                        size: Math.random() * 2 + 1
+                    });
+                }
+            } else if (countDiff < 0) {
+                this.particles = this.particles.slice(0, this.settings.count);
+            }
+        }
+    }
+    
+    animate() {
+        if (!this.settings.enabled) return;
+        
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Update particles
+        this.particles.forEach((particle, i) => {
+            // Update position
+            particle.x += particle.vx * this.settings.speed;
+            particle.y += particle.vy * this.settings.speed;
+            
+            // Bounce off edges
+            if (particle.x < 0 || particle.x > this.canvas.width) particle.vx *= -1;
+            if (particle.y < 0 || particle.y > this.canvas.height) particle.vy *= -1;
+            
+            // Keep particles in bounds
+            particle.x = Math.max(0, Math.min(this.canvas.width, particle.x));
+            particle.y = Math.max(0, Math.min(this.canvas.height, particle.y));
+            
+            // Mouse interaction
+            if (this.settings.mouseInteraction) {
+                const dx = this.mouse.x - particle.x;
+                const dy = this.mouse.y - particle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 100) {
+                    const force = (100 - distance) / 100;
+                    particle.vx -= (dx / distance) * force * 0.01;
+                    particle.vy -= (dy / distance) * force * 0.01;
+                }
+            }
+            
+            // Draw particle
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            this.ctx.fillStyle = this.settings.color;
+            this.ctx.fill();
+            
+            // Draw connections
+            for (let j = i + 1; j < this.particles.length; j++) {
+                const other = this.particles[j];
+                const dx = particle.x - other.x;
+                const dy = particle.y - other.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < this.settings.lineDistance) {
+                    const opacity = (this.settings.lineDistance - distance) / this.settings.lineDistance;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(particle.x, particle.y);
+                    this.ctx.lineTo(other.x, other.y);
+                    this.ctx.strokeStyle = this.settings.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+                    this.ctx.lineWidth = 0.5;
+                    this.ctx.stroke();
+                }
+            }
+        });
+        
+        this.animationId = requestAnimationFrame(() => this.animate());
+    }
+}
+
+function applyParticleSettings() {
+    // This will be implemented when we add the particle system
+    if (window.particleSystem) {
+        window.particleSystem.updateSettings({
+            enabled: settings.particlesEnabled,
+            speed: settings.particleSpeed,
+            count: settings.particleCount,
+            color: settings.particleColor,
+            lineDistance: settings.particleLineDistance,
+            mouseInteraction: settings.particleMouseInteraction
+        });
+    }
 }
 
 // ===== Data Export/Import System =====
@@ -1682,6 +2128,7 @@ function importSiteData(file) {
             // Refresh UI
             updateProxyVisuals();
             renderFavoritesSection();
+            applyTheme(); // Apply imported theme settings
             
             // Update settings page if visible
             const settingsPage = document.getElementById('settingsPage');
@@ -1690,6 +2137,19 @@ function importSiteData(file) {
                 if (proxyToggle) {
                     proxyToggle.checked = isProxyEnabled;
                 }
+                
+                // Update other setting controls
+                const darkModeToggle = document.getElementById('darkModeSetting');
+                if (darkModeToggle) darkModeToggle.checked = settings.darkMode;
+                
+                const accentColorInput = document.getElementById('accentColorSetting');
+                if (accentColorInput) accentColorInput.value = settings.accentColor;
+                
+                const customCursorToggle = document.getElementById('customCursorSetting');
+                if (customCursorToggle) customCursorToggle.checked = settings.customCursorEnabled;
+                
+                // Update all the range inputs and their value displays
+                updateSettingsPageValues();
             }
             
         } catch (error) {
