@@ -1482,7 +1482,7 @@ function toggleSettingGroup(header) {
         // Expand
         group.classList.remove('collapsed');
         // Calculate full height including padding
-        const fullHeight = content.scrollHeight + 84; // 24px top + 60px bottom padding
+        const fullHeight = content.scrollHeight + 56; // 24px top + 32px bottom padding
         content.style.maxHeight = fullHeight + 'px';
         arrow.style.transform = 'rotate(0deg)';
     } else {
