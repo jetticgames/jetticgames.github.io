@@ -2198,56 +2198,57 @@ function importSiteData(file) {
             }
             
             // Show confirmation dialog
-            if (!confirm(`Import data from ${importData.timestamp ? new Date(importData.timestamp).toLocaleDateString() : 'unknown date'}?\n\nThis will overwrite your current settings, favorites, and game saves. This action cannot be undone.`)) {
-                return;
-            }
-            
-            // Import settings
-            if (importData.settings) {
-                settings = { ...settings, ...importData.settings };
-                saveSettingsToCookies();
-                isProxyEnabled = settings.defaultProxy || false;
-            }
-            
-            // Import favorites
-            if (importData.favorites && Array.isArray(importData.favorites)) {
-                favorites = importData.favorites;
-                saveFavoritesToCookies();
-            }
-            
-            // Import game proxy overrides
-            if (importData.gameProxyOverrides) {
-                Object.assign(gameProxyOverrides, importData.gameProxyOverrides);
-            }
-            
-            // Import game data
-            if (importData.gameData) {
-                let importedCount = 0;
-                Object.keys(importData.gameData).forEach(key => {
-                    try {
-                        const value = importData.gameData[key];
-                        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
-                        importedCount++;
-                    } catch (e) {
-                        console.warn(`Failed to import data for key: ${key}`, e);
+            const importDate = importData.timestamp ? new Date(importData.timestamp).toLocaleDateString() : 'unknown date';
+            showCustomConfirmDialog(
+                'Import Data', 
+                `Import data from ${importDate}?\n\nThis will overwrite your current settings, favorites, and game saves. This action cannot be undone.`,
+                function() {
+                    // Import settings
+                    if (importData.settings) {
+                        settings = { ...settings, ...importData.settings };
+                        saveSettingsToCookies();
+                        isProxyEnabled = settings.defaultProxy || false;
                     }
-                });
-                
-                console.log(`Imported ${importedCount} game data entries`);
-            }
-            
-            showNotification(`Data imported successfully! ${importData.timestamp ? 'From: ' + new Date(importData.timestamp).toLocaleDateString() : ''}`, 'success');
-            
-            // Refresh UI
-            updateProxyVisuals();
-            renderFavoritesSection();
-            applyTheme(); // Apply imported theme settings
-            
-            // Update settings page if visible
-            const settingsPage = document.getElementById('settingsPage');
-            if (settingsPage && settingsPage.style.display !== 'none') {
-                const proxyToggle = document.getElementById('proxyToggleSetting');
-                if (proxyToggle) {
+                    
+                    // Import favorites
+                    if (importData.favorites && Array.isArray(importData.favorites)) {
+                        favorites = importData.favorites;
+                        saveFavoritesToCookies();
+                    }
+                    
+                    // Import game proxy overrides
+                    if (importData.gameProxyOverrides) {
+                        Object.assign(gameProxyOverrides, importData.gameProxyOverrides);
+                    }
+                    
+                    // Import game data
+                    if (importData.gameData) {
+                        let importedCount = 0;
+                        Object.keys(importData.gameData).forEach(key => {
+                            try {
+                                const value = importData.gameData[key];
+                                localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+                                importedCount++;
+                            } catch (e) {
+                                console.warn(`Failed to import data for key: ${key}`, e);
+                            }
+                        });
+                        
+                        console.log(`Imported ${importedCount} game data entries`);
+                    }
+                    
+                    showNotification(`Data imported successfully! ${importData.timestamp ? 'From: ' + new Date(importData.timestamp).toLocaleDateString() : ''}`, 'success');
+                    
+                    // Refresh UI
+                    updateProxyVisuals();
+                    renderFavoritesSection();
+                    applyTheme(); // Apply imported theme settings
+                    
+                    // Update settings page if visible
+                    const settingsPage = document.getElementById('settingsPage');
+                    if (settingsPage && settingsPage.style.display !== 'none') {
+                        const proxyToggle = document.getElementById('proxyToggleSetting');
+                        if (proxyToggle) {
                     proxyToggle.checked = isProxyEnabled;
                 }
                 
@@ -2261,6 +2262,8 @@ function importSiteData(file) {
                 // Update all the range inputs and their value displays
                 updateSettingsPageValues();
             }
+                }
+            );
             
         } catch (error) {
             console.error('Import failed:', error);
