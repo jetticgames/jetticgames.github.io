@@ -2350,23 +2350,17 @@ function showCustomConfirmDialog(title, message, onConfirm, onCancel = null) {
     const dialog = document.createElement('div');
     dialog.id = 'customConfirmDialog';
     dialog.innerHTML = `
-        <div class="modal-overlay" onclick="closeCustomConfirmDialog()">
-            <div class="modal-dialog custom-confirm-dialog" onclick="event.stopPropagation()">
-                <div class="modal-header">
-                    <h3>${title}</h3>
-                    <button class="modal-close" onclick="closeCustomConfirmDialog()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>${message.replace(/\\n/g, '<br>')}</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="update-check-btn" onclick="confirmCustomDialog()" style="background: var(--accent-color); margin-right: 8px;">
-                        Confirm
-                    </button>
-                    <button class="update-check-btn" onclick="closeCustomConfirmDialog()" style="background: #6b7280; border-color: #6b7280;">
-                        Cancel
-                    </button>
-                </div>
+        <div class="modal-overlay" onclick="closeCustomConfirmDialog()"></div>
+        <div class="custom-confirm-dialog" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>${title}</h3>
+            </div>
+            <div class="modal-body">
+                <p>${message.replace(/\\n/g, '<br>')}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="confirm-cancel" onclick="closeCustomConfirmDialog()">Cancel</button>
+                <button class="confirm-ok" onclick="confirmCustomDialog()">Confirm</button>
             </div>
         </div>
     `;
