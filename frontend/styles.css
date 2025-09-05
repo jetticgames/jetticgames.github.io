@@ -512,12 +512,15 @@ body, * { cursor: none !important; }
 
 /* Center the entire section when empty state is visible */
 #favoritesPage .games-section {
+    display: block;
+    min-height: 60vh;
+    position: relative;
+}
+#favoritesPage .games-section.center-empty-state {
     display: flex;
     flex-direction: column;
-    min-height: 60vh;
     justify-content: center;
     align-items: center;
-    position: relative;
 }
 #favoritesEmptyState h3 { font-size:24px; }
 #favoritesEmptyState p { font-size:14px; }
