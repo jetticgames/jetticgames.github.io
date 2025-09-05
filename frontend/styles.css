@@ -2110,6 +2110,7 @@ body, * { cursor: none !important; }
     border: 1px solid var(--border-primary);
     border-radius: 12px;
     margin-bottom: 16px;
+    overflow: hidden;
     transition: all 0.3s ease;
 }
 
@@ -2150,16 +2151,14 @@ body, * { cursor: none !important; }
 
 .setting-group-content {
     padding: 24px 20px 60px 20px;
-    max-height: none;
-    overflow: visible;
-    opacity: 1;
-    transition: opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
+    max-height: 9999px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
 }
 
 .setting-group.collapsed .setting-group-content {
     max-height: 0;
     padding: 0 20px;
-    opacity: 0;
     overflow: hidden;
 }
 
