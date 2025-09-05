@@ -173,9 +173,9 @@ async function startApp() {
     } catch (error) {
         console.error('❌ App initialization failed:', error);
         
-        // Emergency fallback
-        emergencyFallback();
-        hidePageLoader(true);
+    // Show error and hide loader
+    showPopupError('Critical error during app initialization. Please reload the page.');
+    hidePageLoader(true);
     }
 }
 
@@ -253,44 +253,6 @@ function forceRenderGames() {
     renderFavoritesSection();
 }
 
-function emergencyFallback() {
-    console.log('🚨 Emergency fallback activated');
-    
-    const allGamesGrid = document.getElementById('allGames');
-    
-    const emergencyHTML = `
-        <div class="game-card" data-game-id="1">
-            <img src="https://via.placeholder.com/300x200/6366f1/ffffff" alt="2048" loading="lazy">
-            <div class="game-card-overlay">
-                <div class="overlay-title">2048</div>
-                <div class="overlay-category">puzzle</div>
-            </div>
-        </div>
-        <div class="game-card" data-game-id="2">
-            <img src="https://via.placeholder.com/300x200/22c55e/ffffff" alt="Snake" loading="lazy">
-            <div class="game-card-overlay">
-                <div class="overlay-title">Snake</div>
-                <div class="overlay-category">arcade</div>
-            </div>
-        </div>
-        <div class="game-card" data-game-id="3">
-            <img src="https://via.placeholder.com/300x200/3b82f6/ffffff" alt="Tetris" loading="lazy">
-            <div class="game-card-overlay">
-                <div class="overlay-title">Tetris</div>
-                <div class="overlay-category">puzzle</div>
-            </div>
-        </div>
-    `;
-    
-    if (allGamesGrid) allGamesGrid.innerHTML = emergencyHTML;
-    
-    // Set fallback games data
-    games = [
-        {id: 1, title: "2048", category: "puzzle", embed: "https://play2048.co/"},
-        {id: 2, title: "Snake", category: "arcade", embed: "https://playsnake.org/"},
-        {id: 3, title: "Tetris", category: "puzzle", embed: "https://tetris.com/play-tetris"}
-    ];
-}
 
 function renderGames() {
     console.log('🎨 Rendering games (delegating to forceRenderGames)...');
@@ -487,7 +449,7 @@ async function updateAuthUI(){
             const label = user && (user.given_name || user.nickname || user.name || user.email);
             if(accountLabelEl) accountLabelEl.textContent = label || 'Account';
         } else {
-            if(accountLabelEl) accountLabelEl.textContent='Sign in / Sign up';
+            if(accountLabelEl) accountLabelEl.textContent='Sign in';
         }
     } catch(e){
         console.error('updateAuthUI error', e);
@@ -499,83 +461,19 @@ async function updateAuthUI(){
 async function loadGames() {
     try {
         console.log('🔄 Loading games from games.json...');
-        
-        // Try to fetch games.json
         const response = await fetch('./games.json');
         console.log('📡 Fetch response status:', response.status, response.statusText);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         console.log('📊 Raw JSON data:', data);
-        
-        if (!Array.isArray(data) || data.length === 0) {
-            throw new Error('Invalid or empty games data');
-        }
-        
+        if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
         games = data;
         console.log(`✅ Successfully loaded ${games.length} games from JSON`);
-        
         return games;
-        
     } catch (error) {
         console.error('❌ Error loading games.json:', error);
-        console.log('🔄 Using fallback games...');
-        
-        // Use fallback games for testing
-        games = [
-            {
-                id: 1,
-                title: "2048",
-                description: "A sliding puzzle game where you combine tiles with the same number to reach 2048.",
-                category: "puzzle",
-                embed: "https://play2048.co/",
-                thumbnail: "https://via.placeholder.com/300x200/6366f1/ffffff?text=2048"
-            },
-            {
-                id: 2,
-                title: "Snake Game",
-                description: "Classic snake game where you eat food and grow longer.",
-                category: "arcade",
-                embed: "https://playsnake.org/",
-                thumbnail: "https://via.placeholder.com/300x200/22c55e/ffffff?text=Snake"
-            },
-            {
-                id: 3,
-                title: "Tetris",
-                description: "Classic block puzzle game.",
-                category: "puzzle",
-                embed: "https://tetris.com/play-tetris",
-                thumbnail: "https://via.placeholder.com/300x200/3b82f6/ffffff?text=Tetris"
-            },
-            {
-                id: 4,
-                title: "Pac-Man",
-                description: "Navigate mazes, eat dots, and avoid ghosts.",
-                category: "arcade",
-                embed: "https://pacman.com/en/",
-                thumbnail: "https://via.placeholder.com/300x200/f59e0b/ffffff?text=Pac-Man"
-            },
-            {
-                id: 5,
-                title: "Chess",
-                description: "Strategic board game for two players.",
-                category: "strategy",
-                embed: "https://chess.com/play",
-                thumbnail: "https://via.placeholder.com/300x200/8b5cf6/ffffff?text=Chess"
-            },
-            {
-                id: 6,
-                title: "Solitaire",
-                description: "Classic card game.",
-                category: "puzzle",
-                embed: "https://solitaired.com/freecell",
-                thumbnail: "https://via.placeholder.com/300x200/10b981/ffffff?text=Solitaire"
-            }
-        ];
-        console.log(`🔄 Using ${games.length} fallback games`);
+        showPopupError('Failed to load games. Please try again later.');
+        games = [];
         return games;
     }
 }
@@ -1270,87 +1168,20 @@ if ('serviceWorker' in navigator) {
 window.debugWaterWall = function() {
     console.log('=== WaterWall Debug Info ===');
     console.log('Games array:', games);
-    console.log('Games count:', games.length);
     console.log('Featured games element:', document.getElementById('featuredGames'));
     console.log('All games element:', document.getElementById('allGames'));
-    console.log('Homepage element:', document.getElementById('homePage'));
-    
-    if (games.length > 0) {
-        console.log('First game:', games[0]);
-        console.log('Sample game card HTML:', createGameCard(games[0]));
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
+        games = data;
+        console.log(`✅ Successfully loaded ${games.length} games from JSON`);
+        return games;
+    } catch (error) {
+        console.error('❌ Error loading games.json:', error);
+        showPopupError('Failed to load games. Please try again later.');
+        games = [];
+        return games;
     }
-    
-    // Try to render games manually
-    renderFeaturedGames();
-    renderGamesByCategory();
-};
-
-// Offline / online indicator
-window.addEventListener('offline', ()=> showError('You are offline. Cached games only.'));
-window.addEventListener('online', ()=> showError('Back online.'));
-
-// ===== New Helpers (Favorites, Settings, Category Tabs, Current Game Tab) =====
-function toggleFavorite(game) {
-    if (!game) return;
-    const idx = favorites.indexOf(game.id);
-    if (idx === -1) favorites.push(game.id); else favorites.splice(idx,1);
-    saveFavoritesToCookies();
-}
-function updateFavoriteButtonState() {
-    const favBtn = document.querySelector('.fav-btn');
-    if (!favBtn) return;
-    if (!currentGame) { favBtn.classList.remove('active'); return; }
-    favBtn.classList.toggle('active', favorites.includes(currentGame.id));
-}
-function renderFavoritesSection() {
-    const section = document.getElementById('favoriteGamesSection');
-    const grid = document.getElementById('favoriteGamesGrid');
-    if (!section || !grid) return;
-    const favGames = games.filter(g=>favorites.includes(g.id));
-    if (favGames.length === 0) { section.style.display='none'; grid.innerHTML=''; return; }
-    section.style.display='block';
-    grid.innerHTML = favGames.map(g=>createGameCard(g)).join('');
-}
-function saveFavoritesToCookies(){ document.cookie='ww_favs='+encodeURIComponent(JSON.stringify(favorites))+';path=/;max-age=31536000'; }
-function loadFavoritesFromCookies(){ const m=document.cookie.match(/ww_favs=([^;]+)/); if(m){ try{ favorites=JSON.parse(decodeURIComponent(m[1])); }catch(e){ favorites=[]; } } }
-function saveSettingsToCookies(){ document.cookie='ww_settings='+encodeURIComponent(JSON.stringify(settings))+';path=/;max-age=31536000'; }
-function loadSettingsFromCookies(){ const m=document.cookie.match(/ww_settings=([^;]+)/); if(m){ try{ settings=JSON.parse(decodeURIComponent(m[1])); isProxyEnabled=settings.defaultProxy; }catch(e){} } }
-
-function buildCategoryTabs(){ const iconMap={puzzle:'fa-puzzle-piece',action:'fa-bolt',adventure:'fa-map',sports:'fa-football-ball',strategy:'fa-chess',arcade:'fa-ghost'}; const c=document.getElementById('categoryTabs'); if(!c||games.length===0)return; const cats=[...new Set(games.map(g=>g.category.toLowerCase()))].sort(); const all=['all',...cats]; c.innerHTML=all.map(x=>{ if(x==='all') return `<button class="category-tab" data-cat="all"><i class="fas fa-th-large"></i> All</button>`; const icon=iconMap[x]||'fa-tag'; return `<button class="category-tab" data-cat="${x}"><i class="fas ${icon}"></i> ${capitalize(x)}</button>`; }).join(''); c.onclick=e=>{const b=e.target.closest('.category-tab'); if(!b)return; c.querySelectorAll('.category-tab').forEach(btn=>btn.classList.remove('active')); b.classList.add('active'); filterHomeByCategory(b.dataset.cat);}; const first=c.querySelector('[data-cat="all"]'); if(first) first.classList.add('active'); }
-function filterHomeByCategory(cat){
-    const grid=document.getElementById('allGames');
-    const titleEl=document.getElementById('allGamesTitle');
-    if(!grid) return;
-    if(cat==='all'){
-        grid.innerHTML=games.map(g=>createGameCard(g)).join('');
-        if(titleEl) titleEl.textContent='All Games';
-        return;
-    }
-    const filtered=games.filter(g=>g.category.toLowerCase()===cat.toLowerCase());
-    grid.innerHTML=filtered.map(g=>createGameCard(g)).join('');
-    if(titleEl) titleEl.textContent=capitalize(cat)+' Games';
-}
-
-function addOrReplaceCurrentGameTab(game){ if(!game)return; clearTimeout(currentGameTabTimeout); let tab=document.querySelector('.current-game-tab'); if(tab) tab.remove(); const list=document.querySelector('.sidebar nav .nav-list'); if(!list)return; const li=document.createElement('li'); li.className='current-game-tab'; li.dataset.gameId=game.id; li.innerHTML=`<i class="fas fa-gamepad"></i><span>${game.title}</span>`; li.onclick=()=>{ if(currentGame && currentGame.id===game.id){ showGamePage(game);} else { const g=games.find(x=>x.id==li.dataset.gameId); if(g) showGamePage(g);} }; list.insertBefore(li, list.firstChild.nextSibling); }
-function scheduleCurrentGameTabRemoval(){ const tab=document.querySelector('.current-game-tab'); if(!tab)return; clearTimeout(currentGameTabTimeout); currentGameTabTimeout=setTimeout(()=>{ tab.classList.add('removing'); setTimeout(()=>{ if(tab.parentElement) tab.remove(); }, 350); }, 10000); }
-
-// Proxy visual sync
-function updateProxyVisuals(){
-    document.querySelectorAll('.proxy-toggle-visual').forEach(el=>{
-        el.classList.remove('on','off');
-        el.classList.add(isProxyEnabled ? 'on':'off');
-        el.setAttribute('aria-pressed', isProxyEnabled ? 'true':'false');
-        el.title = isProxyEnabled ? 'Proxy Enabled' : 'Proxy Disabled';
-    });
-}
-
-function toggleGameProxy(){
-    if(!currentGame) return; 
-    isProxyEnabled = !isProxyEnabled;
-    gameProxyOverrides[currentGame.id] = isProxyEnabled; // store override for this game
-    updateProxyVisuals();
-    // Reload game with new proxy state
-    loadGame(currentGame);
 }
 
 // ===== Added Utility / Page Helpers =====
@@ -1450,58 +1281,35 @@ function ensureSettingsPage(){
 }
 
 // ===== Update / Cache Refresh =====
-function checkForUpdates(){
-    const btn=document.getElementById('checkUpdatesBtn');
-    if(btn){ btn.disabled=true; btn.textContent='Updating...'; }
-    // Attempt to unregister service workers, clear caches, then reload
-    const doReload=()=> setTimeout(()=> { showUpdateModal(btn); }, 400);
-    try {
-        if('serviceWorker' in navigator){
-            navigator.serviceWorker.getRegistrations().then(regs=>{
-                Promise.all(regs.map(r=>r.unregister())).finally(()=>{
-                    if(window.caches){
-                        caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).finally(doReload);
-                    } else doReload();
-                });
-            });
-        } else if(window.caches){
-            caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).finally(doReload);
-        } else doReload();
-    } catch(e){
-        console.warn('Update check encountered error', e); doReload();
+function checkForUpdates() {
+    const btn = document.getElementById('checkUpdatesBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
     }
-}
-
-function showUpdateModal(triggerBtn){
-    const modal=document.getElementById('updateModal'); if(!modal) { location.reload(); return; }
-    modal.style.display='flex'; modal.removeAttribute('aria-hidden');
-    const later=document.getElementById('updateLaterBtn');
-    const reload=document.getElementById('updateReloadBtn');
-    const close=()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='Check for Updates'; } };
-    later.onclick=()=> close();
-    reload.onclick=()=>{ reload.disabled=true; reload.textContent='Reloading...'; location.reload(); };
-    // Close on escape
-    function esc(e){ if(e.key==='Escape'){ close(); window.removeEventListener('keydown', esc); } }
-    window.addEventListener('keydown', esc);
-    // Focus management
-    setTimeout(()=> reload.focus(), 30);
-}
-function renderFavoritesPage(){
-    const grid=document.getElementById('favoritesPageGrid');
-    const empty=document.getElementById('favoritesEmptyState');
-    if(!grid||!empty) return;
-    const favGames=games.filter(g=>favorites.includes(g.id));
-    const section = grid.closest('.games-section');
-    if(favGames.length===0){
-        grid.innerHTML='';
-        grid.style.display='none';
-        empty.style.display='flex';
-        if(section) section.classList.add('center-empty-state');
+    // Unregister all service workers, delete all caches, then reload with cache-busting param
+    const doReload = () => {
+        // Add a cache-busting query param to the URL
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', Date.now());
+        setTimeout(() => {
+            showUpdateModal(btn);
+            window.location.replace(url.toString());
+        }, 400);
+    };
+    const clearCachesAndReload = () => {
+        if (window.caches) {
+            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).finally(doReload);
+        } else {
+            doReload();
+        }
+    };
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+            Promise.all(regs.map(r => r.unregister())).finally(clearCachesAndReload);
+        });
     } else {
-        empty.style.display='none';
-        grid.style.display='grid';
-        grid.innerHTML=favGames.map(g=>createGameCard(g)).join('');
-        if(section) section.classList.remove('center-empty-state');
+        clearCachesAndReload();
     }
 }
 
