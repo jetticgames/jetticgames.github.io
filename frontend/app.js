@@ -1457,21 +1457,21 @@ function buildCategoryTabs(){
     const cats = [...new Set(games.map(g=> g.category).filter(Boolean))].sort((a,b)=> a.localeCompare(b));
     if(cats.length === 0){ el.innerHTML=''; return; }
     const iconMap = {
-        all: 'fa-layer-group',
-        action: 'fa-bolt',
-        puzzle: 'fa-puzzle-piece',
-        adventure: 'fa-map',
-        strategy: 'fa-chess-knight',
-        arcade: 'fa-gamepad',
-        sports: 'fa-futbol',
-        new: 'fa-sparkles',
-        popular: 'fa-fire',
-        updated: 'fa-rotate'
+        all: 'fa-layer-group',           // free
+        action: 'fa-bolt',               // free
+        puzzle: 'fa-puzzle-piece',       // free
+        adventure: 'fa-map',             // free
+        strategy: 'fa-chess-knight',     // free
+        arcade: 'fa-gamepad',            // free
+        sports: 'fa-futbol',             // free (soccer ball)
+        new: 'fa-star',                  // fa-sparkles is Pro; use star
+        popular: 'fa-fire',              // free
+        updated: 'fa-arrows-rotate'      // fa-rotate is a utility class, use arrows-rotate icon
     };
     const allList = ['all', ...cats];
     el.innerHTML = allList.map(c=>{
         const icon = iconMap[c.toLowerCase()] || 'fa-circle';
-        return `<button class="cat-tab" data-cat="${sanitize(c)}" aria-pressed="false"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${sanitize(capitalize(c))}</span></button>`;
+        return `<button class="cat-tab" data-cat="${sanitize(c)}" aria-pressed="false"><i class="fas ${icon}" aria-hidden="true"></i><span>${sanitize(capitalize(c))}</span></button>`;
     }).join('');
     const buttons = Array.from(el.querySelectorAll('button.cat-tab'));
     function activate(cat){
@@ -1487,6 +1487,40 @@ function buildCategoryTabs(){
     // Default active 'all'
     activate('all');
 }
+
+// ===== Font Awesome Fallback Assurance =====
+(function ensureFontAwesome(){
+    const CHECK_DELAY = 1400; // after primary CSS likely parsed
+    const FALLBACKS = [
+        'https://unpkg.com/@fortawesome/fontawesome-free@6.4.0/css/all.min.css',
+        'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css'
+    ];
+    function hasIcons(){
+        // create a temp element to measure pseudo-element font-family or width
+        const probe = document.createElement('i');
+        probe.className='fas fa-home';
+        probe.style.position='absolute'; probe.style.left='-9999px';
+        document.body.appendChild(probe);
+        const style = window.getComputedStyle(probe, '::before');
+        const content = style && style.getPropertyValue('content');
+        const fontFamily = style && style.getPropertyValue('font-family');
+        document.body.removeChild(probe);
+        // Font Awesome pseudo content is usually not 'normal' and font-family contains 'Font Awesome'
+        return content && content !== 'normal' && /Font Awesome|FontAwesome/i.test(fontFamily||'');
+    }
+    function injectFallback(url){
+        if(document.querySelector(`link[data-fa-alt="${url}"]`)) return;
+        const l=document.createElement('link'); l.rel='stylesheet'; l.href=url; l.setAttribute('data-fa-alt', url); document.head.appendChild(l);
+    }
+    window.addEventListener('load', ()=>{
+        let idx=0;
+        function attempt(){
+            if(hasIcons()) return; // success
+            if(idx < FALLBACKS.length){ injectFallback(FALLBACKS[idx++]); setTimeout(attempt, 1200); }
+        }
+        setTimeout(attempt, CHECK_DELAY);
+    });
+})();
 
 function renderFavoritesSection(){
     const section = document.getElementById('favoriteGamesSection');
