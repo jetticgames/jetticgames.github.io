@@ -1405,12 +1405,44 @@ function ensureSettingsPage(){
                 <div class="settings-content">
                     <div class="setting-group">
                         <h3>Game Settings</h3>
-                        <div class="setting-item"><label style="cursor:pointer;"><input type="checkbox" id="proxyToggleSetting" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)"> Enable Proxy for Games (Beta Feature)</label></div>
-                        <div class="setting-item"><button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button> <small style="display:block; margin-top:6px; color:#7d8590;">Force refresh assets & service worker.</small></div>
+                        <div class="setting-item">
+                            <label class="switch-row" for="proxyToggleSetting">
+                                <div class="switch-text">
+                                    <span class="setting-title">Enable Proxy for Games</span>
+                                    <span class="setting-sub">Beta feature to bypass restrictions</span>
+                                </div>
+                                <input type="checkbox" id="proxyToggleSetting" class="ww-switch-input" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)">
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
                     </div>
                     <div class="setting-group">
                         <h3>Display Settings</h3>
-                        <div class="setting-item"><label><input type="checkbox" checked disabled> Dark Theme (default)</label></div>
+                        <div class="setting-item">
+                            <label class="switch-row">
+                                <div class="switch-text">
+                                    <span class="setting-title">Dark Theme</span>
+                                    <span class="setting-sub">Default</span>
+                                </div>
+                                <input type="checkbox" class="ww-switch-input" checked disabled>
+                                <span class="ww-switch" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Updates</h3>
+                        <div class="setting-item">
+                            <button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button>
+                            <small class="muted-hint">Force refresh assets & service worker.</small>
+                        </div>
+                    </div>
+                    <div class="setting-group settings-links">
+                        <h3>About & Legal</h3>
+                        <div class="link-row">
+                            <a href="#" class="themed-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i><span>GitHub</span></a>
+                            <a href="#" class="themed-link"><i class="fas fa-file-contract"></i><span>Terms of Service</span></a>
+                            <a href="#" class="themed-link"><i class="fas fa-user-shield"></i><span>Privacy Policy</span></a>
+                        </div>
                     </div>
                 </div>
             </section>
