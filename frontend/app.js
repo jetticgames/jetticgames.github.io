@@ -1753,13 +1753,15 @@ class ParticleSystem {
         this.particles = [];
         this.mouse = { x: 0, y: 0 };
         this.animationId = null;
+        
+        // Initialize with current global settings
         this.settings = {
-            enabled: true,
-            speed: 0.5,
-            count: 50,
-            color: '#58a6ff',
-            lineDistance: 150,
-            mouseInteraction: true
+            enabled: settings.particlesEnabled,
+            speed: settings.particleSpeed,
+            count: settings.particleCount,
+            color: settings.particleColor,
+            lineDistance: settings.particleLineDistance,
+            mouseInteraction: settings.particleMouseInteraction
         };
         this.init();
     }
@@ -1772,6 +1774,9 @@ class ParticleSystem {
         
         // Insert canvas as first child of body
         document.body.insertBefore(this.canvas, document.body.firstChild);
+        
+        // Set canvas visibility based on enabled state
+        this.canvas.style.display = this.settings.enabled ? 'block' : 'none';
         
         // Set canvas size
         this.resize();
@@ -1901,7 +1906,6 @@ class ParticleSystem {
 }
 
 function applyParticleSettings() {
-    // This will be implemented when we add the particle system
     if (window.particleSystem) {
         window.particleSystem.updateSettings({
             enabled: settings.particlesEnabled,
@@ -1911,6 +1915,11 @@ function applyParticleSettings() {
             lineDistance: settings.particleLineDistance,
             mouseInteraction: settings.particleMouseInteraction
         });
+        
+        // Hide/show canvas based on enabled state
+        if (window.particleSystem.canvas) {
+            window.particleSystem.canvas.style.display = settings.particlesEnabled ? 'block' : 'none';
+        }
     }
 }
 

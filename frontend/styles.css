@@ -19,6 +19,9 @@
     
     /* Customizable accent color */
     --accent-color: var(--accent-primary);
+    --hover-color: var(--bg-tertiary);
+    --cursor-color: var(--text-primary);
+    --bg-secondary-transparent: rgba(22, 27, 34, 0.85);
 }
 
 /* Apply accent color to key elements */
@@ -58,6 +61,12 @@
     --success: #1a7f37;
     --error: #cf222e;
     --warning: #bf8700;
+    --bg-secondary-transparent: rgba(246, 248, 250, 0.85);
+    
+    /* Use the main variables we've defined */
+    --accent-color: var(--accent-primary);
+    --hover-color: var(--bg-tertiary);
+    --cursor-color: var(--text-primary);
 }
 
 * {
@@ -219,7 +228,7 @@ body, * { cursor: none !important; }
 .logo-text {
     font-size: 18px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 .sidebar-nav {
@@ -240,7 +249,7 @@ body, * { cursor: none !important; }
 }
 
 .nav-bottom {
-    border-top: 1px solid #30363d;
+    border-top: 1px solid var(--border-color);
     padding: 8px 0 16px 0; /* Proper spacing */
     flex-shrink: 0; /* Prevent shrinking */
     margin-top: auto; /* Push to very bottom */
@@ -276,7 +285,7 @@ body, * { cursor: none !important; }
     padding: 10px 12px;
     border-radius: 8px;
     text-decoration: none;
-    color: #7d8590;
+    color: var(--text-secondary);
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s ease;
@@ -284,13 +293,13 @@ body, * { cursor: none !important; }
 }
 
 .nav-link:hover {
-    background: #21262d;
-    color: #ffffff;
+    background: var(--hover-color);
+    color: var(--text-primary);
 }
 
 .nav-item.active .nav-link {
-    background: #1f6feb;
-    color: #ffffff;
+    background: var(--accent-color);
+    color: var(--text-primary);
 }
 
 .nav-icon {
@@ -306,13 +315,13 @@ body, * { cursor: none !important; }
 .main-content {
     flex: 1;
     margin-left: 220px;
-    background: #0d1117;
+    background: var(--bg-primary);
 }
 
 /* Top Header */
 .top-header {
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
     padding: 16px 32px;
     height: 72px; /* Match sidebar header height */
     position: sticky;
@@ -322,13 +331,13 @@ body, * { cursor: none !important; }
     align-items: center;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    background: rgba(22,27,34,0.85);
+    background: var(--bg-secondary-transparent, rgba(22,27,34,0.85));
     transition: box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 
 .top-header.scrolled {
     box-shadow: 0 4px 14px -2px rgba(0,0,0,0.55);
-    border-bottom-color: #1e2530;
+    border-bottom-color: var(--border-secondary);
 }
 
 .header-content {
@@ -464,7 +473,7 @@ body, * { cursor: none !important; }
 .section-title {
     font-size: 24px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 /* Games Grid */
@@ -481,8 +490,8 @@ body, * { cursor: none !important; }
 }
 
 .game-card {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
     border-radius: 12px;
     overflow: hidden;
     cursor: pointer;
@@ -498,7 +507,7 @@ body, * { cursor: none !important; }
 }
 
 .game-card:hover {
-    border-color: #1f6feb;
+    border-color: var(--accent-color);
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -526,13 +535,13 @@ body, * { cursor: none !important; }
 .game-card-title {
     font-size: 14px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
     margin-bottom: 4px;
 }
 
 .game-card-category {
     font-size: 12px;
-    color: #7d8590;
+    color: var(--text-secondary);
     text-transform: capitalize;
 }
 
@@ -558,13 +567,13 @@ body, * { cursor: none !important; }
 .overlay-title {
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
     margin-bottom: 4px;
 }
 
 .overlay-category {
     font-size: 12px;
-    color: #7d8590;
+    color: var(--text-secondary);
     text-transform: capitalize;
 }
 
