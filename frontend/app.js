@@ -1397,6 +1397,18 @@ function ensureSettingsPage(){
                             </button>
                             <small class="muted-hint">Restore data from a previously exported file. This will overwrite current data.</small>
                         </div>
+                        <div class="setting-item">
+                            <button id="resetSettingsBtn" class="update-check-btn" onclick="resetAllSettings()" style="margin-bottom: 8px; background: #d29922; border-color: #d29922;">
+                                <i class="fas fa-undo" style="margin-right: 6px;"></i>Reset All Settings
+                            </button>
+                            <small class="muted-hint">Reset all customization settings to default values.</small>
+                        </div>
+                        <div class="setting-item">
+                            <button id="clearDataBtn" class="update-check-btn" onclick="clearAllGameData()" style="background: #f85149; border-color: #da3633;">
+                                <i class="fas fa-trash" style="margin-right: 6px;"></i>Clear All Game Data
+                            </button>
+                            <small class="muted-hint">⚠️ Permanently delete all game saves, favorites, and progress.</small>
+                        </div>
                     </div>
                     
                     <div class="setting-group">
@@ -1797,21 +1809,23 @@ class ParticleSystem {
             this.particles.push({
                 x: Math.random() * this.canvas.width,
                 y: Math.random() * this.canvas.height,
-                vx: (Math.random() - 0.5) * this.settings.speed,
-                vy: (Math.random() - 0.5) * this.settings.speed,
+                vx: (Math.random() - 0.5) * this.settings.speed * 2,
+                vy: (Math.random() - 0.5) * this.settings.speed * 2,
                 size: Math.random() * 2 + 1
             });
         }
     }
     
     updateSettings(newSettings) {
-        const oldSpeed = this.settings.speed;
+        const oldSettings = { ...this.settings };
         this.settings = { ...this.settings, ...newSettings };
         
         if (this.settings.enabled && !this.animationId) {
+            // Starting from disabled state
             this.createParticles();
             this.animate();
         } else if (!this.settings.enabled && this.animationId) {
+            // Disabling particles
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1819,25 +1833,30 @@ class ParticleSystem {
             // Update particle count if needed
             const countDiff = this.settings.count - this.particles.length;
             if (countDiff > 0) {
+                // Add new particles
                 for (let i = 0; i < countDiff; i++) {
                     this.particles.push({
                         x: Math.random() * this.canvas.width,
                         y: Math.random() * this.canvas.height,
-                        vx: (Math.random() - 0.5) * this.settings.speed,
-                        vy: (Math.random() - 0.5) * this.settings.speed,
+                        vx: (Math.random() - 0.5) * this.settings.speed * 2,
+                        vy: (Math.random() - 0.5) * this.settings.speed * 2,
                         size: Math.random() * 2 + 1
                     });
                 }
             } else if (countDiff < 0) {
+                // Remove excess particles
                 this.particles = this.particles.slice(0, this.settings.count);
             }
             
-            // Update speed of existing particles if speed changed
-            if (oldSpeed !== this.settings.speed && this.particles.length > 0) {
-                const speedRatio = this.settings.speed / oldSpeed;
+            // If speed changed, update all particle velocities
+            if (oldSettings.speed !== this.settings.speed) {
                 this.particles.forEach(particle => {
-                    particle.vx *= speedRatio;
-                    particle.vy *= speedRatio;
+                    // Recalculate velocity with new speed
+                    const currentSpeed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
+                    const direction = Math.atan2(particle.vy, particle.vx);
+                    const newSpeed = this.settings.speed * 2;
+                    particle.vx = Math.cos(direction) * newSpeed;
+                    particle.vy = Math.sin(direction) * newSpeed;
                 });
             }
         }
@@ -1850,9 +1869,9 @@ class ParticleSystem {
         
         // Update particles
         this.particles.forEach((particle, i) => {
-            // Update position
-            particle.x += particle.vx * this.settings.speed;
-            particle.y += particle.vy * this.settings.speed;
+            // Update position with proper speed calculation
+            particle.x += particle.vx;
+            particle.y += particle.vy;
             
             // Bounce off edges
             if (particle.x < 0 || particle.x > this.canvas.width) particle.vx *= -1;
@@ -1893,7 +1912,17 @@ class ParticleSystem {
                     this.ctx.beginPath();
                     this.ctx.moveTo(particle.x, particle.y);
                     this.ctx.lineTo(other.x, other.y);
-                    this.ctx.strokeStyle = this.settings.color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+                    // Use rgba format for proper transparency
+                    const hex = this.settings.color.replace('#', '');
+                    if (hex.length === 6) {
+                        const r = parseInt(hex.substr(0, 2), 16);
+                        const g = parseInt(hex.substr(2, 2), 16);
+                        const b = parseInt(hex.substr(4, 2), 16);
+                        this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity * 0.6})`;
+                    } else {
+                        // Fallback to solid color if hex parsing fails
+                        this.ctx.strokeStyle = this.settings.color;
+                    }
                     this.ctx.lineWidth = 0.5;
                     this.ctx.stroke();
                 }
@@ -1906,6 +1935,7 @@ class ParticleSystem {
 
 function applyParticleSettings() {
     if (window.particleSystem) {
+        console.log('Applying particle settings:', settings.particlesEnabled, settings.particleSpeed, settings.particleCount, settings.particleColor);
         window.particleSystem.updateSettings({
             enabled: settings.particlesEnabled,
             speed: settings.particleSpeed,
@@ -2164,6 +2194,82 @@ function importSiteData(file) {
     };
     
     reader.readAsText(file);
+}
+
+function resetAllSettings() {
+    if (!confirm('Are you sure you want to reset all settings to their default values? This cannot be undone.')) {
+        return;
+    }
+    
+    // Reset settings to defaults
+    settings = {
+        defaultProxy: false,
+        // Theme settings
+        accentColor: '#58a6ff',
+        // Particle settings
+        particlesEnabled: true,
+        particleSpeed: 0.5,
+        particleCount: 50,
+        particleColor: '#58a6ff',
+        particleLineDistance: 150,
+        particleMouseInteraction: true,
+        // Cursor settings
+        customCursorEnabled: true,
+        cursorSize: 8,
+        cursorColor: '#ffffff',
+        cursorType: 'circle',
+        customCursorImage: null
+    };
+    
+    // Save to localStorage
+    saveSettingsToCookies();
+    
+    // Apply the reset settings
+    applyTheme();
+    
+    // Update the settings page UI
+    updateSettingsPageValues();
+    
+    showNotification('All settings have been reset to default values.', 'success');
+}
+
+function clearAllGameData() {
+    if (!confirm('⚠️ WARNING: This will permanently delete ALL game saves, favorites, and progress. This cannot be undone.\n\nAre you absolutely sure you want to continue?')) {
+        return;
+    }
+    
+    if (!confirm('This is your final warning! All game data will be lost forever. Continue?')) {
+        return;
+    }
+    
+    try {
+        // Clear favorites
+        favorites = [];
+        saveFavoritesToCookies();
+        
+        // Clear all game-related localStorage data
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // Remove all data except WaterWall settings and auth data
+            if (key && !key.startsWith('ww_') && !key.startsWith('auth0') && key !== 'debug') {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        // Refresh UI
+        renderFavoritesSection();
+        
+        showNotification(`Successfully cleared all game data. Removed ${keysToRemove.length} game save entries.`, 'success');
+        
+    } catch (error) {
+        console.error('Failed to clear game data:', error);
+        showNotification('Failed to clear game data: ' + error.message, 'error');
+    }
 }
 
 function showNotification(message, type = 'info') {
