@@ -1255,180 +1255,253 @@ function ensureSettingsPage(){
             <section class="games-section">
                 <div class="section-header"><h2 class="section-title">Settings</h2></div>
                 <div class="settings-content">
-                    <div class="setting-group">
-                        <h3>Appearance</h3>
-                        <div class="setting-item">
-                            <label class="color-setting">
-                                <span class="setting-title">Accent Color</span>
-                                <span class="setting-sub">Choose your preferred accent color</span>
-                                <input type="color" id="accentColorSetting" value="${settings.accentColor}" onchange="(function(el){settings.accentColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
-                            </label>
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Appearance</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
+                        </div>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <label class="color-setting">
+                                    <span class="setting-title">Accent Color</span>
+                                    <span class="setting-sub">Choose your preferred accent color</span>
+                                    <input type="color" id="accentColorSetting" value="${settings.accentColor}" onchange="(function(el){settings.accentColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="setting-group">
-                        <h3>Cursor Settings</h3>
-                        <div class="setting-item">
-                            <label class="switch-row" for="customCursorSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Custom Cursor</span>
-                                    <span class="setting-sub">Use custom cursor instead of system default</span>
-                                </div>
-                                <input type="checkbox" id="customCursorSetting" class="ww-switch-input" ${settings.customCursorEnabled?'checked':''} onchange="(function(el){settings.customCursorEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Cursor Settings</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
                         </div>
-                        <div class="setting-item">
-                            <label class="range-setting">
-                                <span class="setting-title">Cursor Size</span>
-                                <span class="setting-sub">Adjust the size of the custom cursor</span>
-                                <input type="range" id="cursorSizeSetting" min="4" max="20" value="${settings.cursorSize}" onchange="(function(el){settings.cursorSize=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('cursorSizeValue').textContent=el.value+'px';})(this)" class="range-input">
-                                <span id="cursorSizeValue">${settings.cursorSize}px</span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="color-setting">
-                                <span class="setting-title">Cursor Color</span>
-                                <span class="setting-sub">Choose your cursor color</span>
-                                <input type="color" id="cursorColorSetting" value="${settings.cursorColor}" onchange="(function(el){settings.cursorColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="select-setting">
-                                <span class="setting-title">Cursor Type</span>
-                                <span class="setting-sub">Choose cursor style</span>
-                                <select id="cursorTypeSetting" onchange="(function(el){settings.cursorType=el.value;saveSettingsToCookies();applyTheme();})(this)" class="select-input">
-                                    <option value="circle" ${settings.cursorType==='circle'?'selected':''}>Circle</option>
-                                    <option value="arrow" ${settings.cursorType==='arrow'?'selected':''}>Triangle Arrow</option>
-                                    <option value="custom" ${settings.cursorType==='custom'?'selected':''}>Custom Image</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="file-setting">
-                                <span class="setting-title">Custom Cursor Image</span>
-                                <span class="setting-sub">Upload a custom cursor image</span>
-                                <input type="file" id="customCursorImage" accept="image/*" onchange="handleCustomCursorUpload(this)" class="file-input">
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="setting-group">
-                        <h3>Background Particles</h3>
-                        <div class="setting-item">
-                            <label class="switch-row" for="particlesEnabledSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Enable Particles</span>
-                                    <span class="setting-sub">Show animated background particles</span>
-                                </div>
-                                <input type="checkbox" id="particlesEnabledSetting" class="ww-switch-input" ${settings.particlesEnabled?'checked':''} onchange="(function(el){settings.particlesEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="range-setting">
-                                <span class="setting-title">Particle Speed</span>
-                                <span class="setting-sub">Control how fast particles move</span>
-                                <input type="range" id="particleSpeedSetting" min="0.1" max="2" step="0.1" value="${settings.particleSpeed}" onchange="(function(el){settings.particleSpeed=parseFloat(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleSpeedValue').textContent=el.value;})(this)" class="range-input">
-                                <span id="particleSpeedValue">${settings.particleSpeed}</span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="range-setting">
-                                <span class="setting-title">Particle Count</span>
-                                <span class="setting-sub">Number of particles on screen</span>
-                                <input type="range" id="particleCountSetting" min="10" max="200" value="${settings.particleCount}" onchange="(function(el){settings.particleCount=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleCountValue').textContent=el.value;})(this)" class="range-input">
-                                <span id="particleCountValue">${settings.particleCount}</span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="color-setting">
-                                <span class="setting-title">Particle Color</span>
-                                <span class="setting-sub">Choose particle and line color</span>
-                                <input type="color" id="particleColorSetting" value="${settings.particleColor}" onchange="(function(el){settings.particleColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="range-setting">
-                                <span class="setting-title">Line Distance</span>
-                                <span class="setting-sub">Distance at which particles connect</span>
-                                <input type="range" id="particleLineSetting" min="50" max="300" value="${settings.particleLineDistance}" onchange="(function(el){settings.particleLineDistance=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleLineValue').textContent=el.value+'px';})(this)" class="range-input">
-                                <span id="particleLineValue">${settings.particleLineDistance}px</span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label class="switch-row" for="particleMouseSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Mouse Interaction</span>
-                                    <span class="setting-sub">Particles react to mouse movement</span>
-                                </div>
-                                <input type="checkbox" id="particleMouseSetting" class="ww-switch-input" ${settings.particleMouseInteraction?'checked':''} onchange="(function(el){settings.particleMouseInteraction=el.checked;saveSettingsToCookies();applyTheme();})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <label class="switch-row" for="customCursorSetting">
+                                    <div class="switch-text">
+                                        <span class="setting-title">Custom Cursor</span>
+                                        <span class="setting-sub">Use custom cursor instead of system default</span>
+                                    </div>
+                                    <input type="checkbox" id="customCursorSetting" class="ww-switch-input" ${settings.customCursorEnabled?'checked':''} onchange="(function(el){settings.customCursorEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                    <span class="ww-switch" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="range-setting">
+                                    <span class="setting-title">Cursor Size</span>
+                                    <span class="setting-sub">Adjust the size of the custom cursor</span>
+                                    <input type="range" id="cursorSizeSetting" min="4" max="20" value="${settings.cursorSize}" onchange="(function(el){settings.cursorSize=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('cursorSizeValue').textContent=el.value+'px';})(this)" class="range-input">
+                                    <span id="cursorSizeValue">${settings.cursorSize}px</span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="color-setting">
+                                    <span class="setting-title">Cursor Color</span>
+                                    <span class="setting-sub">Choose your cursor color</span>
+                                    <input type="color" id="cursorColorSetting" value="${settings.cursorColor}" onchange="(function(el){settings.cursorColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="select-setting">
+                                    <span class="setting-title">Cursor Type</span>
+                                    <span class="setting-sub">Choose cursor style</span>
+                                    <select id="cursorTypeSetting" onchange="(function(el){settings.cursorType=el.value;saveSettingsToCookies();applyTheme();})(this)" class="select-input">
+                                        <option value="circle" ${settings.cursorType==='circle'?'selected':''}>Circle</option>
+                                        <option value="arrow" ${settings.cursorType==='arrow'?'selected':''}>Triangle Arrow</option>
+                                        <option value="custom" ${settings.cursorType==='custom'?'selected':''}>Custom Image</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="file-setting">
+                                    <span class="setting-title">Custom Cursor Image</span>
+                                    <span class="setting-sub">Upload a custom cursor image</span>
+                                    <input type="file" id="customCursorImage" accept="image/*" onchange="handleCustomCursorUpload(this)" class="file-input">
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="setting-group">
-                        <h3>Game Settings</h3>
-                        <div class="setting-item">
-                            <label class="switch-row" for="proxyToggleSetting">
-                                <div class="switch-text">
-                                    <span class="setting-title">Enable Proxy for Games</span>
-                                    <span class="setting-sub">Beta feature to bypass restrictions</span>
-                                </div>
-                                <input type="checkbox" id="proxyToggleSetting" class="ww-switch-input" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)">
-                                <span class="ww-switch" aria-hidden="true"></span>
-                            </label>
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Background Particles</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
+                        </div>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <label class="switch-row" for="particlesEnabledSetting">
+                                    <div class="switch-text">
+                                        <span class="setting-title">Enable Particles</span>
+                                        <span class="setting-sub">Show animated background particles</span>
+                                    </div>
+                                    <input type="checkbox" id="particlesEnabledSetting" class="ww-switch-input" ${settings.particlesEnabled?'checked':''} onchange="(function(el){settings.particlesEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                    <span class="ww-switch" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="range-setting">
+                                    <span class="setting-title">Particle Speed</span>
+                                    <span class="setting-sub">Control how fast particles move</span>
+                                    <input type="range" id="particleSpeedSetting" min="0.1" max="2" step="0.1" value="${settings.particleSpeed}" onchange="(function(el){settings.particleSpeed=parseFloat(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleSpeedValue').textContent=el.value;})(this)" class="range-input">
+                                    <span id="particleSpeedValue">${settings.particleSpeed}</span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="range-setting">
+                                    <span class="setting-title">Particle Count</span>
+                                    <span class="setting-sub">Number of particles on screen</span>
+                                    <input type="range" id="particleCountSetting" min="10" max="200" value="${settings.particleCount}" onchange="(function(el){settings.particleCount=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleCountValue').textContent=el.value;})(this)" class="range-input">
+                                    <span id="particleCountValue">${settings.particleCount}</span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="color-setting">
+                                    <span class="setting-title">Particle Color</span>
+                                    <span class="setting-sub">Choose particle and line color</span>
+                                    <input type="color" id="particleColorSetting" value="${settings.particleColor}" onchange="(function(el){settings.particleColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="range-setting">
+                                    <span class="setting-title">Line Distance</span>
+                                    <span class="setting-sub">Distance at which particles connect</span>
+                                    <input type="range" id="particleLineSetting" min="50" max="300" value="${settings.particleLineDistance}" onchange="(function(el){settings.particleLineDistance=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleLineValue').textContent=el.value+'px';})(this)" class="range-input">
+                                    <span id="particleLineValue">${settings.particleLineDistance}px</span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="switch-row" for="particleMouseSetting">
+                                    <div class="switch-text">
+                                        <span class="setting-title">Mouse Interaction</span>
+                                        <span class="setting-sub">Particles react to mouse movement</span>
+                                    </div>
+                                    <input type="checkbox" id="particleMouseSetting" class="ww-switch-input" ${settings.particleMouseInteraction?'checked':''} onchange="(function(el){settings.particleMouseInteraction=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                    <span class="ww-switch" aria-hidden="true"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="setting-group">
-                        <h3>Data Management</h3>
-                        <div class="setting-item">
-                            <button id="exportDataBtn" class="update-check-btn" onclick="showExportPreview()" style="margin-bottom: 8px;">
-                                <i class="fas fa-download" style="margin-right: 6px;"></i>Export All Data
-                            </button>
-                            <small class="muted-hint">Download all your game saves, settings, and favorites as a file.</small>
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Game Settings</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
                         </div>
-                        <div class="setting-item">
-                            <input type="file" id="importDataFile" accept=".wwd" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
-                            <button id="importDataBtn" class="update-check-btn" onclick="document.getElementById('importDataFile').click()">
-                                <i class="fas fa-upload" style="margin-right: 6px;"></i>Import Data
-                            </button>
-                            <small class="muted-hint">Restore data from a previously exported file. This will overwrite current data.</small>
-                        </div>
-                        <div class="setting-item">
-                            <button id="resetSettingsBtn" class="update-check-btn" onclick="resetAllSettings()" style="margin-bottom: 8px; background: #d29922; border-color: #d29922;">
-                                <i class="fas fa-undo" style="margin-right: 6px;"></i>Reset All Settings
-                            </button>
-                            <small class="muted-hint">Reset all customization settings to default values.</small>
-                        </div>
-                        <div class="setting-item">
-                            <button id="clearDataBtn" class="update-check-btn" onclick="clearAllGameData()" style="background: #f85149; border-color: #da3633;">
-                                <i class="fas fa-trash" style="margin-right: 6px;"></i>Clear All Game Data
-                            </button>
-                            <small class="muted-hint">⚠️ Permanently delete all game saves, favorites, and progress.</small>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <label class="switch-row" for="proxyToggleSetting">
+                                    <div class="switch-text">
+                                        <span class="setting-title">Enable Proxy for Games</span>
+                                        <span class="setting-sub">Beta feature to bypass restrictions</span>
+                                    </div>
+                                    <input type="checkbox" id="proxyToggleSetting" class="ww-switch-input" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)">
+                                    <span class="ww-switch" aria-hidden="true"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="setting-group">
-                        <h3>Updates</h3>
-                        <div class="setting-item">
-                            <button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button>
-                            <small class="muted-hint">Force refresh assets & service worker.</small>
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Data Management</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
+                        </div>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <button id="exportDataBtn" class="update-check-btn" onclick="showExportPreview()" style="margin-bottom: 8px;">
+                                    <i class="fas fa-download" style="margin-right: 6px;"></i>Export All Data
+                                </button>
+                                <small class="muted-hint">Download all your game saves, settings, and favorites as a file.</small>
+                            </div>
+                            <div class="setting-item">
+                                <input type="file" id="importDataFile" accept=".wwd" style="display: none;" onchange="importSiteData(this.files[0]); this.value = '';">
+                                <button id="importDataBtn" class="update-check-btn" onclick="document.getElementById('importDataFile').click()">
+                                    <i class="fas fa-upload" style="margin-right: 6px;"></i>Import Data
+                                </button>
+                                <small class="muted-hint">Restore data from a previously exported file. This will overwrite current data.</small>
+                            </div>
+                            <div class="setting-item">
+                                <button id="resetSettingsBtn" class="update-check-btn" onclick="showCustomConfirmDialog('Reset All Settings', 'Are you sure you want to reset all settings to their default values? This cannot be undone.', resetAllSettings)" style="margin-bottom: 8px; background: #d29922; border-color: #d29922;">
+                                    <i class="fas fa-undo" style="margin-right: 6px;"></i>Reset All Settings
+                                </button>
+                                <small class="muted-hint">Reset all customization settings to default values.</small>
+                            </div>
+                            <div class="setting-item">
+                                <button id="clearDataBtn" class="update-check-btn" onclick="showCustomConfirmDialog('Clear All Game Data', '⚠️ WARNING: This will permanently delete ALL game saves, favorites, and progress. This cannot be undone.\\n\\nAre you absolutely sure you want to continue?', clearAllGameData)" style="background: #f85149; border-color: #da3633;">
+                                    <i class="fas fa-trash" style="margin-right: 6px;"></i>Clear All Game Data
+                                </button>
+                                <small class="muted-hint">⚠️ Permanently delete all game saves, favorites, and progress.</small>
+                            </div>
                         </div>
                     </div>
-                    <div class="setting-group settings-links">
-                        <h3>About & Legal</h3>
-                        <div class="link-row">
-                            <a href="#" class="themed-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i><span>GitHub</span></a>
-                            <a href="#" class="themed-link"><i class="fas fa-file-contract"></i><span>Terms of Service</span></a>
-                            <a href="#" class="themed-link"><i class="fas fa-user-shield"></i><span>Privacy Policy</span></a>
+                    
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>Updates</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
+                        </div>
+                        <div class="setting-group-content">
+                            <div class="setting-item">
+                                <button id="checkUpdatesBtn" class="update-check-btn" onclick="checkForUpdates()">Check for Updates</button>
+                                <small class="muted-hint">Force refresh assets & service worker.</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group collapsible">
+                        <div class="setting-group-header" onclick="toggleSettingGroup(this)">
+                            <h3>About & Legal</h3>
+                            <i class="fas fa-chevron-down setting-group-arrow"></i>
+                        </div>
+                        <div class="setting-group-content">
+                            <div class="link-row">
+                                <a href="#" class="themed-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i><span>GitHub</span></a>
+                                <a href="#" class="themed-link"><i class="fas fa-file-contract"></i><span>Terms of Service</span></a>
+                                <a href="#" class="themed-link"><i class="fas fa-user-shield"></i><span>Privacy Policy</span></a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
         </div>`);
+    
+    // Initialize collapsible settings after the page is created
+    setTimeout(() => {
+        initializeCollapsibleSettings();
+    }, 10);
+}
+
+// ===== Settings Group Toggle =====
+function toggleSettingGroup(header) {
+    const group = header.parentElement;
+    const content = group.querySelector('.setting-group-content');
+    const arrow = header.querySelector('.setting-group-arrow');
+    
+    if (group.classList.contains('collapsed')) {
+        // Expand
+        group.classList.remove('collapsed');
+        content.style.maxHeight = content.scrollHeight + 'px';
+        arrow.style.transform = 'rotate(0deg)';
+    } else {
+        // Collapse
+        group.classList.add('collapsed');
+        content.style.maxHeight = '0';
+        arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+
+function initializeCollapsibleSettings() {
+    // Collapse all setting groups by default
+    const settingGroups = document.querySelectorAll('.setting-group.collapsible');
+    settingGroups.forEach(group => {
+        const content = group.querySelector('.setting-group-content');
+        const arrow = group.querySelector('.setting-group-arrow');
+        
+        group.classList.add('collapsed');
+        content.style.maxHeight = '0';
+        arrow.style.transform = 'rotate(-90deg)';
+    });
 }
 
 // ===== Custom Cursor Image Handler =====
@@ -2197,10 +2270,6 @@ function importSiteData(file) {
 }
 
 function resetAllSettings() {
-    if (!confirm('Are you sure you want to reset all settings to their default values? This cannot be undone.')) {
-        return;
-    }
-    
     // Reset settings to defaults
     settings = {
         defaultProxy: false,
@@ -2234,14 +2303,6 @@ function resetAllSettings() {
 }
 
 function clearAllGameData() {
-    if (!confirm('⚠️ WARNING: This will permanently delete ALL game saves, favorites, and progress. This cannot be undone.\n\nAre you absolutely sure you want to continue?')) {
-        return;
-    }
-    
-    if (!confirm('This is your final warning! All game data will be lost forever. Continue?')) {
-        return;
-    }
-    
     try {
         // Clear favorites
         favorites = [];
@@ -2269,6 +2330,70 @@ function clearAllGameData() {
     } catch (error) {
         console.error('Failed to clear game data:', error);
         showNotification('Failed to clear game data: ' + error.message, 'error');
+    }
+}
+
+// ===== Custom Confirmation Dialog =====
+function showCustomConfirmDialog(title, message, onConfirm, onCancel = null) {
+    // Remove any existing dialog
+    const existingDialog = document.getElementById('customConfirmDialog');
+    if (existingDialog) {
+        existingDialog.remove();
+    }
+    
+    // Create dialog HTML
+    const dialog = document.createElement('div');
+    dialog.id = 'customConfirmDialog';
+    dialog.innerHTML = `
+        <div class="modal-overlay" onclick="closeCustomConfirmDialog()">
+            <div class="modal-dialog custom-confirm-dialog" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeCustomConfirmDialog()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>${message.replace(/\\n/g, '<br>')}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="update-check-btn" onclick="confirmCustomDialog()" style="background: var(--accent-color); margin-right: 8px;">
+                        Confirm
+                    </button>
+                    <button class="update-check-btn" onclick="closeCustomConfirmDialog()" style="background: #6b7280; border-color: #6b7280;">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Store the callback function
+    dialog.confirmCallback = onConfirm;
+    dialog.cancelCallback = onCancel;
+    
+    // Add to page
+    document.body.appendChild(dialog);
+    
+    // Focus the dialog
+    setTimeout(() => {
+        dialog.querySelector('.modal-dialog').focus();
+    }, 10);
+}
+
+function confirmCustomDialog() {
+    const dialog = document.getElementById('customConfirmDialog');
+    if (dialog && dialog.confirmCallback) {
+        dialog.confirmCallback();
+    }
+    closeCustomConfirmDialog();
+}
+
+function closeCustomConfirmDialog() {
+    const dialog = document.getElementById('customConfirmDialog');
+    if (dialog) {
+        if (dialog.cancelCallback) {
+            dialog.cancelCallback();
+        }
+        dialog.remove();
     }
 }
 

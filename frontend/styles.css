@@ -147,6 +147,127 @@ body, * { cursor: none !important; }
 #logoutConfirmModal .logout-btn.danger {background:#f85149; border-color:#da3633;}
 #logoutConfirmModal .logout-btn.danger:hover {background:#da3633;}
 #logoutConfirmModal .logout-btn:focus {outline:2px solid #58a6ff; outline-offset:2px;}
+
+/* Custom Confirmation Dialog */
+#customConfirmDialog {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+#customConfirmDialog .modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+#customConfirmDialog .custom-confirm-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 450px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    animation: scaleIn 0.35s cubic-bezier(0.4, 0.8, 0.2, 1);
+    outline: none;
+}
+
+#customConfirmDialog .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 24px 0 24px;
+    border-bottom: 1px solid var(--border-primary);
+    margin-bottom: 20px;
+}
+
+#customConfirmDialog .modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#customConfirmDialog .modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+#customConfirmDialog .modal-close:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+#customConfirmDialog .modal-body {
+    padding: 0 24px 20px 24px;
+}
+
+#customConfirmDialog .modal-body p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+#customConfirmDialog .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 0 24px 24px 24px;
+}
+
+#customConfirmDialog .modal-footer button {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 1px solid var(--border-primary);
+}
+
+#customConfirmDialog .modal-footer .confirm-cancel {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+#customConfirmDialog .modal-footer .confirm-cancel:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+#customConfirmDialog .modal-footer .confirm-ok {
+    background: #da3633;
+    color: white;
+    border-color: #da3633;
+}
+
+#customConfirmDialog .modal-footer .confirm-ok:hover {
+    background: #c12b27;
+    border-color: #c12b27;
+}
+
+#customConfirmDialog .modal-footer button:focus {
+    outline: 2px solid #58a6ff;
+    outline-offset: 2px;
+}
 /* Mobile unsupported overlay */
 .mobile-unsupported {position:fixed; inset:0; background:#0d1117; z-index:20000; display:flex; align-items:center; justify-content:center; padding:40px; text-align:center;}
 .mobile-unsupported .mu-content {max-width:520px;}
@@ -1985,17 +2106,66 @@ body, * { cursor: none !important; }
 }
 
 .setting-group {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
     border-radius: 12px;
-    padding: 20px;
     margin-bottom: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
-.setting-group h3 {
+.setting-group.collapsible .setting-group-header {
+    padding: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.setting-group.collapsible .setting-group-header:hover {
+    background: var(--hover-color);
+}
+
+.setting-group.collapsible.collapsed .setting-group-header {
+    border-bottom: none;
+}
+
+.setting-group.collapsible .setting-group-header h3 {
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.setting-group-arrow {
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: transform 0.3s ease;
+}
+
+.setting-group-content {
+    padding: 0 20px 20px 20px;
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.setting-group.collapsed .setting-group-content {
+    max-height: 0;
+    padding: 0 20px;
+}
+
+/* Non-collapsible setting groups (fallback) */
+.setting-group:not(.collapsible) {
+    padding: 20px;
+}
+
+.setting-group:not(.collapsible) h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
     margin-bottom: 16px;
 }
 
