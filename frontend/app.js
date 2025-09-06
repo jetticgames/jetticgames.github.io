@@ -232,6 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply theme and customizations
     applyTheme();
     
+    // Initialize console error capture
+    initConsoleErrorCapture();
+    
     startApp();
     // Sticky header shadow on scroll
     const header = document.querySelector('.top-header');
@@ -1828,38 +1831,110 @@ function isValidUrl(string) {
 }
 
 function showError(message) {
-    // Create a simple toast notification
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #dc3545;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-size: 14px;
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
+    console.error('App Error:', message);
+    showNotification(message, 'error');
+}
+
+function showNotification(message, type = 'info', duration = 5000) {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        container.className = 'notification-container';
+        document.body.appendChild(container);
+    }
+
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    
+    const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-icon">${icon}</span>
+            <span class="notification-message">${message}</span>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
     `;
-    toast.textContent = message;
     
-    document.body.appendChild(toast);
+    // Add animation class
+    notification.style.transform = 'translateX(100%)';
+    notification.style.opacity = '0';
     
-    // Slide in
-    setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-    }, 100);
+    container.appendChild(notification);
     
-    // Remove after 5 seconds
-    setTimeout(() => {
-        toast.style.transform = 'translateX(100%)';
+    // Trigger entrance animation
+    requestAnimationFrame(() => {
+        notification.style.transform = 'translateX(0)';
+        notification.style.opacity = '1';
+    });
+    
+    // Auto-remove after duration
+    if (duration > 0) {
         setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 300);
-    }, 5000);
+            if (notification.parentElement) {
+                notification.style.transform = 'translateX(100%)';
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, duration);
+    }
+    
+    return notification;
+}
+
+function showSuccess(message) {
+    showNotification(message, 'success');
+}
+
+function showWarning(message) {
+    showNotification(message, 'warning');
+}
+
+// ===== Console Error Capture =====
+function initConsoleErrorCapture() {
+    // Capture console.error calls
+    const originalError = console.error;
+    console.error = function(...args) {
+        originalError.apply(console, args);
+        
+        // Format error message
+        const message = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        
+        // Show notification for console errors
+        if (message && !message.includes('Auth0') && !message.includes('404')) {
+            const notification = showNotification(
+                `Console Error: ${message.substring(0, 200)}${message.length > 200 ? '...' : ''}`,
+                'error',
+                8000
+            );
+            notification.classList.add('console-error-notification');
+        }
+    };
+
+    // Capture unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+        const message = event.reason?.message || event.reason || 'Unhandled promise rejection';
+        if (!message.includes('Auth0') && !message.includes('404')) {
+            showNotification(`Unhandled Error: ${message}`, 'error', 8000);
+        }
+    });
+
+    // Capture JavaScript errors
+    window.addEventListener('error', (event) => {
+        const message = event.message || 'JavaScript error occurred';
+        if (!message.includes('Auth0') && !message.includes('404')) {
+            showNotification(`Script Error: ${message}`, 'error', 8000);
+        }
+    });
 }
 
 // Popup error function for critical errors
@@ -2474,6 +2549,7 @@ function applyCustomCursor() {
     if (!settings.customCursorEnabled) {
         // Hide custom cursor and restore default cursors
         root.style.setProperty('--cursor-display', 'none');
+        document.body.classList.remove('custom-cursor-enabled');
         document.body.style.cursor = '';
         document.querySelectorAll('*').forEach(el => {
             if (el.style.cursor) {
@@ -2483,6 +2559,8 @@ function applyCustomCursor() {
         return;
     }
     
+    // Enable custom cursor
+    document.body.classList.add('custom-cursor-enabled');
     root.style.setProperty('--cursor-display', 'block');
     root.style.setProperty('--cursor-size', settings.cursorSize + 'px');
     root.style.setProperty('--cursor-color', settings.cursorColor);
@@ -3712,6 +3790,53 @@ async function socialEnsureAuth(){
         return false; 
     } 
 }
+// ===== Enhanced Auth Token Helper =====
+async function getAuthToken(requireAudience = true) {
+    if (!auth0Client) {
+        throw new Error('Auth0 client not initialized');
+    }
+
+    try {
+        // First attempt with audience
+        if (requireAudience) {
+            try {
+                return await auth0Client.getTokenSilently({
+                    audience: AUTH0_AUDIENCE,
+                    scope: 'openid profile email'
+                });
+            } catch (audienceError) {
+                console.debug('[Auth] Audience token failed, trying without audience:', audienceError.message);
+            }
+        }
+
+        // Fallback without audience
+        try {
+            return await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        } catch (fallbackError) {
+            console.warn('[Auth] Fallback token failed:', fallbackError.message);
+            
+            // Try forcing refresh
+            try {
+                console.debug('[Auth] Attempting force refresh...');
+                return await auth0Client.getTokenSilently({
+                    audience: requireAudience ? AUTH0_AUDIENCE : undefined,
+                    scope: 'openid profile email',
+                    ignoreCache: true
+                });
+            } catch (refreshError) {
+                console.error('[Auth] Force refresh failed:', refreshError.message);
+                throw new Error('Failed to obtain authentication token after multiple attempts');
+            }
+        }
+    } catch (error) {
+        console.error('[Auth] getAuthToken error:', error);
+        showNotification('Authentication token error. Please try signing in again.', 'error');
+        throw error;
+    }
+}
+
 async function socialFetchUser(){ 
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
@@ -3719,23 +3844,7 @@ async function socialFetchUser(){
     }
     
     try {
-        let token;
-        try {
-            token = await auth0Client.getTokenSilently({
-                audience: AUTH0_AUDIENCE,
-                scope: 'openid profile email'
-            });
-        } catch(audienceError) {
-            console.debug('[Social] Retrying token without audience due to error:', audienceError.message);
-            try {
-                token = await auth0Client.getTokenSilently({
-                    scope: 'openid profile email'
-                });
-            } catch(noAudienceError) {
-                console.warn('[Social] Failed to get token even without audience:', noAudienceError.message);
-                throw new Error('Unable to get authentication token');
-            }
-        }
+        const token = await getAuthToken(true);
         
         if(!token) {
             console.warn('[Social] No token available for user fetch');
@@ -3805,23 +3914,7 @@ if(typeof __origToggleFavorite === 'function'){
 async function socialUploadFavorites(){ 
     if(!(await socialEnsureAuth())) return; 
     
-    let token;
-    try {
-        token = await auth0Client.getTokenSilently({
-            audience: AUTH0_AUDIENCE,
-            scope: 'openid profile email'
-        });
-    } catch(audienceError) {
-        try {
-            token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
-        } catch(tokenError) {
-            console.debug('[Favorites] Failed to get token for upload');
-            return;
-        }
-    }
-    
+    const token = await getAuthToken();
     if(!token) return; 
     
     try { 
@@ -3960,9 +4053,13 @@ function initFriendsTabs() {
     const tabs = document.querySelectorAll('.friends-tab');
     const contents = document.querySelectorAll('.friends-tab-content');
     
+    console.log('Initializing friends tabs:', tabs.length, 'tabs,', contents.length, 'contents');
+    
     tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
             const targetTab = tab.dataset.tab;
+            console.log('Friends tab clicked:', targetTab);
             
             // Remove active from all tabs and contents
             tabs.forEach(t => t.classList.remove('active'));
@@ -3971,41 +4068,49 @@ function initFriendsTabs() {
             // Add active to clicked tab and corresponding content
             tab.classList.add('active');
             const targetContent = document.getElementById(`friendsTab${targetTab.charAt(0).toUpperCase() + targetTab.slice(1)}`);
+            console.log('Target content element:', targetContent?.id);
             if(targetContent) {
                 targetContent.classList.add('active');
+                console.log('Activated tab content:', targetContent.id);
+            } else {
+                console.error('Could not find tab content for:', targetTab);
             }
         });
     });
+    
+    // Ensure the first tab is active by default
+    if (tabs.length > 0) {
+        const firstTab = tabs[0];
+        const firstContent = contents[0];
+        if (firstTab && firstContent) {
+            firstTab.classList.add('active');
+            firstContent.classList.add('active');
+        }
+    }
 }
 
 function shortUserId(id){ return id.split('|').pop(); }
+
+async function refreshFriendsPage() {
+    try {
+        console.log('[Friends] Refreshing friends page...');
+        await renderFriendsPage();
+        console.log('[Friends] Friends page refreshed successfully');
+    } catch (error) {
+        console.error('[Friends] Error refreshing friends page:', error);
+    }
+}
 
 async function wireFriendsEvents(){ const page=document.getElementById('friendsPage'); if(!page) return; page.querySelectorAll('button[data-remove]').forEach(b=> b.onclick=()=>friendAction('remove',{user:b.getAttribute('data-remove')})); page.querySelectorAll('button[data-accept]').forEach(b=> b.onclick=()=>friendAction('accept',{from:b.getAttribute('data-accept')})); page.querySelectorAll('button[data-decline]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-decline')})); page.querySelectorAll('button[data-cancel]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-cancel')})); const form=document.getElementById('addFriendForm'); if(form){ form.onsubmit= async e=>{ e.preventDefault(); const uname=document.getElementById('addFriendUsername').value.trim(); if(!uname) return; const res = await friendAction('request',{username:uname}); const fb=document.getElementById('addFriendFeedback'); if(fb) fb.textContent = res?.error? res.error : 'Request sent'; if(!res.error) form.reset(); }; }}
 
 async function friendAction(action, body){ 
     if(!(await socialEnsureAuth())) return; 
     
-    let token;
     try {
-        token = await auth0Client.getTokenSilently({
-            audience: AUTH0_AUDIENCE,
-            scope: 'openid profile email'
-        });
-    } catch(audienceError) {
-        console.debug('[Friends] Trying without audience due to error:', audienceError);
-        try {
-            token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
-        } catch(tokenError) {
-            console.error('[Friends] Failed to get token:', tokenError);
-            return {error: 'Authentication failed'};
-        }
-    }
-    
-    if(!token) return {error: 'No token available'}; 
-    
-    try { 
+        const token = await getAuthToken(true);
+        
+        if(!token) return {error: 'No token available'}; 
+        
         const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {
             method:'POST', 
             headers:{
@@ -4019,11 +4124,15 @@ async function friendAction(action, body){
         if(r.ok){ 
             await socialFetchUser(); 
             await refreshFriendsPage(); // Refresh the UI after successful action
-        } 
+            showSuccess(`Friend action completed successfully`);
+        } else {
+            showError(data.error || 'Friend action failed');
+        }
         
         return data; 
     } catch(e){ 
         console.error('Friend action error:', e);
+        showError('Network error during friend action');
         return {error:'Network error'}; 
     } 
 }
@@ -4032,23 +4141,7 @@ async function friendAction(action, body){
 async function presenceHeartbeat(){ 
     if(!(await socialEnsureAuth())) return; 
     
-    let token;
-    try {
-        token = await auth0Client.getTokenSilently({
-            audience: AUTH0_AUDIENCE,
-            scope: 'openid profile email'
-        });
-    } catch(audienceError) {
-        try {
-            token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
-        } catch(tokenError) {
-            console.debug('[Presence] Failed to get token for heartbeat');
-            return;
-        }
-    }
-    
+    const token = await getAuthToken();
     if(!token) return; 
     
     try { 
@@ -4075,23 +4168,7 @@ async function updatePresence(){
         return;
     }
     
-    let token;
-    try {
-        token = await auth0Client.getTokenSilently({
-            audience: AUTH0_AUDIENCE,
-            scope: 'openid profile email'
-        });
-    } catch(audienceError) {
-        try {
-            token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
-        } catch(tokenError) {
-            console.debug('[Presence] Failed to get token for update');
-            return;
-        }
-    }
-    
+    const token = await getAuthToken();
     if(!token) return; 
     
     try { 
@@ -4516,18 +4593,7 @@ function initProfileForm(){
         showProfileSaveIndicator('Saving...'); 
         
         try {
-            let token;
-            try {
-                token = await auth0Client.getTokenSilently({
-                    audience: AUTH0_AUDIENCE,
-                    scope: 'openid profile email'
-                });
-            } catch(audienceError) {
-                console.debug('[Profile] Trying without audience due to error:', audienceError);
-                token = await auth0Client.getTokenSilently({
-                    scope: 'openid profile email'
-                });
-            }
+            const token = await getAuthToken(true);
             
             if(!token){ 
                 showProfileSaveIndicator('Failed to get auth token', true); 
@@ -4553,6 +4619,7 @@ function initProfileForm(){
             
             if(r.ok){ 
                 showProfileSaveIndicator('Saved successfully!', false, true); 
+                showSuccess('Profile updated successfully!');
                 await socialFetchUser(); 
                 if(color){ 
                     settings.accentColor=color; 
@@ -4560,27 +4627,15 @@ function initProfileForm(){
                 } 
             } else { 
                 console.error('[Profile] Save failed:', data);
-                showProfileSaveIndicator(data.error||'Save failed', true); 
-                
-                // If token is invalid, try to refresh
-                if(r.status === 401 || r.status === 403) {
-                    console.warn('[Profile] Auth token may be expired, clearing cache');
-                    try {
-                        await auth0Client.getTokenSilently({
-                            audience: AUTH0_AUDIENCE,
-                            scope: 'openid profile email',
-                            cacheMode: 'off'
-                        });
-                        showProfileSaveIndicator('Please try again', false);
-                    } catch(refreshError) {
-                        console.error('[Profile] Token refresh failed:', refreshError);
-                        showProfileSaveIndicator('Please log out and back in', true);
-                    }
-                }
+                const errorMsg = data.error || 'Save failed';
+                showProfileSaveIndicator(errorMsg, true);
+                showError(`Profile save failed: ${errorMsg}`);
             } 
         } catch(err){ 
             console.error('[Profile] Network/auth error:', err);
-            showProfileSaveIndicator('Network or auth error', true); 
+            const errorMsg = 'Network or authentication error';
+            showProfileSaveIndicator(errorMsg, true);
+            showError(`Profile save error: ${err.message}`);
         }
     });
     
