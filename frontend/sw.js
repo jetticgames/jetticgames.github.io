@@ -1,7 +1,7 @@
 // Service Worker for WaterWall
 // Provides basic caching for offline functionality
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3-auth-fix';
 const CACHE_NAME = `waterwall-${CACHE_VERSION}`;
 const urlsToCache = [
     '/',

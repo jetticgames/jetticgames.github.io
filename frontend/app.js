@@ -1,5 +1,6 @@
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
+console.log('🔧 Version: AUTH_FIX_v3 - No audience validation');
 
 // Application configuration
 const APP_VERSION = '2.0.1';
@@ -3780,6 +3781,7 @@ async function getAuthToken() {
 }
 
 async function socialFetchUser(){ 
+    console.log('[Social] socialFetchUser called - AUTH_FIX_v3 version');
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
         return false; // Return false to indicate no data fetched
@@ -3822,49 +3824,7 @@ async function socialFetchUser(){
             
             if(r.status === 401) {
                 console.warn('[Social] 401 Unauthorized - authentication token may be invalid or expired');
-                
-                // Try to get a fresh token and retry once
-                try {
-                    console.debug('[Social] Attempting to refresh token and retry...');
-                    const freshToken = await auth0Client.getTokenSilently({
-                        scope: 'openid profile email',
-                        ignoreCache: true
-                    });
-                    
-                    // Retry the request with fresh token
-                    const retryResponse = await fetch(`${BACKEND_URL}/api/user`, {
-                        headers:{Authorization:`Bearer ${freshToken}`}
-                    });
-                    
-                    if(retryResponse.ok) {
-                        const data = await retryResponse.json();
-                        console.debug('[Social] User data received on retry');
-                        socialState.user=data.user; 
-                        socialState.loaded=true; 
-                        console.debug('[Social] User data loaded on retry:', data.user?.profile?.username || 'unnamed');
-                        
-                        // These are non-critical, so catch their errors
-                        try {
-                            syncFavoritesWithCloud(); 
-                        } catch(syncError) {
-                            console.debug('[Social] Favorites sync failed:', syncError);
-                        }
-                        
-                        try {
-                            renderFriendsPage(); 
-                        } catch(renderError) {
-                            console.debug('[Social] Friends page render failed:', renderError);
-                        }
-                        
-                        return true;
-                    } else {
-                        console.error('[Social] Retry also failed with status:', retryResponse.status);
-                        throw new Error('Authentication failed - token may be expired');
-                    }
-                } catch (retryError) {
-                    console.error('[Social] Token refresh failed:', retryError);
-                    throw new Error('Authentication failed - token may be expired');
-                }
+                throw new Error('Authentication failed - token may be expired');
             } else if(r.status === 403) {
                 console.warn('[Social] 403 Forbidden - insufficient permissions');
                 throw new Error('Access denied - insufficient permissions');
