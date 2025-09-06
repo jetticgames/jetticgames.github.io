@@ -1230,7 +1230,10 @@ function handleNavigation(e) {
 
 // Search handler
 function handleSearch() {
-    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    const searchInput = document.getElementById('searchInput');
+    if(!searchInput) return;
+    
+    const query = searchInput.value.toLowerCase().trim();
     
     if (!query) {
         showHomePage();
@@ -3627,8 +3630,107 @@ window.addEventListener('resize', () => {
 
 // ================= Social Layer (User Sync, Friends, Profile, Presence) =================
 let socialState = { loaded:false, user:null, syncing:false, presenceInterval:null };
-async function socialEnsureAuth(){ if(!auth0Client) return false; try { return await auth0Client.isAuthenticated(); } catch { return false; } }
-async function socialFetchUser(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r = await fetch(`${BACKEND_URL}/api/user`, {headers:{Authorization:`Bearer ${token}`}}); if(r.ok){ const data = await r.json(); socialState.user=data.user; socialState.loaded=true; syncFavoritesWithCloud(); renderFriendsPage(); } } catch(e){ console.warn('User data fetch failed', e);} }
+async function socialEnsureAuth(){ 
+    if(!auth0Client) return false; 
+    try { 
+        const isAuthenticated = await auth0Client.isAuthenticated(); 
+        if(!isAuthenticated) {
+            console.debug('[Auth] User not authenticated');
+            return false;
+        }
+        
+        // Test if we can get a valid token
+        try {
+            const token = await auth0Client.getTokenSilently({
+                audience: AUTH0_AUDIENCE,
+                scope: 'openid profile email'
+            });
+            if(!token) {
+                console.warn('[Auth] No token available despite being authenticated');
+                return false;
+            }
+            return true;
+        } catch(tokenError) {
+            console.warn('[Auth] Token retrieval failed:', tokenError);
+            // Try once more with cache disabled
+            try {
+                await auth0Client.getTokenSilently({
+                    audience: AUTH0_AUDIENCE,
+                    scope: 'openid profile email',
+                    cacheMode: 'off'
+                });
+                return true;
+            } catch(retryError) {
+                console.error('[Auth] Token retry failed:', retryError);
+                return false;
+            }
+        }
+    } catch(e) { 
+        console.error('[Auth] socialEnsureAuth failed:', e);
+        return false; 
+    } 
+}
+async function socialFetchUser(){ 
+    if(!(await socialEnsureAuth())) {
+        console.debug('[Social] Not authenticated, skipping user fetch');
+        return;
+    }
+    
+    try {
+        const token = await auth0Client.getTokenSilently({
+            audience: AUTH0_AUDIENCE,
+            scope: 'openid profile email'
+        });
+        
+        if(!token) {
+            console.warn('[Social] No token available for user fetch');
+            return;
+        }
+        
+        const r = await fetch(`${BACKEND_URL}/api/user`, {
+            headers:{Authorization:`Bearer ${token}`}
+        }); 
+        
+        if(r.ok){ 
+            const data = await r.json(); 
+            socialState.user=data.user; 
+            socialState.loaded=true; 
+            console.debug('[Social] User data loaded:', data.user?.profile?.username || 'unnamed');
+            syncFavoritesWithCloud(); 
+            renderFriendsPage(); 
+        } else {
+            console.warn('[Social] User fetch failed with status:', r.status);
+            if(r.status === 401 || r.status === 403) {
+                console.warn('[Social] Auth token may be invalid, clearing cache');
+                // Clear token cache and try once more
+                try {
+                    const freshToken = await auth0Client.getTokenSilently({
+                        audience: AUTH0_AUDIENCE,
+                        scope: 'openid profile email',
+                        cacheMode: 'off'
+                    });
+                    if(freshToken) {
+                        const retryR = await fetch(`${BACKEND_URL}/api/user`, {
+                            headers:{Authorization:`Bearer ${freshToken}`}
+                        });
+                        if(retryR.ok) {
+                            const retryData = await retryR.json();
+                            socialState.user = retryData.user;
+                            socialState.loaded = true;
+                            console.debug('[Social] User data loaded on retry');
+                            syncFavoritesWithCloud();
+                            renderFriendsPage();
+                        }
+                    }
+                } catch(retryError) {
+                    console.error('[Social] Retry fetch failed:', retryError);
+                }
+            }
+        }
+    } catch(e){ 
+        console.error('[Social] User data fetch failed:', e);
+    } 
+}
 
 // Sync favorites/settings local->cloud & cloud->local minimal strategy
 async function syncFavoritesWithCloud(){ if(!socialState.user) return; // Merge
@@ -3664,24 +3766,196 @@ function showFriendsPage(){
     navContainer.addEventListener('click', e=>{ const li=e.target.closest('li.nav-item[data-page="friends"]'); if(li){ e.preventDefault(); showFriendsPage(); }});
 })();
 
-async function renderFriendsPage(){ const page=document.getElementById('friendsPage'); if(!page) return; const authNotice=document.getElementById('friendsAuthNotice'); const content=document.getElementById('friendsContent'); const loggedIn = await socialEnsureAuth(); if(!loggedIn){ authNotice.style.display='block'; content.style.display='none'; const btn=document.getElementById('friendsLoginBtn'); if(btn) btn.onclick=()=>login(); return; } authNotice.style.display='none'; content.style.display='block';
-    if(!socialState.user) { await socialFetchUser(); }
-    const u = socialState.user; if(!u) return; const friends = u.friends||{list:[], incoming:[], outgoing:[]};
-    const friendsList = document.getElementById('friendsList'); const incomingList=document.getElementById('incomingList'); const outgoingList=document.getElementById('outgoingList');
-    if(friendsList){ friendsList.innerHTML = friends.list.length? friends.list.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-remove="${id}" class="mini-btn">Remove</button></div></li>`).join('') : '<li class="muted-hint">No friends yet</li>'; }
-    if(incomingList){ incomingList.innerHTML = friends.incoming.length? friends.incoming.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-accept="${id}" class="mini-btn">Accept</button><button data-decline="${id}" class="mini-btn danger">Decline</button></div></li>`).join('') : '<li class="muted-hint">No requests</li>'; }
-    if(outgoingList){ outgoingList.innerHTML = friends.outgoing.length? friends.outgoing.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-cancel="${id}" class="mini-btn">Cancel</button></div></li>`).join('') : '<li class="muted-hint">No sent requests</li>'; }
-    wireFriendsEvents(); updatePresence(); }
+async function renderFriendsPage(){ 
+    const page=document.getElementById('friendsPage'); 
+    if(!page) return; 
+    
+    const authNotice=document.getElementById('friendsAuthNotice'); 
+    const content=document.getElementById('friendsContent'); 
+    const loggedIn = await socialEnsureAuth(); 
+    
+    if(!loggedIn){ 
+        authNotice.style.display='block'; 
+        content.style.display='none'; 
+        const btn=document.getElementById('friendsLoginBtn'); 
+        if(btn) btn.onclick=()=>login(); 
+        return; 
+    } 
+    
+    authNotice.style.display='none'; 
+    content.style.display='block';
+    
+    if(!socialState.user) { 
+        await socialFetchUser(); 
+    }
+    
+    const u = socialState.user; 
+    if(!u) return; 
+    
+    const friends = u.friends||{list:[], incoming:[], outgoing:[]};
+    
+    // Update stats
+    updateFriendsStats(friends);
+    
+    // Render friends lists
+    const friendsList = document.getElementById('friendsList'); 
+    const incomingList=document.getElementById('incomingList'); 
+    const outgoingList=document.getElementById('outgoingList');
+    
+    if(friendsList){ 
+        friendsList.innerHTML = friends.list.length? 
+            friends.list.map(id=>`<li class="friend-item" data-id="${id}">
+                <span>${shortUserId(id)}</span>
+                <div class="friend-actions">
+                    <button data-remove="${id}" class="mini-btn danger">Remove</button>
+                </div>
+            </li>`).join('') : 
+            '<li class="muted-hint">No friends yet</li>'; 
+    }
+    
+    if(incomingList){ 
+        incomingList.innerHTML = friends.incoming.length? 
+            friends.incoming.map(id=>`<li class="friend-item" data-id="${id}">
+                <span>${shortUserId(id)}</span>
+                <div class="friend-actions">
+                    <button data-accept="${id}" class="mini-btn">Accept</button>
+                    <button data-decline="${id}" class="mini-btn danger">Decline</button>
+                </div>
+            </li>`).join('') : 
+            '<li class="muted-hint">No requests</li>'; 
+    }
+    
+    if(outgoingList){ 
+        outgoingList.innerHTML = friends.outgoing.length? 
+            friends.outgoing.map(id=>`<li class="friend-item" data-id="${id}">
+                <span>${shortUserId(id)}</span>
+                <div class="friend-actions">
+                    <button data-cancel="${id}" class="mini-btn danger">Cancel</button>
+                </div>
+            </li>`).join('') : 
+            '<li class="muted-hint">No sent requests</li>'; 
+    }
+    
+    // Initialize tab system
+    initFriendsTabs();
+    
+    // Wire up events
+    wireFriendsEvents(); 
+    updatePresence(); 
+}
+
+function updateFriendsStats(friends) {
+    const totalCount = document.getElementById('totalFriendsCount');
+    const pendingCount = document.getElementById('pendingRequestsCount');
+    
+    if(totalCount) totalCount.textContent = friends.list.length;
+    if(pendingCount) pendingCount.textContent = friends.incoming.length;
+    // Online count will be updated by updatePresence
+}
+
+function initFriendsTabs() {
+    const tabs = document.querySelectorAll('.friends-tab');
+    const contents = document.querySelectorAll('.friends-tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            
+            // Remove active from all tabs and contents
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            
+            // Add active to clicked tab and corresponding content
+            tab.classList.add('active');
+            const targetContent = document.getElementById(`friendsTab${targetTab.charAt(0).toUpperCase() + targetTab.slice(1)}`);
+            if(targetContent) {
+                targetContent.classList.add('active');
+            }
+        });
+    });
+}
 
 function shortUserId(id){ return id.split('|').pop(); }
 
 async function wireFriendsEvents(){ const page=document.getElementById('friendsPage'); if(!page) return; page.querySelectorAll('button[data-remove]').forEach(b=> b.onclick=()=>friendAction('remove',{user:b.getAttribute('data-remove')})); page.querySelectorAll('button[data-accept]').forEach(b=> b.onclick=()=>friendAction('accept',{from:b.getAttribute('data-accept')})); page.querySelectorAll('button[data-decline]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-decline')})); page.querySelectorAll('button[data-cancel]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-cancel')})); const form=document.getElementById('addFriendForm'); if(form){ form.onsubmit= async e=>{ e.preventDefault(); const uname=document.getElementById('addFriendUsername').value.trim(); if(!uname) return; const res = await friendAction('request',{username:uname}); const fb=document.getElementById('addFriendFeedback'); if(fb) fb.textContent = res?.error? res.error : 'Request sent'; if(!res.error) form.reset(); }; }}
 
-async function friendAction(action, body){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(body)}); const data= await r.json(); if(r.ok){ await socialFetchUser(); } return data; } catch(e){ return {error:'Network error'}; } }
+async function friendAction(action, body){ 
+    if(!(await socialEnsureAuth())) return; 
+    const token = await auth0Client.getTokenSilently?.().catch(()=>null); 
+    if(!token) return; 
+    
+    try { 
+        const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {
+            method:'POST', 
+            headers:{
+                'Content-Type':'application/json', 
+                Authorization:`Bearer ${token}`
+            }, 
+            body:JSON.stringify(body)
+        }); 
+        const data= await r.json(); 
+        
+        if(r.ok){ 
+            await socialFetchUser(); 
+            await refreshFriendsPage(); // Refresh the UI after successful action
+        } 
+        
+        return data; 
+    } catch(e){ 
+        console.error('Friend action error:', e);
+        return {error:'Network error'}; 
+    } 
+}
 
 // Presence
 async function presenceHeartbeat(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const gameId = currentGame? currentGame.id : null; await fetch(`${BACKEND_URL}/api/presence`, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({game:gameId})}); } catch(e){} }
-async function updatePresence(){ if(!socialState.user || !socialState.user.friends) return; const ids = socialState.user.friends.list.join(','); if(!ids) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r = await fetch(`${BACKEND_URL}/api/presence?ids=${encodeURIComponent(ids)}`, {headers:{Authorization:`Bearer ${token}`}}); if(!r.ok) return; const data = await r.json(); const presenceList=document.getElementById('presenceList'); if(presenceList){ presenceList.innerHTML = Object.keys(data.presence||{}).length? Object.entries(data.presence).map(([id,p])=>`<li class="friend-item online"><span>${shortUserId(id)}</span><span class="presence-pill">${p.game? 'In game #'+p.game : 'Online'}</span></li>`).join('') : '<li class="muted-hint">No friends online</li>'; } } catch(e){} }
+async function updatePresence(){ 
+    if(!socialState.user || !socialState.user.friends) return; 
+    const ids = socialState.user.friends.list.join(','); 
+    if(!ids) {
+        // Update online count to 0 if no friends
+        const onlineCount = document.getElementById('onlineFriendsCount');
+        if(onlineCount) onlineCount.textContent = '0';
+        return;
+    }
+    
+    const token = await auth0Client.getTokenSilently?.().catch(()=>null); 
+    if(!token) return; 
+    
+    try { 
+        const r = await fetch(`${BACKEND_URL}/api/presence?ids=${encodeURIComponent(ids)}`, {
+            headers:{Authorization:`Bearer ${token}`}
+        }); 
+        if(!r.ok) return; 
+        const data = await r.json(); 
+        
+        const onlineCount = Object.keys(data.presence||{}).length;
+        
+        // Update online friends count in stats
+        const onlineCountEl = document.getElementById('onlineFriendsCount');
+        if(onlineCountEl) onlineCountEl.textContent = onlineCount;
+        
+        // Update presence list in overview tab
+        const presenceList=document.getElementById('presenceList'); 
+        if(presenceList){ 
+            presenceList.innerHTML = onlineCount? 
+                Object.entries(data.presence).map(([id,p])=>`<li class="friend-item online">
+                    <span>${shortUserId(id)}</span>
+                    <span class="presence-pill">${p.game? 'In game #'+p.game : 'Online'}</span>
+                </li>`).join('') : 
+                '<li class="muted-hint">No friends online</li>'; 
+        } 
+    } catch(e){
+        console.warn('Failed to update presence:', e);
+    } 
+}
+
+async function refreshFriendsPage() {
+    const friendsPage = document.getElementById('friendsPage');
+    if(friendsPage && friendsPage.style.display !== 'none') {
+        await renderFriendsPage();
+    }
+}
 
 // Kick off social fetch after auth established
 const __origInitAuth0 = initAuth0;
@@ -3693,6 +3967,41 @@ window.WaterWallSocial = { refreshUser: socialFetchUser, pushFavorites: socialUp
 // MutationObserver to refresh when friends page inserted dynamically
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>{ if(location.hash==='#friends') showFriendsPage(); }); }
 // ============================================================================
+
+// ================= Error Handling & DOM Validation =================
+
+function validateCriticalDOM() {
+    const critical = [
+        'searchInput', 'gamesGrid', 'sidebar', 'homePage', 
+        'gamesPage', 'settingsPage', 'friendsPage'
+    ];
+    
+    const missing = critical.filter(id => !document.getElementById(id));
+    
+    if(missing.length > 0) {
+        console.error('❌ Critical DOM elements missing:', missing);
+        return false;
+    }
+    
+    return true;
+}
+
+function setupGlobalErrorHandler() {
+    window.addEventListener('error', (event) => {
+        console.error('❌ Global error:', event.error);
+        // Don't let errors crash the app
+        event.preventDefault();
+    });
+    
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('❌ Unhandled promise rejection:', event.reason);
+        // Don't let promise rejections crash the app
+        event.preventDefault();
+    });
+}
+
+// Initialize error handling
+setupGlobalErrorHandler();
 
 // ================= Profile UI / Dropdown & Settings =================
 let profileDropdownEl=null, profileOpen=false;
@@ -3779,14 +4088,135 @@ function loadProfileForm(){ if(!socialState.user){ socialFetchUser().then(loadPr
     if(avatarPreview && prof.avatar){ avatarPreview.src=prof.avatar; avatarPreview.style.display='block'; if(placeholder) placeholder.style.display='none'; }
 }
 
-function initProfileForm(){ const form=document.getElementById('profileForm'); if(!form) return; const avatarInput=document.getElementById('avatarInput'); const uploader=document.getElementById('avatarUploader'); const avatarPreview=document.getElementById('avatarPreview'); const placeholder=document.getElementById('avatarPlaceholder');
-    if(avatarInput){ avatarInput.addEventListener('change', ()=>{ const file=avatarInput.files?.[0]; if(!file) return; if(file.size> 512*1024){ alert('Avatar max size 512KB'); avatarInput.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ if(avatarPreview){ avatarPreview.src=reader.result; avatarPreview.style.display='block'; if(placeholder) placeholder.style.display='none'; } }; reader.readAsDataURL(file); }); }
-    if(uploader){ uploader.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); avatarInput?.click(); }}); }
-    form.addEventListener('submit', async (e)=>{ e.preventDefault(); if(!(await socialEnsureAuth())) { login(); return; } const uname=document.getElementById('profileUsername').value.trim(); if(uname && !/^[a-zA-Z0-9_]{3,24}$/.test(uname)){ showProfileSaveIndicator('Invalid username', true); return; } const color=document.getElementById('profileColor').value; let avatar=null; const file=avatarInput?.files?.[0]; if(file){ avatar = avatarPreview?.src; }
-        showProfileSaveIndicator('Saving...'); const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token){ showProfileSaveIndicator('Auth error', true); return; }
-        const body={}; if(uname) body.username=uname; if(color) body.color=color; if(avatar) body.avatar=avatar; try { const r= await fetch(`${BACKEND_URL}/api/user/profile`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(body)}); const data=await r.json(); if(r.ok){ showProfileSaveIndicator('Saved', false, true); await socialFetchUser(); if(color){ settings.accentColor=color; applyTheme(); } } else { showProfileSaveIndicator(data.error||'Save failed', true); } } catch(err){ showProfileSaveIndicator('Network error', true); }
+function initProfileForm(){ 
+    const form=document.getElementById('profileForm'); 
+    if(!form) return; 
+    
+    const avatarInput=document.getElementById('avatarInput'); 
+    const uploader=document.getElementById('avatarUploader'); 
+    const avatarPreview=document.getElementById('avatarPreview'); 
+    const placeholder=document.getElementById('avatarPlaceholder');
+    
+    if(avatarInput){ 
+        avatarInput.addEventListener('change', ()=>{ 
+            const file=avatarInput.files?.[0]; 
+            if(!file) return; 
+            if(file.size> 512*1024){ 
+                alert('Avatar max size 512KB'); 
+                avatarInput.value=''; 
+                return; 
+            } 
+            const reader=new FileReader(); 
+            reader.onload=()=>{ 
+                if(avatarPreview){ 
+                    avatarPreview.src=reader.result; 
+                    avatarPreview.style.display='block'; 
+                    if(placeholder) placeholder.style.display='none'; 
+                } 
+            }; 
+            reader.readAsDataURL(file); 
+        }); 
+    }
+    
+    if(uploader){ 
+        uploader.addEventListener('keydown', e=>{ 
+            if(e.key==='Enter' || e.key===' ') { 
+                e.preventDefault(); 
+                avatarInput?.click(); 
+            }
+        }); 
+    }
+    
+    form.addEventListener('submit', async (e)=>{ 
+        e.preventDefault(); 
+        
+        if(!(await socialEnsureAuth())) { 
+            showProfileSaveIndicator('Please log in', true);
+            login(); 
+            return; 
+        } 
+        
+        const uname=document.getElementById('profileUsername').value.trim(); 
+        if(uname && !/^[a-zA-Z0-9_]{3,24}$/.test(uname)){ 
+            showProfileSaveIndicator('Invalid username (3-24 chars, letters/numbers/_)', true); 
+            return; 
+        } 
+        
+        const color=document.getElementById('profileColor').value; 
+        let avatar=null; 
+        const file=avatarInput?.files?.[0]; 
+        if(file){ 
+            avatar = avatarPreview?.src; 
+        }
+        
+        showProfileSaveIndicator('Saving...'); 
+        
+        try {
+            const token = await auth0Client.getTokenSilently({
+                audience: AUTH0_AUDIENCE,
+                scope: 'openid profile email'
+            });
+            
+            if(!token){ 
+                showProfileSaveIndicator('Failed to get auth token', true); 
+                console.error('[Profile] No auth token available');
+                return; 
+            }
+            
+            const body={}; 
+            if(uname) body.username=uname; 
+            if(color) body.color=color; 
+            if(avatar) body.avatar=avatar; 
+            
+            const r= await fetch(`${BACKEND_URL}/api/user/profile`, {
+                method:'PUT', 
+                headers:{
+                    'Content-Type':'application/json', 
+                    Authorization:`Bearer ${token}`
+                }, 
+                body:JSON.stringify(body)
+            }); 
+            
+            const data=await r.json(); 
+            
+            if(r.ok){ 
+                showProfileSaveIndicator('Saved successfully!', false, true); 
+                await socialFetchUser(); 
+                if(color){ 
+                    settings.accentColor=color; 
+                    applyTheme(); 
+                } 
+            } else { 
+                console.error('[Profile] Save failed:', data);
+                showProfileSaveIndicator(data.error||'Save failed', true); 
+                
+                // If token is invalid, try to refresh
+                if(r.status === 401 || r.status === 403) {
+                    console.warn('[Profile] Auth token may be expired, clearing cache');
+                    try {
+                        await auth0Client.getTokenSilently({
+                            audience: AUTH0_AUDIENCE,
+                            scope: 'openid profile email',
+                            cacheMode: 'off'
+                        });
+                        showProfileSaveIndicator('Please try again', false);
+                    } catch(refreshError) {
+                        console.error('[Profile] Token refresh failed:', refreshError);
+                        showProfileSaveIndicator('Please log out and back in', true);
+                    }
+                }
+            } 
+        } catch(err){ 
+            console.error('[Profile] Network/auth error:', err);
+            showProfileSaveIndicator('Network or auth error', true); 
+        }
     });
-    document.getElementById('profileCancelBtn')?.addEventListener('click', ()=>{ loadProfileForm(); showProfileSaveIndicator('Reverted', false); setTimeout(()=>hideProfileSaveIndicator(), 1200); });
+    
+    document.getElementById('profileCancelBtn')?.addEventListener('click', ()=>{ 
+        loadProfileForm(); 
+        showProfileSaveIndicator('Reverted', false); 
+        setTimeout(()=>hideProfileSaveIndicator(), 1200); 
+    });
 }
 function showProfileSaveIndicator(msg, isError=false, success=false){ const el=document.getElementById('profileSaveIndicator'); if(!el) return; el.style.display='flex'; el.textContent=msg; el.classList.remove('error','success'); if(isError) el.classList.add('error'); else if(success) el.classList.add('success'); }
 function hideProfileSaveIndicator(){ const el=document.getElementById('profileSaveIndicator'); if(el){ el.style.display='none'; }}
@@ -3822,7 +4252,13 @@ function showLogoutConfirm(){
 }
 
 // Initialize after DOM ready
-document.addEventListener('DOMContentLoaded', ()=>{ initProfileDropdown(); initProfileForm(); });
+document.addEventListener('DOMContentLoaded', ()=>{ 
+    if(!validateCriticalDOM()) {
+        console.error('❌ Critical DOM validation failed, some features may not work');
+    }
+    initProfileDropdown(); 
+    initProfileForm(); 
+});
 // Fallback: if for any reason dropdown not initialized after 2s (e.g., delayed DOM), attempt again
 setTimeout(()=>{ if(!profileDropdownEl){ console.debug('[ProfileDropdown] late init retry'); initProfileDropdown(); } },2000);
 // ========================================================================================

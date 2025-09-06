@@ -2491,27 +2491,42 @@ function jwkToCryptoKey(jwk){
 }
 
 async function requireAuth(request, env){
-    const token = await extractBearer(request); if(!token) return {error:unauthorized()};
-    const payload = await verifyJWT(token, env); if(!payload) return {error:unauthorized('Invalid token')};
-    // Basic audience / issuer checks optional
-    if(env.AUTH0_AUDIENCE && payload.aud && !(Array.isArray(payload.aud)? payload.aud.includes(env.AUTH0_AUDIENCE): payload.aud===env.AUTH0_AUDIENCE)){
-        return {error:forbidden('Bad audience')};
-    }
-    // Issuer check
-    if(env.AUTH0_DOMAIN){
-        const expectedIss = `https://${env.AUTH0_DOMAIN}/`;
-        if(payload.iss && payload.iss !== expectedIss){
-            return {error:forbidden('Bad issuer')};
+    try {
+        const token = await extractBearer(request); 
+        if(!token) return {error:unauthorized()};
+        
+        const payload = await verifyJWT(token, env); 
+        if(!payload) return {error:unauthorized('Invalid token')};
+        
+        // Basic audience / issuer checks
+        if(env.AUTH0_AUDIENCE && payload.aud && !(Array.isArray(payload.aud)? payload.aud.includes(env.AUTH0_AUDIENCE): payload.aud===env.AUTH0_AUDIENCE)){
+            console.warn('Auth: Bad audience', payload.aud, 'expected', env.AUTH0_AUDIENCE);
+            return {error:forbidden('Bad audience')};
         }
-    }
-    // Allowed client IDs (azp claim for SPA access tokens)
-    if(env.AUTH0_ALLOWED_CLIENT_IDS){
-        const allowed = env.AUTH0_ALLOWED_CLIENT_IDS.split(',').map(s=>s.trim()).filter(Boolean);
-        if(payload.azp && !allowed.includes(payload.azp)){
-            return {error:forbidden('Client not allowed')};
+        
+        // Issuer check
+        if(env.AUTH0_DOMAIN){
+            const expectedIss = `https://${env.AUTH0_DOMAIN}/`;
+            if(payload.iss && payload.iss !== expectedIss){
+                console.warn('Auth: Bad issuer', payload.iss, 'expected', expectedIss);
+                return {error:forbidden('Bad issuer')};
+            }
         }
+        
+        // Allowed client IDs (azp claim for SPA access tokens)
+        if(env.AUTH0_ALLOWED_CLIENT_IDS){
+            const allowed = env.AUTH0_ALLOWED_CLIENT_IDS.split(',').map(s=>s.trim()).filter(Boolean);
+            if(payload.azp && !allowed.includes(payload.azp)){
+                console.warn('Auth: Client not allowed', payload.azp, 'allowed:', allowed);
+                return {error:forbidden('Client not allowed')};
+            }
+        }
+        
+        return {payload, token};
+    } catch (error) {
+        console.error('Auth error:', error);
+        return {error:unauthorized('Authentication failed')};
     }
-    return {payload, token};
 }
 
 // ---- User Data (favorites, settings, profile) ----

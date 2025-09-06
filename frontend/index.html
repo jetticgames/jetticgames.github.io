@@ -198,6 +198,85 @@
                             <button id="friendsLoginBtn" class="update-check-btn">Sign In</button>
                         </div>
                         <div id="friendsContent" style="display:none;">
+                            <!-- Friends Tab Navigation -->
+                            <div class="friends-tab-nav">
+                                <button class="friends-tab active" data-tab="overview">Overview</button>
+                                <button class="friends-tab" data-tab="friends">Friends</button>
+                                <button class="friends-tab" data-tab="requests">Requests</button>
+                                <button class="friends-tab" data-tab="add">Add Friends</button>
+                            </div>
+                            
+                            <!-- Overview Tab -->
+                            <div id="friendsTabOverview" class="friends-tab-content active">
+                                <div class="friends-stats">
+                                    <div class="stat-card">
+                                        <div class="stat-number" id="totalFriendsCount">0</div>
+                                        <div class="stat-label">Total Friends</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-number" id="onlineFriendsCount">0</div>
+                                        <div class="stat-label">Online Now</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-number" id="pendingRequestsCount">0</div>
+                                        <div class="stat-label">Pending Requests</div>
+                                    </div>
+                                </div>
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-circle" style="color: #00d26a;"></i> Friends Online</h3>
+                                    <ul id="presenceList" class="friends-list"></ul>
+                                </div>
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                                    <div id="recentActivity" class="activity-feed">
+                                        <p class="muted-hint">Recent friend activity will appear here</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Friends List Tab -->
+                            <div id="friendsTabFriends" class="friends-tab-content">
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-users"></i> Your Friends</h3>
+                                    <ul id="friendsList" class="friends-list"></ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Requests Tab -->
+                            <div id="friendsTabRequests" class="friends-tab-content">
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-inbox"></i> Incoming Requests</h3>
+                                    <ul id="incomingList" class="friends-list"></ul>
+                                </div>
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-paper-plane"></i> Sent Requests</h3>
+                                    <ul id="outgoingList" class="friends-list"></ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Friends Tab -->
+                            <div id="friendsTabAdd" class="friends-tab-content">
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-user-plus"></i> Add New Friend</h3>
+                                    <form id="addFriendForm" class="add-friend-form">
+                                        <div class="form-group">
+                                            <label for="addFriendUsername">Username:</label>
+                                            <input type="text" id="addFriendUsername" placeholder="Enter username" required>
+                                        </div>
+                                        <button type="submit" class="primary">Send Friend Request</button>
+                                        <div id="addFriendFeedback" class="form-feedback"></div>
+                                    </form>
+                                </div>
+                                <div class="friends-panel">
+                                    <h3><i class="fas fa-info-circle"></i> Tips</h3>
+                                    <ul class="tips-list">
+                                        <li>Usernames are case-sensitive</li>
+                                        <li>You can see when friends are online and what games they're playing</li>
+                                        <li>Friend requests expire after 30 days if not accepted</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                             <div class="friends-columns" style="display:grid; gap:24px; grid-template-columns:repeat(auto-fit, minmax(260px,1fr));">
                                 <div class="friends-panel" id="friendsListPanel">
                                     <h3 style="margin-top:0;">Your Friends</h3>
