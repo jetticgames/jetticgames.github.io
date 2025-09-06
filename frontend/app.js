@@ -955,9 +955,7 @@ function markAuthUnavailable(){
 function bindAuthButtons(){
     // Sidebar account item acts as unified auth control
     const accountNav=document.getElementById('accountNavItem');
-    if(accountNav){
-        accountNav.onclick=(e)=>{ e.preventDefault(); handleAccountButton(); };
-    }
+    // accountNav click handled via delegated navigation handler; no direct onclick to avoid double firing
     const loginBtn=document.getElementById('loginBtn');
     if(loginBtn){ loginBtn.onclick=()=> auth0Client.loginWithRedirect(); }
     const logoutBtn=document.getElementById('logoutBtn');
@@ -969,8 +967,16 @@ function bindAuthButtons(){
 function handleAccountButton(){
     if(!auth0Client){ markAuthUnavailable(); return; }
     auth0Client.isAuthenticated().then(isAuth=>{
-        if(!isAuth){ auth0Client.loginWithRedirect(); }
-        else { openLogoutModal(); }
+        if(!isAuth){ auth0Client.loginWithRedirect(); return; }
+        // Authenticated – prefer profile dropdown if available
+        const pdEl = document.getElementById('profileDropdown');
+        if(pdEl){
+            if(!profileDropdownEl) { try { initProfileDropdown(); } catch(_){} }
+            toggleProfileDropdown();
+            return;
+        }
+        // Fallback (legacy) – show logout modal
+        openLogoutModal();
     }).catch(()=>{ markAuthUnavailable(); });
 }
 function openLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='flex'; setTimeout(()=> logoutConfirmBtn?.focus(), 30);} }
