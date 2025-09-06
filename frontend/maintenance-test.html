@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaterWall Maintenance Mode Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0d1117;
+            color: #f0f6fc;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+        h1 {
+            color: #58a6ff;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #0d1117;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+        }
+        button {
+            background: #238636;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2ea043;
+        }
+        button.danger {
+            background: #da3633;
+        }
+        button.danger:hover {
+            background: #f85149;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .status.enabled {
+            background: #da3633;
+            border: 1px solid #f85149;
+        }
+        .status.disabled {
+            background: #238636;
+            border: 1px solid #2ea043;
+        }
+        pre {
+            background: #0d1117;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚧 WaterWall Maintenance Mode Test</h1>
+        
+        <div class="section">
+            <h3>Current Status</h3>
+            <div id="status" class="status">Loading...</div>
+            <button onclick="checkStatus()">🔄 Refresh Status</button>
+        </div>
+        
+        <div class="section">
+            <h3>Local Controls</h3>
+            <p>These controls simulate what site administrators can do through the settings page:</p>
+            <button onclick="enableMaintenance()">🚧 Enable Maintenance Mode</button>
+            <button onclick="disableMaintenance()" class="danger">✅ Disable Maintenance Mode</button>
+            <button onclick="clearOverride()">🗑️ Clear Local Override</button>
+        </div>
+        
+        <div class="section">
+            <h3>Backend Status</h3>
+            <pre id="backendStatus">Click "Check Backend" to view</pre>
+            <button onclick="checkBackend()">🌐 Check Backend Status</button>
+        </div>
+        
+        <div class="section">
+            <h3>Instructions</h3>
+            <p>1. Use the local controls to test maintenance mode functionality</p>
+            <p>2. Open <a href="index.html" target="_blank" style="color: #58a6ff;">index.html</a> in another tab to see the effect</p>
+            <p>3. When maintenance is enabled, games should be hidden and a maintenance notice should appear</p>
+            <p>4. Check the settings page to see the maintenance toggle</p>
+        </div>
+    </div>
+
+    <script>
+        let maintenanceMode = {
+            enabled: false,
+            message: "WaterWall is currently under maintenance. We'll be back online soon!",
+            estimatedTime: "Please check back in a few hours."
+        };
+
+        function updateStatus() {
+            const statusEl = document.getElementById('status');
+            if (maintenanceMode.enabled) {
+                statusEl.className = 'status enabled';
+                statusEl.innerHTML = `
+                    <strong>🚧 MAINTENANCE MODE ENABLED</strong><br>
+                    Message: ${maintenanceMode.message}<br>
+                    Estimated Time: ${maintenanceMode.estimatedTime}
+                `;
+            } else {
+                statusEl.className = 'status disabled';
+                statusEl.innerHTML = '<strong>✅ MAINTENANCE MODE DISABLED</strong><br>All games are available';
+            }
+        }
+
+        function checkStatus() {
+            try {
+                const localOverride = localStorage.getItem('ww_maintenance_override');
+                if (localOverride) {
+                    const override = JSON.parse(localOverride);
+                    if (override && typeof override.enabled === 'boolean') {
+                        maintenanceMode = override;
+                        console.log('Using local maintenance override:', maintenanceMode.enabled);
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to check local override:', e);
+            }
+            updateStatus();
+        }
+
+        function enableMaintenance() {
+            maintenanceMode.enabled = true;
+            localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+            updateStatus();
+            alert('✅ Maintenance mode enabled! Check index.html to see the effect.');
+        }
+
+        function disableMaintenance() {
+            maintenanceMode.enabled = false;
+            localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+            updateStatus();
+            alert('✅ Maintenance mode disabled! Games should be available again.');
+        }
+
+        function clearOverride() {
+            localStorage.removeItem('ww_maintenance_override');
+            maintenanceMode.enabled = false;
+            updateStatus();
+            alert('✅ Local override cleared! Backend status will be used.');
+        }
+
+        async function checkBackend() {
+            const statusEl = document.getElementById('backendStatus');
+            statusEl.textContent = 'Checking backend...';
+            
+            try {
+                const response = await fetch('https://waterwallrelayservice.zonikyo.workers.dev/maintenance-status');
+                if (response.ok) {
+                    const status = await response.json();
+                    statusEl.textContent = JSON.stringify(status, null, 2);
+                } else {
+                    statusEl.textContent = `Error: ${response.status} ${response.statusText}`;
+                }
+            } catch (error) {
+                statusEl.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Initialize
+        checkStatus();
+    </script>
+</body>
+</html>

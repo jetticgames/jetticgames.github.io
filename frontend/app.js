@@ -8,6 +8,11 @@ let currentGame = null;
 let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
 let favorites = [];
+let maintenanceMode = {
+    enabled: false,
+    message: "WaterWall is currently under maintenance. We'll be back online soon!",
+    estimatedTime: "Please check back in a few hours."
+};
 let settings = { 
     defaultProxy: false,
     // Theme settings
@@ -172,6 +177,9 @@ async function startApp() {
     logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
     logoutCancelBtn = document.getElementById('logoutCancelBtn');
         
+        // Check maintenance status
+        await checkMaintenanceStatus();
+        
         // Load games (with immediate fallback)
         await loadGamesWithFallback();
         signalPageLoaderStage('games');
@@ -244,6 +252,63 @@ function showGamesLoadFailure(){
     }
 }
 
+// Check maintenance status from backend
+async function checkMaintenanceStatus() {
+    try {
+        // First check for local override
+        const localOverride = localStorage.getItem('ww_maintenance_override');
+        if (localOverride) {
+            const override = JSON.parse(localOverride);
+            if (override && typeof override.enabled === 'boolean') {
+                maintenanceMode = override;
+                console.log('🔧 Using local maintenance override:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
+                return;
+            }
+        }
+        
+        // Then check backend
+        const response = await fetch('https://waterwallrelayservice.zonikyo.workers.dev/maintenance-status');
+        if (response.ok) {
+            const status = await response.json();
+            maintenanceMode = status;
+            console.log('🔧 Maintenance status from backend:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
+        }
+    } catch (error) {
+        console.warn('⚠️ Failed to check maintenance status:', error);
+        // Keep maintenance mode disabled if we can't reach the backend
+        maintenanceMode.enabled = false;
+    }
+}
+
+function showMaintenanceNotice() {
+    const noticeHTML = `
+        <div class="maintenance-notice" style="grid-column:1/-1; text-align:center; padding:60px 20px;">
+            <div style="font-size:64px; margin-bottom:20px;">🚧</div>
+            <h2 style="margin:0 0 12px; font-size:28px; color:#f0f6fc;">Under Maintenance</h2>
+            <p style="margin:0 0 8px; color:#8b949e; font-size:18px; max-width:500px; margin-left:auto; margin-right:auto;">${maintenanceMode.message}</p>
+            <p style="margin:0; color:#7d8590; font-size:16px;">${maintenanceMode.estimatedTime}</p>
+        </div>
+    `;
+    
+    // Show maintenance notice on home page
+    const allGamesGrid = document.getElementById('allGames');
+    if (allGamesGrid) {
+        allGamesGrid.innerHTML = noticeHTML;
+    }
+    
+    // Show maintenance notice on favorites page
+    const favoritesGrid = document.getElementById('favoritesPageGrid');
+    if (favoritesGrid) {
+        favoritesGrid.innerHTML = noticeHTML;
+    }
+    
+    // Hide favorite games section on home page
+    const favoriteSection = document.getElementById('favoriteGamesSection');
+    if (favoriteSection) {
+        favoriteSection.style.display = 'none';
+    }
+}
+
 function forceRenderGames() {
     console.log('🎨 Force rendering games...');
     console.log('📊 Games to render:', games.length);
@@ -252,6 +317,12 @@ function forceRenderGames() {
     
     if (!allGamesGrid) {
         console.error('❌ Required DOM elements not found!');
+        return;
+    }
+    
+    // Check maintenance mode first
+    if (maintenanceMode.enabled) {
+        showMaintenanceNotice();
         return;
     }
     
@@ -593,6 +664,13 @@ function handleNavigation(e) {
     // Game card clicks
     if (e.target.closest('.game-card')) {
         console.log('Game card clicked');
+        
+        // Check maintenance mode
+        if (maintenanceMode.enabled) {
+            console.log('🚧 Game access blocked due to maintenance mode');
+            return;
+        }
+        
         const gameCard = e.target.closest('.game-card');
         const gameId = parseInt(gameCard.dataset.gameId);
         const game = games.find(g => g.id === gameId);
@@ -608,6 +686,13 @@ function handleNavigation(e) {
     // Suggested game card clicks
     if (e.target.closest('.suggested-game-card')) {
         console.log('Suggested game card clicked');
+        
+        // Check maintenance mode
+        if (maintenanceMode.enabled) {
+            console.log('🚧 Game access blocked due to maintenance mode');
+            return;
+        }
+        
         const gameCard = e.target.closest('.suggested-game-card');
         const gameId = parseInt(gameCard.dataset.gameId);
         const game = games.find(g => g.id === gameId);
@@ -811,6 +896,7 @@ function showSettingsPage(){
     hideAllPages();
     const pg=document.getElementById('settingsPage'); if(pg) pg.classList.add('active');
     const chk=document.getElementById('proxyToggleSetting'); if(chk) chk.checked=isProxyEnabled;
+    const maintenanceChk=document.getElementById('maintenanceToggleSetting'); if(maintenanceChk) maintenanceChk.checked=maintenanceMode.enabled;
 }
 
 function showGamePage(game) {
@@ -997,6 +1083,13 @@ function createGameCard(game, isFeatured = false) {
 
 // Game loading
 function loadGame(game) {
+    // Check maintenance mode first
+    if (maintenanceMode.enabled) {
+        console.log('🚧 Game loading blocked due to maintenance mode');
+        showHomePage(); // Redirect back to home page
+        return;
+    }
+    
     const gameFrame = document.getElementById('gameFrame');
     if (!gameFrame) {
         console.error('Game frame not found');
@@ -1396,6 +1489,16 @@ function ensureSettingsPage(){
                                         <span class="setting-sub">Beta feature to bypass restrictions</span>
                                     </div>
                                     <input type="checkbox" id="proxyToggleSetting" class="ww-switch-input" ${isProxyEnabled?'checked':''} onchange="(function(el){isProxyEnabled=el.checked;settings.defaultProxy=isProxyEnabled;saveSettingsToCookies();updateProxyVisuals(); if(currentGame) loadGame(currentGame);})(this)">
+                                    <span class="ww-switch" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="switch-row" for="maintenanceToggleSetting">
+                                    <div class="switch-text">
+                                        <span class="setting-title">🚧 Maintenance Mode</span>
+                                        <span class="setting-sub">Disable all games and show maintenance notice</span>
+                                    </div>
+                                    <input type="checkbox" id="maintenanceToggleSetting" class="ww-switch-input" ${maintenanceMode.enabled?'checked':''} onchange="toggleMaintenanceMode(this)">
                                     <span class="ww-switch" aria-hidden="true"></span>
                                 </label>
                             </div>
@@ -2527,6 +2630,13 @@ function renderFavoritesSection(){
     const section = document.getElementById('favoriteGamesSection');
     const grid = document.getElementById('favoriteGamesGrid');
     if(!section || !grid) return;
+    
+    // Check maintenance mode first
+    if (maintenanceMode.enabled) {
+        section.style.display = 'none';
+        return;
+    }
+    
     if(!favorites.length){ section.style.display='none'; grid.innerHTML=''; return; }
     const favGames = games.filter(g=> favorites.includes(g.id));
     if(favGames.length){
@@ -2539,6 +2649,14 @@ function renderFavoritesPage(){
     const grid = document.getElementById('favoritesPageGrid');
     const empty = document.getElementById('favoritesEmptyState');
     if(!grid) return;
+    
+    // Check maintenance mode first
+    if (maintenanceMode.enabled) {
+        showMaintenanceNotice();
+        if(empty) empty.style.display='none';
+        return;
+    }
+    
     const favGames = games.filter(g=> favorites.includes(g.id));
     if(favGames.length){
         grid.innerHTML = favGames.map(g=> createGameCard(g)).join('');
@@ -2574,6 +2692,28 @@ function toggleGameProxy(){
     isProxyEnabled = gameProxyOverrides[currentGame.id];
     updateProxyVisuals();
     loadGame(currentGame);
+}
+
+function toggleMaintenanceMode(toggleElement) {
+    maintenanceMode.enabled = toggleElement.checked;
+    
+    if (maintenanceMode.enabled) {
+        console.log('🚧 Maintenance mode ENABLED');
+        // Show maintenance notice immediately
+        showMaintenanceNotice();
+    } else {
+        console.log('✅ Maintenance mode DISABLED');
+        // Re-render games
+        forceRenderGames();
+        renderFavoritesSection();
+    }
+    
+    // Save maintenance state to localStorage (local override)
+    try {
+        localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+    } catch (e) {
+        console.warn('Failed to save maintenance override:', e);
+    }
 }
 
 function updateProxyVisuals(){
