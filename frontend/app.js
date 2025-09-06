@@ -1388,7 +1388,7 @@ function showSettingsPage(){
 function showGamePage(game) {
     console.log('Showing game page for:', game.title);
     currentGame = game;
-    hideAllPages();
+    hideAllPages(true); // hide everything fully
     
     // Clear the previous game iframe
     const gameFrame = document.getElementById('gameFrame');
@@ -1396,7 +1396,8 @@ function showGamePage(game) {
         gameFrame.src = 'about:blank';
     }
     
-    document.getElementById('gamePage').classList.add('active');
+    const gp=document.getElementById('gamePage');
+    if(gp){ gp.style.display='block'; gp.classList.add('active'); }
     
     // Update game info
     const gameTitle = document.getElementById('gameTitle');
