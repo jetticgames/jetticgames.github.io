@@ -975,12 +975,19 @@ function handleAccountButton(){
     auth0Client.isAuthenticated().then(isAuth=>{
         if(!isAuth){ auth0Client.loginWithRedirect(); return; }
         // Authenticated – prefer profile dropdown if available
-        const pdEl = document.getElementById('profileDropdown');
+        let pdEl = document.getElementById('profileDropdown');
+        if(!pdEl){ console.warn('Profile dropdown missing in DOM, injecting fallback');
+            const hdr=document.querySelector('.sidebar-header');
+            if(hdr){ hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`); pdEl=document.getElementById('profileDropdown'); }
+        }
         if(pdEl){
             if(!profileDropdownEl){ try { initProfileDropdown(); } catch(e){ console.warn('initProfileDropdown failed', e); } }
-            if(!profileDropdownEl){ console.warn('Profile dropdown element still missing'); return; }
-            toggleProfileDropdown();
-            return;
+            if(profileDropdownEl){
+                // Position relative to account item (safer than absolute bottom if layout changes)
+                try { const acct=document.getElementById('accountNavItem'); if(acct){ const rect=acct.getBoundingClientRect(); profileDropdownEl.style.top = (rect.bottom + 8) + 'px'; profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px'; profileDropdownEl.style.bottom='auto'; profileDropdownEl.style.transform='translateX(-50%)'; } } catch(_){}
+                toggleProfileDropdown();
+                return;
+            }
         }
         // Fallback (legacy) – show logout modal
         openLogoutModal();
@@ -3668,9 +3675,11 @@ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded
 // ================= Profile UI / Dropdown & Settings =================
 let profileDropdownEl=null, profileOpen=false;
 function initProfileDropdown(){
+    if(profileDropdownEl){ return; }
     profileDropdownEl = document.getElementById('profileDropdown');
     const accountNav = document.getElementById('accountNavItem');
     if(!profileDropdownEl || !accountNav) return;
+    console.debug('[ProfileDropdown] initialized');
     // Click handling for account nav is centralized in handleAccountButton()/navigation to avoid double toggles.
     document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
     document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
