@@ -852,7 +852,8 @@ async function loadGames() {
                 console.error('❌ Error loading games from all sources:', fallbackError);
                 showPopupError('Failed to load games from all sources. Please try again later.');
                 games = [];
-            return games;
+                return games;
+            }
         }
     }
 }
