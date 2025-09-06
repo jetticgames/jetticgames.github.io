@@ -2,7 +2,7 @@
 // This worker now serves as a complete backend for the WaterWall platform
 
 // Application configuration and constants
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const VERSION_ENDPOINT_CACHE_TTL = 300; // 5 minutes
 const GAMES_CACHE_TTL = 3600; // 1 hour
 const CONFIG_CACHE_TTL = 1800; // 30 minutes

@@ -2,7 +2,7 @@
 console.log('🎮 WaterWall app.js is loading...');
 
 // Application configuration
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 // Use backend URL from global scope if available, otherwise fallback to hardcoded
 const BACKEND_URL = window.WATERWALL_BACKEND_URL || 'https://waterwallrelayservice.zonikyo.workers.dev';
 
