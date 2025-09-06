@@ -3,30 +3,37 @@ main = "worker.js"
 compatibility_date = "2023-05-18"
 
 # KV Namespaces for backend functionality
-[[kv_namespaces]]
-binding = "CONFIG_KV"
-id = "your-config-kv-namespace-id"
-preview_id = "your-config-preview-kv-namespace-id"
+# Run these commands to create the namespaces:
+# wrangler kv:namespace create "CONFIG_KV"
+# wrangler kv:namespace create "RATE_LIMIT_KV"
+# Then replace the id values below with the generated namespace IDs
 
-[[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "your-ratelimit-kv-namespace-id"
-preview_id = "your-ratelimit-preview-kv-namespace-id"
+# Uncomment and update these once you have created the namespaces:
+# [[kv_namespaces]]
+# binding = "CONFIG_KV"
+# id = "paste-your-config-kv-namespace-id-here"
+# preview_id = "paste-your-config-preview-kv-namespace-id-here"
 
-[env.production]
-name = "waterwall-backend"
-routes = [
-  { pattern = "yourdomain.com/api/*", zone_name = "yourdomain.com" },
-  { pattern = "yourdomain.com/proxy/*", zone_name = "yourdomain.com" }
-]
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "paste-your-ratelimit-kv-namespace-id-here"
+# preview_id = "paste-your-ratelimit-preview-kv-namespace-id-here"
 
-[[env.production.kv_namespaces]]
-binding = "CONFIG_KV"
-id = "your-production-config-kv-namespace-id"
+# Production environment configuration
+# [env.production]
+# name = "waterwall-backend"
+# routes = [
+#   { pattern = "yourdomain.com/api/*", zone_name = "yourdomain.com" },
+#   { pattern = "yourdomain.com/proxy/*", zone_name = "yourdomain.com" }
+# ]
 
-[[env.production.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "your-production-ratelimit-kv-namespace-id"
+# [[env.production.kv_namespaces]]
+# binding = "CONFIG_KV"
+# id = "your-production-config-kv-namespace-id"
+
+# [[env.production.kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "your-production-ratelimit-kv-namespace-id"
 
 [env.staging]
 name = "waterwall-backend-staging"

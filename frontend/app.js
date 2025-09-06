@@ -186,9 +186,6 @@ async function startApp() {
         await loadBackendConfiguration();
         signalPageLoaderStage('config');
         
-        // Check for updates
-        await checkForUpdates();
-        
         // Check maintenance status from backend
         await checkMaintenanceStatus();
         
@@ -339,7 +336,7 @@ function showUpdateNotification(versionInfo) {
                 <p>${versionInfo.updateMessage}</p>
                 <div class="update-actions">
                     <button class="update-btn-secondary" onclick="this.closest('.update-notification').remove()">Later</button>
-                    <button class="update-btn-primary" onclick="location.reload()">Update Now</button>
+                    <button class="update-btn-primary" onclick="performUpdate(this)">Update Now</button>
                 </div>
             </div>
         </div>
@@ -439,6 +436,41 @@ function showUpdateNotification(versionInfo) {
             notification.remove();
         }
     }, 30000);
+}
+
+// Perform actual update by clearing caches and reloading
+async function performUpdate(button) {
+    try {
+        // Disable button and show updating state
+        button.disabled = true;
+        button.textContent = 'Updating...';
+        
+        // Show update modal
+        showUpdateModal(button);
+        
+        // Clear all caches
+        if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+        }
+        
+        // Unregister service workers
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(registration => registration.unregister()));
+        }
+        
+        // Add cache-busting parameter and reload
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', Date.now());
+        window.location.href = url.toString();
+        
+    } catch (error) {
+        console.error('❌ Error during update:', error);
+        button.disabled = false;
+        button.textContent = 'Update Now';
+        showError('Update failed. Please try refreshing manually.');
+    }
 }
 
 // Check maintenance status (now from backend)
