@@ -3719,10 +3719,18 @@ async function socialFetchUser(){
     }
     
     try {
-        const token = await auth0Client.getTokenSilently({
-            audience: AUTH0_AUDIENCE,
-            scope: 'openid profile email'
-        });
+        let token;
+        try {
+            token = await auth0Client.getTokenSilently({
+                audience: AUTH0_AUDIENCE,
+                scope: 'openid profile email'
+            });
+        } catch(audienceError) {
+            console.debug('[Social] Retrying token without audience due to error:', audienceError);
+            token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        }
         
         if(!token) {
             console.warn('[Social] No token available for user fetch');
@@ -3742,34 +3750,16 @@ async function socialFetchUser(){
             renderFriendsPage(); 
         } else {
             console.warn('[Social] User fetch failed with status:', r.status);
+            
+            if(r.status === 401) {
+                console.warn('[Social] 401 Unauthorized - token may be invalid');
+                // Don't retry automatically to prevent loops
+                throw new Error('Authentication failed - please log out and back in');
+            }
         }
     } catch(e){ 
         console.error('[Social] User data fetch failed:', e);
-        
-        // Try without audience if it failed
-        try {
-            console.debug('[Social] Retrying token without audience');
-            const token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
-            
-            if(token) {
-                const r = await fetch(`${BACKEND_URL}/api/user`, {
-                    headers:{Authorization:`Bearer ${token}`}
-                }); 
-                
-                if(r.ok){ 
-                    const data = await r.json(); 
-                    socialState.user=data.user; 
-                    socialState.loaded=true; 
-                    console.debug('[Social] User data loaded on retry:', data.user?.profile?.username || 'unnamed');
-                    syncFavoritesWithCloud(); 
-                    renderFriendsPage(); 
-                }
-            }
-        } catch(retryError) {
-            console.error('[Social] Retry also failed:', retryError);
-        }
+        throw e; // Re-throw so calling functions know it failed
     } 
 }
 
@@ -4282,10 +4272,18 @@ function toggleProfileDropdown(force){
     
     console.debug('[ProfileDropdown] toggle complete - profileOpen:', profileOpen, 'element classes:', profileDropdownEl.className);
 }
-function showProfileSettingsPage(){ 
+async function showProfileSettingsPage(){ 
     console.debug('[Profile] showProfileSettingsPage called');
     
     try {
+        // Check authentication first
+        const isAuthenticated = await socialEnsureAuth();
+        if(!isAuthenticated) {
+            console.warn('[Profile] User not authenticated, redirecting to login');
+            login();
+            return;
+        }
+        
         hideAllPages(true);
         const page=document.getElementById('profileSettingsPage'); 
         
@@ -4296,15 +4294,23 @@ function showProfileSettingsPage(){
         
         page.style.display='block'; 
         page.classList.add('active'); 
+        
+        // Reset the load attempts counter when opening the page
+        profileFormLoadAttempts = 0;
         loadProfileForm(); 
     } catch(error) {
         console.error('[Profile] Error showing profile settings page:', error);
+        // If there's an error, try to redirect to login
+        login();
     }
 }
 
 // Avatar & profile form logic
+let profileFormLoadAttempts = 0;
+const MAX_PROFILE_LOAD_ATTEMPTS = 3;
+
 function loadProfileForm(){ 
-    console.debug('[Profile] loadProfileForm called');
+    console.debug('[Profile] loadProfileForm called, attempt:', profileFormLoadAttempts + 1);
     
     try {
         // Check if profile form exists
@@ -4315,15 +4321,33 @@ function loadProfileForm(){
         }
         
         if(!socialState.user){ 
-            console.debug('[Profile] No user data, fetching...');
+            // Prevent infinite recursion
+            if(profileFormLoadAttempts >= MAX_PROFILE_LOAD_ATTEMPTS) {
+                console.warn('[Profile] Max load attempts reached, showing form with defaults');
+                profileFormLoadAttempts = 0;
+                // Show form with default values instead of failing
+                loadFormWithDefaults();
+                return;
+            }
+            
+            profileFormLoadAttempts++;
+            console.debug('[Profile] No user data, fetching... (attempt', profileFormLoadAttempts, '/', MAX_PROFILE_LOAD_ATTEMPTS, ')');
+            
             socialFetchUser().then(()=> {
-                console.debug('[Profile] User data fetched, retrying loadProfileForm');
+                console.debug('[Profile] User data fetched successfully, loading form');
+                profileFormLoadAttempts = 0; // Reset on success
                 loadProfileForm();
             }).catch(error => {
                 console.error('[Profile] Error fetching user data:', error);
+                // Don't retry immediately, just load defaults
+                profileFormLoadAttempts = 0;
+                loadFormWithDefaults();
             });
             return; 
-        } 
+        }
+        
+        // Reset attempts on successful load
+        profileFormLoadAttempts = 0; 
         
         const u=socialState.user; 
         const prof=u?.profile||{}; 
@@ -4359,6 +4383,30 @@ function loadProfileForm(){
         }
     } catch(error) {
         console.error('[Profile] Error in loadProfileForm:', error);
+        profileFormLoadAttempts = 0;
+        loadFormWithDefaults();
+    }
+}
+
+function loadFormWithDefaults() {
+    console.debug('[Profile] Loading form with default values');
+    
+    try {
+        const unameInput=document.getElementById('profileUsername'); 
+        if(unameInput) unameInput.value = '';
+        
+        const colorInput=document.getElementById('profileColor'); 
+        if(colorInput) colorInput.value = settings.accentColor || '#58a6ff';
+        
+        const avatarPreview=document.getElementById('avatarPreview'); 
+        const placeholder=document.getElementById('avatarPlaceholder');
+        
+        if(placeholder) {
+            placeholder.style.display='block';
+            if(avatarPreview) avatarPreview.style.display='none';
+        }
+    } catch(error) {
+        console.error('[Profile] Error loading form defaults:', error);
     }
 }
 
