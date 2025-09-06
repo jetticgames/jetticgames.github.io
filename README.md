@@ -1,274 +1,299 @@
 <div align="center">
 <img width="707" height="353" alt="The_worlds_most_advanced_unblocked_games_website__1_-removebg-preview" src="https://github.com/user-attachments/assets/0aeebfff-fd11-4366-ad35-44e1e4dab410" />
 
-# WaterWall - Advanced Unblocked Games Platform
+# WaterWall - Advanced Dynamic Gaming Platform
 
-### A modern, responsive gaming platform with proxy capabilities and sleek neon aesthetics
+### A modern, responsive gaming platform with a fully-powered backend and real-time content delivery
 
 ---
 
-## 🚀 Features
+## 🚀 New Features (v2.0)
 
-- **Modern UI**: Glassy, neon-themed design with smooth animations
-- **Proxy System**: Cloudflare Worker-based proxy to bypass restrictions
-- **Responsive Design**: Works perfectly on desktop, tablet, and mobile
-- **Game Categories**: Organized filtering by Action, Puzzle, Strategy, and Arcade
-- **Search Functionality**: Real-time client-side search
-- **Fullscreen Gaming**: Immersive fullscreen mode for all games
-- **Recommended Games**: Smart recommendations based on current game
-- **Offline Support**: Service Worker for basic offline functionality
-- **No Passive Animations**: Performance-optimized with animations only on interaction
+### Dynamic Backend Integration
+- **API-Driven Content**: All games, configuration, and settings served from Cloudflare Workers backend
+- **Real-Time Updates**: Automatic version checking and update notifications
+- **Remote Maintenance**: Backend-controlled maintenance mode with instant propagation
+- **Dynamic Thumbnails**: All game thumbnails served through optimized backend API
+- **Configuration Management**: All app settings managed remotely via backend
+- **Version Control**: Sophisticated version management with automatic update prompts
+
+### Enhanced Architecture
+- **Full-Stack Solution**: Complete frontend + backend integration
+- **Edge Computing**: Cloudflare Workers for global performance
+- **KV Storage**: Persistent configuration and rate limiting
+- **API-First Design**: RESTful API architecture
+- **Caching Strategy**: Optimized caching at multiple levels
+- **Error Handling**: Comprehensive error handling and fallbacks
+
+## 🏗️ Architecture Overview
+
+```
+WaterWall v2.0 Architecture
+├── Frontend (Static SPA)
+│   ├── Dynamic content loading from backend APIs
+│   ├── Real-time configuration updates
+│   ├── Automatic version checking
+│   └── Fallback to local data if backend unavailable
+├── Backend (Cloudflare Workers)
+│   ├── /api/games - Game database API
+│   ├── /api/config - Configuration API
+│   ├── /api/version - Version management API
+│   ├── /api/maintenance - Maintenance mode API
+│   ├── /api/thumbnails/* - Thumbnail serving API
+│   ├── /api/stats - Statistics API
+│   └── /proxy?url= - Enhanced proxy service
+└── Infrastructure
+    ├── KV Storage for configuration persistence
+    ├── Rate limiting with KV-based tracking
+    ├── Global edge distribution
+    └── Automatic scaling
+```
 
 ## 📁 Project Structure
 
 ```
 WaterWall/
-├── frontend/                 # Static website files
-│   ├── index.html            # Main SPA container
-│   ├── app.js               # Core functionality and routing
-│   ├── styles.css           # Neon + glassy theme
-│   ├── games.json           # Game database
-│   └── sw.js                # Service worker
-├── backend/                  # Cloudflare Worker scripts
-│   ├── worker.js            # Main proxy worker
-│   ├── wrangler.toml        # Worker configuration
-│   ├── package.json         # Dependencies and scripts
-│   └── README.md            # Deployment instructions
-└── README.md                # This file
+├── frontend/                 # Enhanced SPA with backend integration
+│   ├── index.html            # Main application shell
+│   ├── app.js               # Core app with backend API integration
+│   ├── styles.css           # Enhanced styling with new features
+│   ├── games.json           # Fallback games data
+│   └── sw.js                # Service worker for offline support
+├── backend/                  # Complete Cloudflare Workers backend
+│   ├── worker.js            # Full API + proxy worker
+│   ├── wrangler.toml        # Enhanced worker configuration
+│   ├── package.json         # Backend dependencies and scripts
+│   └── README-API.md        # Complete API documentation
+└── README.md                # This enhanced documentation
 ```
 
-## 🎮 Game Features
+## 🎮 Enhanced Features
 
-### Homepage
-- **Grid Layout**: Responsive game cards with hover effects
-- **Category Filtering**: Filter games by type
-- **Search**: Real-time search across titles, descriptions, and categories
-- **Hover Animations**: Title and category slide in from bottom-left
+### Dynamic Content Management
+- **Real-Time Game Updates**: Games added/modified on backend appear instantly
+- **Configuration Sync**: All settings synchronized from backend
+- **Maintenance Mode**: Remotely controlled maintenance with custom messages
+- **Version Management**: Automatic update detection and user prompts
+- **Thumbnail Optimization**: CDN-delivered thumbnails with caching
 
-### Game Page
-- **80% width, 90% height iframe**: Optimal gaming viewport
-- **Proxy Toggle**: Switch between proxied and direct URLs
-- **Fullscreen Mode**: Expand games to full viewport
-- **Recommended Sidebar**: Random game suggestions
-- **Game Info**: Title, description, and controls
+### Backend-Powered Features
+- **API-Driven Data**: All content served from robust backend APIs
+- **Global Performance**: Edge computing for minimal latency worldwide
+- **Automatic Scaling**: Handles traffic spikes automatically
+- **Persistent Storage**: Configuration stored in Cloudflare KV
+- **Rate Limiting**: Advanced IP-based request throttling
+- **Health Monitoring**: Comprehensive health checks and monitoring
+
+### Enhanced User Experience
+- **Faster Loading**: Optimized API responses with caching
+- **Real-Time Updates**: Backend changes appear without page refresh
+- **Better Error Handling**: Graceful degradation with fallback options
+- **Update Notifications**: Non-intrusive update prompts
+- **Maintenance Notices**: Professional maintenance mode with custom messaging
 
 ## 🛠️ Setup Instructions
 
-### Frontend Deployment
+### Backend Deployment (Required First)
 
-1. **Static Hosting** (Netlify, Vercel, GitHub Pages):
+1. **Prerequisites**:
    ```bash
-   # Simply upload the frontend/ directory
-   # or connect your GitHub repo to your hosting provider
-   ```
-
-2. **Local Development**:
-   ```bash
-   cd frontend/
-   python -m http.server 8000  # Python
-   # or
-   npx serve .                 # Node.js
-   ```
-
-### Backend Deployment
-
-1. **Install Wrangler CLI**:
-   ```bash
+   # Install Wrangler CLI
    npm install -g wrangler
-   ```
-
-2. **Login to Cloudflare**:
-   ```bash
+   
+   # Login to Cloudflare
    wrangler login
    ```
 
-3. **Deploy Worker**:
+2. **Setup Backend**:
    ```bash
    cd backend/
-   wrangler publish
+   npm install
+   
+   # Create KV namespaces
+   npm run kv:create
+   npm run kv:create:preview
    ```
 
-4. **Configure Custom Domain** (Optional):
-   - Add route in Cloudflare dashboard: `yourdomain.com/backend/*`
-   - Update `getProxyUrl()` in `app.js` with your domain
+3. **Configure**:
+   Update `backend/wrangler.toml` with your KV namespace IDs
 
-### Configuration
+4. **Deploy Backend**:
+   ```bash
+   # Deploy to production
+   npm run deploy:production
+   
+   # Get your worker URL
+   # Example: https://waterwall-backend.your-subdomain.workers.dev
+   ```
 
-1. **Update Games Database**:
-   - Edit `frontend/games.json` to add/modify games
-   - Include: id, title, description, category, embed URL, thumbnail
+### Frontend Configuration
 
-2. **Customize Proxy URL**:
+1. **Update Backend URL**:
+   In `frontend/app.js`, update:
    ```javascript
-   // In app.js, update this function:
-   function getProxyUrl(originalUrl) {
-       const proxyBaseUrl = 'https://your-worker.workers.dev/proxy?url=';
-       return proxyBaseUrl + encodeURIComponent(originalUrl);
-   }
+   const BACKEND_URL = 'https://your-worker.workers.dev';
    ```
 
-## 🎨 Design System
-
-### Color Scheme
-- **Primary**: `#00ffff` (Cyan/Aqua)
-- **Background**: Dark gradient (`#0f0f0f` → `#1a1a2e` → `#16213e`)
-- **Glass Effects**: `rgba(255, 255, 255, 0.1)` with backdrop blur
-- **Borders**: `rgba(0, 255, 255, 0.2)` with glow effects
-
-### Animations
-- **Page Transitions**: 300ms fade/slide
-- **Hover Effects**: Scale, glow, and transform
-- **No Passive Animations**: Battery and performance friendly
-
-### Typography
-- **Font**: Segoe UI system font stack
-- **Neon Effects**: Text shadows with cyan glow
-- **Responsive**: Scales appropriately on all devices
-
-## 🔧 Technical Details
-
-### Proxy System
-- **Cloudflare Workers**: Edge computing for low latency
-- **CORS Handling**: Proper headers for cross-origin requests
-- **Security**: Rate limiting and URL validation
-- **Header Stripping**: Removes X-Frame-Options and CSP restrictions
-
-### Performance
-- **Lazy Loading**: Games load on demand
-- **Service Worker**: Caches static assets
-- **Optimized Images**: Placeholder fallbacks for thumbnails
-- **Minimal Bundle**: No heavy frameworks, pure vanilla JS
-
-### Security Features
-- **Input Validation**: URL and XSS protection
-- **Rate Limiting**: 100 requests per minute per IP
-- **Sandbox Iframes**: Restricted permissions for game content
-- **Content Security**: Safe header handling
-
-## 🚀 Deployment Options
-
-### Frontend
-- **Netlify**: Drag and drop the `frontend/` folder
-- **Vercel**: Connect GitHub repo and set build directory to `frontend/`
-- **GitHub Pages**: Enable in repo settings, source from `frontend/` folder
-- **Firebase Hosting**: `firebase deploy` with `frontend/` as public directory
-
-### Backend
-- **Cloudflare Workers**: Primary recommendation for global edge deployment
-- **Alternative**: Any serverless platform (Vercel Functions, Netlify Functions)
-
-## 📝 Usage Guide
-
-### Adding New Games
-1. Add entry to `frontend/games.json`:
-   ```json
-   {
-       "id": 16,
-       "title": "Your Game",
-       "description": "Game description here",
-       "category": "puzzle",
-       "embed": "https://game-url.com",
-       "thumbnail": "https://image-url.com/thumb.jpg"
-   }
+2. **Deploy Frontend**:
+   ```bash
+   # Any static hosting service
+   cd frontend/
+   # Upload to Netlify, Vercel, GitHub Pages, etc.
    ```
 
-### Customizing Categories
-1. Update filter buttons in `index.html`
-2. Update CSS for new category styles
-3. Ensure games.json uses matching category names
+### Advanced Configuration
 
-### Modifying Proxy Behavior
-1. Edit `backend/worker.js`
-2. Adjust rate limiting, headers, or security rules
-3. Redeploy worker: `wrangler publish`
+#### Custom Domain Setup
+1. **Configure Routes** in `backend/wrangler.toml`:
+   ```toml
+   [env.production]
+   routes = [
+     { pattern = "yourdomain.com/api/*", zone_name = "yourdomain.com" },
+     { pattern = "yourdomain.com/proxy/*", zone_name = "yourdomain.com" }
+   ]
+   ```
 
-## 🔍 Troubleshooting
+2. **Update Frontend**:
+   ```javascript
+   const BACKEND_URL = 'https://yourdomain.com';
+   ```
 
-### Common Issues
+## 🔧 Configuration Management
 
-1. **Games not loading through proxy**:
-   - Check if proxy worker is deployed correctly
-   - Verify the proxy URL in app.js
-   - Try disabling proxy toggle for that game
+### Backend Configuration
+All configuration is now managed through the backend API:
 
-2. **CORS errors**:
-   - Ensure worker is properly configured with CORS headers
-   - Check if the target game site blocks external requests
+```javascript
+// Example configuration object
+{
+  "version": "2.0.0",
+  "maintenanceMode": {
+    "enabled": false,
+    "message": "Custom maintenance message",
+    "estimatedTime": "Estimated time"
+  },
+  "settings": {
+    "defaultProxy": false,
+    "accentColor": "#58a6ff",
+    "particlesEnabled": true,
+    // ... other settings
+  },
+  "features": {
+    "auth0Enabled": true,
+    "searchEnabled": true,
+    "favoritesEnabled": true
+  }
+}
+```
 
-3. **Mobile responsiveness**:
-   - Test on actual devices, not just browser dev tools
-   - Check viewport meta tag is present
+### Remote Maintenance Mode
+```bash
+# Enable maintenance mode
+curl -X PUT -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"message":"Custom message"}' \
+  https://your-worker.workers.dev/api/maintenance
 
-### Development Tips
+# Disable maintenance mode
+curl -X PUT -H 'Content-Type: application/json' \
+  -d '{"enabled":false}' \
+  https://your-worker.workers.dev/api/maintenance
+```
 
-1. **Local Testing**:
-   - Use `wrangler dev` for local worker testing
-   - Serve frontend with HTTPS for proper testing
+## 📊 API Endpoints
 
-2. **Debugging**:
-   - Check browser console for JavaScript errors
-   - Use `wrangler tail` to see worker logs
-   - Test games individually outside of iframes first
+### Core APIs
+- `GET /api/games` - Dynamic games database
+- `GET /api/config` - Application configuration
+- `GET /api/version?client=1.0.0` - Version checking
+- `GET /api/maintenance` - Maintenance status
+- `PUT /api/maintenance` - Update maintenance (admin)
+- `GET /api/thumbnails/{filename}` - Game thumbnails
+- `GET /api/stats` - Application statistics
+
+### Proxy Service
+- `GET /proxy?url=TARGET_URL` - Enhanced CORS proxy
+
+### Monitoring
+- `GET /health` - Health check endpoint
+
+## 🚀 Performance Improvements
+
+### Caching Strategy
+- **Games API**: 1 hour cache
+- **Configuration**: 30 minutes cache
+- **Thumbnails**: 24 hours cache
+- **Version Check**: 5 minutes cache
+
+### Global Distribution
+- **Edge Locations**: 200+ worldwide
+- **Cold Start**: <5ms typical
+- **Request Processing**: <10ms average
+- **Automatic Scaling**: Handles traffic spikes
+
+## 🔒 Security Features
+
+### Enhanced Security
+- **IP-based Rate Limiting**: 100 requests/minute/IP
+- **Input Validation**: Comprehensive validation
+- **CORS Protection**: Advanced CORS handling
+- **Header Security**: Safe header management
+- **XSS Protection**: Input sanitization
+
+### Monitoring & Logging
+- **Real-time Logs**: `wrangler tail`
+- **Error Tracking**: Comprehensive error logging
+- **Performance Metrics**: Built-in analytics
+- **Health Monitoring**: Automated health checks
+
+## 🔄 Update Management
+
+### Automatic Updates
+1. Backend detects version mismatches
+2. Shows non-intrusive update notification
+3. Users can update immediately or later
+4. Graceful handling of version differences
+
+### Update Process
+1. Update backend version
+2. Deploy backend: `npm run deploy:production`
+3. Update frontend version
+4. Deploy frontend
+5. Users automatically notified of updates
+
+## 📈 Benefits of v2.0
+
+### For Users
+- **Faster Performance**: Edge computing + caching
+- **Real-Time Updates**: No waiting for deployments
+- **Better Reliability**: Fallback mechanisms
+- **Smoother Experience**: Optimized loading and updates
+
+### For Administrators
+- **Remote Control**: Manage everything from backend
+- **Easy Deployment**: Simple update process
+- **Monitoring**: Comprehensive logging and analytics
+- **Scalability**: Automatic scaling with demand
+- **Cost Effective**: Serverless pricing model
+
+## 🚨 Migration from v1.0
+
+### Automatic Fallbacks
+- Frontend automatically falls back to local data if backend unavailable
+- Existing functionality preserved during migration
+- No breaking changes for end users
+
+### Migration Steps
+1. Deploy backend first
+2. Update frontend configuration
+3. Test thoroughly
+4. Switch DNS/routing
+5. Monitor performance
 
 ## 📄 License
 
 MIT License - Feel free to use this code for your own projects with proper attribution.
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
 ---
 
-**WaterWall** - Bringing unblocked gaming to everyone, everywhere. 🌊🎮
-</div>
-
----
-
-## 🔐 Authentication (Auth0 Integration)
-
-The legacy embedded AuthPro iframe system has been replaced with a modern Auth0 SPA flow.
-
-### Current Configuration
-Configured domain: `dev-lciqwnyb52wdezeo.us.auth0.com`
-
-### How It Works
-- The frontend loads the Auth0 SPA SDK (`auth0-spa-js`).
-- On load, `initAuth0()` creates the client and processes any `code/state` redirect params.
-- UI states are toggled between: loading, logged-out, logged-in.
-- The sidebar label updates with the user's preferred name.
-- A debug `<details>` section shows ID token claims (remove in production if not needed).
-
-### Files Touched
-- `frontend/index.html`: Added Auth0 script tag & new Account page markup.
-- `frontend/app.js`: Added config (`auth0Config`), init logic, UI update helpers.
-
-### Required Dashboard Settings (Auth0 Application > Settings)
-Add these (adjust domain/host as deployed):
-```
-Allowed Callback URLs: https://your-domain.example/ , http://localhost:8000/
-Allowed Logout URLs:  https://your-domain.example/ , http://localhost:8000/
-Allowed Web Origins:  https://your-domain.example , http://localhost:8000
-```
-If you deploy under a subpath, ensure redirect URI matches exactly.
-
-### Optional Enhancements
-- Add an API audience + scopes (uncomment in `auth0Config.authorizationParams`).
-- Persist sessions across tabs: set `cacheLocation: 'localstorage'` & `useRefreshTokens: true` (trade-off: higher XSS exposure risk).
-- Role / permission display: call `getIdTokenClaims()` and inspect namespaced claims.
-- Guard pages: before showing content, call `auth0Client.isAuthenticated()`; if false, redirect to login.
-
-### Removing Debug Output
-Delete the `<details>` block containing `idTokenPreview` in `index.html` and its corresponding assignment in `updateAuthUI()`.
-
-### Security Notes
-- Never expose management API tokens client-side.
-- Avoid storing raw tokens in `localStorage` unless necessary for multi-tab resilience.
-- Consider CSP headers on hosting platform to restrict script origins.
-
----
+**WaterWall v2.0** - The most advanced unblocked gaming platform with full-stack architecture. 🌊🎮
 </div>

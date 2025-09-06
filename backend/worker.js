@@ -1,5 +1,96 @@
-// Cloudflare Worker script for WaterWall proxy
-// This worker acts as a reverse proxy to bypass CORS and domain restrictions
+// Cloudflare Worker script for WaterWall - Full Backend API
+// This worker now serves as a complete backend for the WaterWall platform
+
+// Application configuration and constants
+const APP_VERSION = '2.0.0';
+const VERSION_ENDPOINT_CACHE_TTL = 300; // 5 minutes
+const GAMES_CACHE_TTL = 3600; // 1 hour
+const CONFIG_CACHE_TTL = 1800; // 30 minutes
+
+// Default configuration that can be overridden
+const DEFAULT_CONFIG = {
+    version: APP_VERSION,
+    maintenanceMode: {
+        enabled: false,
+        message: "WaterWall is currently under maintenance. We'll be back online soon!",
+        estimatedTime: "Please check back in a few hours."
+    },
+    settings: {
+        defaultProxy: false,
+        accentColor: '#58a6ff',
+        particlesEnabled: true,
+        particleSpeed: 0.5,
+        particleCount: 50,
+        particleColor: '#58a6ff',
+        particleLineDistance: 150,
+        particleMouseInteraction: true,
+        customCursorEnabled: true,
+        cursorSize: 8,
+        cursorColor: '#ffffff',
+        cursorType: 'circle',
+        customCursorImage: null
+    },
+    features: {
+        auth0Enabled: true,
+        searchEnabled: true,
+        favoritesEnabled: true,
+        fullscreenEnabled: true,
+        categoriesEnabled: true
+    }
+};
+
+// Games database - now served from backend
+const GAMES_DATABASE = [
+    {
+        "id": 1,
+        "title": "Cookie Clicker",
+        "description": "Click a cookie. Earn cookies. Use cookies to get autoclickers. Get more cookies. Repeat.",
+        "category": "puzzle",
+        "embed": "https://unblockedgamesfree.github.io/cookie-clicker/",
+        "thumbnail": "/api/thumbnails/cookieclicker.jpg"
+    },
+    {
+        "id": 2,
+        "title": "Tetris",
+        "description": "Literally just tetris. If you don't know how to play, you are not a gamer.",
+        "category": "puzzle",
+        "embed": "https://djblue.github.io/tetris",
+        "thumbnail": "/api/thumbnails/tetris.webp"
+    },
+    {
+        "id": 3,
+        "title": "Snake",
+        "description": "Control a snake to eat food and grow longer without hitting walls or yourself. A classic arcade game that tests your reflexes and strategic thinking!",
+        "category": "arcade",
+        "embed": "https://snake-google-online.github.io/file",
+        "thumbnail": "/api/thumbnails/snake.gif"
+    },
+    {
+        "id": 4,
+        "title": "Pac-Man",
+        "description": "Navigate mazes, eat dots, and avoid ghosts in this classic arcade game. Collect power pellets to turn the tables on your ghostly pursuers!",
+        "category": "arcade",
+        "embed": "https://smashkartsonlinegames.github.io/v88/pac-man",
+        "thumbnail": "/api/thumbnails/pacman.avif"
+    },
+    {
+        "id": 5,
+        "title": "Chess",
+        "description": "Strategic board game for two players on a checkered board. Plan your moves carefully and outmaneuver your opponent to achieve checkmate!",
+        "category": "strategy",
+        "embed": "https://chessunblock.github.io/file/",
+        "thumbnail": "/api/thumbnails/chess.png"
+    }
+];
+
+// Thumbnail mappings for backward compatibility
+const THUMBNAIL_MAPPINGS = {
+    'cookieclicker.jpg': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/cookieclicker.jpg',
+    'tetris.webp': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/tetris.webp', 
+    'snake.gif': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/snake.gif',
+    'pacman.avif': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/pacman.avif',
+    'chess.png': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/chess.png'
+};
 
 export default {
     async fetch(request, env, ctx) {
@@ -11,9 +102,14 @@ export default {
         }
         
         // Check rate limits
-        const rateLimitResponse = checkRateLimit(request);
+        const rateLimitResponse = await checkRateLimit(request, env);
         if (rateLimitResponse) {
             return rateLimitResponse;
+        }
+        
+        // API Routes
+        if (url.pathname.startsWith('/api/')) {
+            return handleAPIRequest(request, url, env, ctx);
         }
         
         // Handle proxy requests
@@ -23,19 +119,106 @@ export default {
         
         // Handle health check
         if (url.pathname === '/health') {
-            return new Response('OK', { status: 200 });
+            return new Response(JSON.stringify({
+                status: 'OK',
+                version: APP_VERSION,
+                timestamp: new Date().toISOString(),
+                uptime: 'N/A' // Cloudflare Workers don't have persistent uptime
+            }), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getCORSHeaders()
+                }
+            });
         }
         
         // Default response for unknown routes
-        return new Response('WaterWall Proxy Worker', {
+        return new Response(JSON.stringify({
+            message: 'WaterWall Backend API',
+            version: APP_VERSION,
+            endpoints: [
+                'GET /api/games - Get all games',
+                'GET /api/config - Get application configuration',
+                'GET /api/version - Get version info and check for updates',
+                'GET /api/maintenance - Get maintenance status',
+                'PUT /api/maintenance - Update maintenance status (admin)',
+                'GET /api/thumbnails/{filename} - Get game thumbnails',
+                'GET /proxy?url= - Proxy requests',
+                'GET /health - Health check'
+            ]
+        }), {
             status: 200,
             headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/json',
                 ...getCORSHeaders()
             }
         });
     }
 };
+
+// Handle API requests
+async function handleAPIRequest(request, url, env, ctx) {
+    const path = url.pathname.replace('/api', '');
+    const method = request.method;
+    
+    try {
+        // Games endpoint
+        if (path === '/games') {
+            return handleGamesAPI(request, env);
+        }
+        
+        // Configuration endpoint
+        if (path === '/config') {
+            return handleConfigAPI(request, env);
+        }
+        
+        // Version and update check endpoint
+        if (path === '/version') {
+            return handleVersionAPI(request, env);
+        }
+        
+        // Maintenance mode endpoint
+        if (path === '/maintenance') {
+            return handleMaintenanceAPI(request, env);
+        }
+        
+        // Thumbnails endpoint
+        if (path.startsWith('/thumbnails/')) {
+            return handleThumbnailAPI(request, url, env);
+        }
+        
+        // Stats endpoint
+        if (path === '/stats') {
+            return handleStatsAPI(request, env);
+        }
+        
+        // Unknown API endpoint
+        return new Response(JSON.stringify({
+            error: 'API endpoint not found',
+            path: path
+        }), {
+            status: 404,
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCORSHeaders()
+            }
+        });
+        
+    } catch (error) {
+        console.error('API Error:', error);
+        return new Response(JSON.stringify({
+            error: 'Internal server error',
+            message: error.message
+        }), {
+            status: 500,
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCORSHeaders()
+            }
+        });
+    }
+}
 
 // Handle proxy requests
 async function handleProxy(request, url) {
@@ -822,30 +1005,334 @@ class RateLimiter {
 // Create rate limiter instance
 const rateLimiter = new RateLimiter();
 
-// Middleware to check rate limits
-function checkRateLimit(request) {
-    const ip = request.headers.get('CF-Connecting-IP') || 
-               request.headers.get('X-Forwarded-For') || 
-               request.headers.get('X-Real-IP') ||
-               'unknown';
-    
-    if (!rateLimiter.isAllowed(ip, 200, 60000)) { // Increased limit for better functionality
-        console.log(`Rate limit exceeded for IP: ${ip}`);
-        return new Response('Rate limit exceeded', {
-            status: 429,
-            headers: {
-                ...getCORSHeaders(),
-                'Retry-After': '60'
-            }
-        });
-    }
-    
-    return null;
-}
-
 // Add logging helper
 function logRequest(request, targetUrl, status) {
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
     console.log(`[${new Date().toISOString()}] ${ip} ${request.method} ${targetUrl} -> ${status} (UA: ${userAgent.substring(0, 50)})`);
+}
+
+// API Handler Functions
+
+// Handle games API
+async function handleGamesAPI(request, env) {
+    // Add cache headers
+    const headers = {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${GAMES_CACHE_TTL}`,
+        ...getCORSHeaders()
+    };
+    
+    return new Response(JSON.stringify(GAMES_DATABASE), {
+        status: 200,
+        headers
+    });
+}
+
+// Handle configuration API
+async function handleConfigAPI(request, env) {
+    // Check if there's custom config in KV storage
+    let config = { ...DEFAULT_CONFIG };
+    
+    try {
+        if (env.CONFIG_KV) {
+            const customConfig = await env.CONFIG_KV.get('app_config', 'json');
+            if (customConfig) {
+                config = { ...config, ...customConfig };
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching config from KV:', error);
+        // Fall back to default config
+    }
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+        ...getCORSHeaders()
+    };
+    
+    return new Response(JSON.stringify(config), {
+        status: 200,
+        headers
+    });
+}
+
+// Handle version API and update checking
+async function handleVersionAPI(request, env) {
+    const url = new URL(request.url);
+    const clientVersion = url.searchParams.get('client') || '1.0.0';
+    
+    const serverVersion = APP_VERSION;
+    const needsUpdate = compareVersions(serverVersion, clientVersion) > 0;
+    
+    const versionInfo = {
+        server: serverVersion,
+        client: clientVersion,
+        needsUpdate,
+        updateAvailable: needsUpdate,
+        updateMessage: needsUpdate ? 
+            `A new version (${serverVersion}) is available! Please refresh to get the latest features and improvements.` : 
+            'You are running the latest version.',
+        releaseNotes: needsUpdate ? [
+            'Enhanced backend integration',
+            'Improved performance and stability',
+            'New dynamic content loading',
+            'Better error handling'
+        ] : [],
+        timestamp: new Date().toISOString()
+    };
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${VERSION_ENDPOINT_CACHE_TTL}`,
+        ...getCORSHeaders()
+    };
+    
+    return new Response(JSON.stringify(versionInfo), {
+        status: 200,
+        headers
+    });
+}
+
+// Handle maintenance API
+async function handleMaintenanceAPI(request, env) {
+    if (request.method === 'GET') {
+        // Get maintenance status
+        let maintenanceConfig = DEFAULT_CONFIG.maintenanceMode;
+        
+        try {
+            if (env.CONFIG_KV) {
+                const config = await env.CONFIG_KV.get('app_config', 'json');
+                if (config && config.maintenanceMode) {
+                    maintenanceConfig = config.maintenanceMode;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching maintenance config:', error);
+        }
+        
+        return new Response(JSON.stringify(maintenanceConfig), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                ...getCORSHeaders()
+            }
+        });
+        
+    } else if (request.method === 'PUT') {
+        // Update maintenance status (admin endpoint)
+        try {
+            const body = await request.json();
+            
+            if (!env.CONFIG_KV) {
+                return new Response(JSON.stringify({
+                    error: 'Configuration storage not available'
+                }), {
+                    status: 503,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getCORSHeaders()
+                    }
+                });
+            }
+            
+            // Get current config
+            let config = { ...DEFAULT_CONFIG };
+            const existingConfig = await env.CONFIG_KV.get('app_config', 'json');
+            if (existingConfig) {
+                config = { ...config, ...existingConfig };
+            }
+            
+            // Update maintenance mode
+            config.maintenanceMode = {
+                ...config.maintenanceMode,
+                ...body
+            };
+            
+            // Save back to KV
+            await env.CONFIG_KV.put('app_config', JSON.stringify(config));
+            
+            return new Response(JSON.stringify(config.maintenanceMode), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getCORSHeaders()
+                }
+            });
+            
+        } catch (error) {
+            return new Response(JSON.stringify({
+                error: 'Invalid request body'
+            }), {
+                status: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getCORSHeaders()
+                }
+            });
+        }
+    }
+    
+    return new Response(JSON.stringify({
+        error: 'Method not allowed'
+    }), {
+        status: 405,
+        headers: {
+            'Content-Type': 'application/json',
+            ...getCORSHeaders()
+        }
+    });
+}
+
+// Handle thumbnail API
+async function handleThumbnailAPI(request, url, env) {
+    const filename = url.pathname.split('/').pop();
+    
+    if (!filename || !THUMBNAIL_MAPPINGS[filename]) {
+        return new Response('Thumbnail not found', {
+            status: 404,
+            headers: getCORSHeaders()
+        });
+    }
+    
+    try {
+        // Fetch the actual thumbnail
+        const thumbnailUrl = THUMBNAIL_MAPPINGS[filename];
+        const response = await fetch(thumbnailUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch thumbnail: ${response.status}`);
+        }
+        
+        // Create new response with proper headers
+        const headers = {
+            'Content-Type': response.headers.get('Content-Type') || 'image/jpeg',
+            'Cache-Control': 'public, max-age=86400', // 24 hours
+            'Access-Control-Allow-Origin': '*'
+        };
+        
+        return new Response(response.body, {
+            status: 200,
+            headers
+        });
+        
+    } catch (error) {
+        console.error('Thumbnail fetch error:', error);
+        
+        // Return a placeholder image or error
+        return new Response('Failed to load thumbnail', {
+            status: 500,
+            headers: getCORSHeaders()
+        });
+    }
+}
+
+// Handle stats API
+async function handleStatsAPI(request, env) {
+    const stats = {
+        totalGames: GAMES_DATABASE.length,
+        categories: [...new Set(GAMES_DATABASE.map(game => game.category))],
+        categoryCount: [...new Set(GAMES_DATABASE.map(game => game.category))].length,
+        serverVersion: APP_VERSION,
+        timestamp: new Date().toISOString(),
+        gamesByCategory: GAMES_DATABASE.reduce((acc, game) => {
+            acc[game.category] = (acc[game.category] || 0) + 1;
+            return acc;
+        }, {})
+    };
+    
+    return new Response(JSON.stringify(stats), {
+        status: 200,
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+            ...getCORSHeaders()
+        }
+    });
+}
+
+// Utility functions
+
+// Compare version strings (returns: 1 if v1 > v2, -1 if v1 < v2, 0 if equal)
+function compareVersions(v1, v2) {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+    
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const part1 = parts1[i] || 0;
+        const part2 = parts2[i] || 0;
+        
+        if (part1 > part2) return 1;
+        if (part1 < part2) return -1;
+    }
+    
+    return 0;
+}
+
+// Enhanced rate limiting with KV storage
+async function checkRateLimit(request, env) {
+    const clientIP = request.headers.get('CF-Connecting-IP') || 
+                    request.headers.get('X-Forwarded-For') || 
+                    'unknown';
+    
+    // Skip rate limiting for unknown IPs in development
+    if (clientIP === 'unknown') {
+        return null;
+    }
+    
+    try {
+        if (env.RATE_LIMIT_KV) {
+            const key = `rate_limit:${clientIP}`;
+            const now = Date.now();
+            const windowMs = 60000; // 1 minute
+            const maxRequests = 100;
+            
+            const rateLimitData = await env.RATE_LIMIT_KV.get(key, 'json');
+            
+            if (rateLimitData) {
+                const { count, windowStart } = rateLimitData;
+                
+                if (now - windowStart < windowMs) {
+                    if (count >= maxRequests) {
+                        return new Response(JSON.stringify({
+                            error: 'Rate limit exceeded',
+                            retryAfter: Math.ceil((windowMs - (now - windowStart)) / 1000)
+                        }), {
+                            status: 429,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Retry-After': Math.ceil((windowMs - (now - windowStart)) / 1000).toString(),
+                                ...getCORSHeaders()
+                            }
+                        });
+                    }
+                    
+                    // Increment counter
+                    await env.RATE_LIMIT_KV.put(key, JSON.stringify({
+                        count: count + 1,
+                        windowStart
+                    }), { expirationTtl: Math.ceil(windowMs / 1000) });
+                } else {
+                    // Reset window
+                    await env.RATE_LIMIT_KV.put(key, JSON.stringify({
+                        count: 1,
+                        windowStart: now
+                    }), { expirationTtl: Math.ceil(windowMs / 1000) });
+                }
+            } else {
+                // First request in window
+                await env.RATE_LIMIT_KV.put(key, JSON.stringify({
+                    count: 1,
+                    windowStart: now
+                }), { expirationTtl: Math.ceil(windowMs / 1000) });
+            }
+        }
+    } catch (error) {
+        console.error('Rate limiting error:', error);
+        // Don't block requests if rate limiting fails
+    }
+    
+    return null;
 }

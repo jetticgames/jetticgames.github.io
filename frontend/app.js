@@ -1,15 +1,19 @@
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
 
+// Application configuration
+const APP_VERSION = '2.0.0';
+const BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev'; // Update this with your backend URL
+
 let games = [];
 let __appInitStarted = false;
 let __authRedirectHandled = false;
 let currentGame = null;
 let isProxyEnabled = false; // Disabled by default per new requirement
-const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
+const proxyUrl = `${BACKEND_URL}/proxy`;
 let favorites = [];
 let maintenanceMode = {
-    enabled: true,
+    enabled: false,
     message: "WaterWall is currently under maintenance. We'll be back online soon!",
     estimatedTime: "Please check back in a few hours."
 };
@@ -32,6 +36,7 @@ let settings = {
     customCursorImage: null
 };
 let currentGameTabTimeout = null;
+let serverConfig = null;
 // Per-game proxy overrides (true = enabled, false = disabled); undefined -> use settings.defaultProxy
 const gameProxyOverrides = {};
 
@@ -79,7 +84,7 @@ console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redir
 
 // ===== Global Page Loader (initial page load experience) =====
 let __pageLoaderEl=null, __pageLoaderStart=performance.now(), __pageLoaderMin=2000, __pageLoaderDone=false;
-let __pageLoaderStages={ dom:false, games:false, auth:false, ui:false, final:false };
+let __pageLoaderStages={ dom:false, games:false, auth:false, ui:false, config:false, final:false };
 let __pageLoaderWarnTimer=null, __pageLoaderSafetyTimer=null;
 
 function initPageLoader(){
@@ -110,7 +115,7 @@ function signalPageLoaderStage(stage){
 function maybeHidePageLoader(){
     if(!__pageLoaderEl) return;
     // All required stages except 'final' must be done before we consider hiding
-    const coreDone = __pageLoaderStages.games && __pageLoaderStages.auth && __pageLoaderStages.ui;
+    const coreDone = __pageLoaderStages.games && __pageLoaderStages.auth && __pageLoaderStages.ui && __pageLoaderStages.config;
     if(!coreDone) return;
     const elapsed = performance.now() - __pageLoaderStart;
     const remaining = Math.max(0, __pageLoaderMin - elapsed);
@@ -172,32 +177,39 @@ async function startApp() {
     try {
         // Initialize DOM elements first
         initializeDOMElements();
-    accountLabelEl = document.getElementById('accountLabel');
-    logoutModalEl = document.getElementById('logoutConfirmModal');
-    logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
-    logoutCancelBtn = document.getElementById('logoutCancelBtn');
+        accountLabelEl = document.getElementById('accountLabel');
+        logoutModalEl = document.getElementById('logoutConfirmModal');
+        logoutConfirmBtn = document.getElementById('logoutConfirmBtn');
+        logoutCancelBtn = document.getElementById('logoutCancelBtn');
         
-        // Check maintenance status
+        // Load configuration from backend first
+        await loadBackendConfiguration();
+        signalPageLoaderStage('config');
+        
+        // Check for updates
+        await checkForUpdates();
+        
+        // Check maintenance status from backend
         await checkMaintenanceStatus();
         
-        // Load games (with immediate fallback)
+        // Load games from backend (with immediate fallback)
         await loadGamesWithFallback();
         signalPageLoaderStage('games');
         
         // Setup event listeners
         setupEventListeners();
-    await initAuth0();
-    signalPageLoaderStage('auth');
+        await initAuth0();
+        signalPageLoaderStage('auth');
         
         // Force render games immediately
         forceRenderGames();
         
         // Update stats
         updateNavigationStats();
-    buildCategoryTabs();
-    renderFavoritesSection();
-    updateFavoriteButtonState();
-    signalPageLoaderStage('ui');
+        buildCategoryTabs();
+        renderFavoritesSection();
+        updateFavoriteButtonState();
+        signalPageLoaderStage('ui');
         
         console.log('✅ App initialization complete! Games loaded:', games.length);
         // Final stage triggers hide after min duration
@@ -205,9 +217,9 @@ async function startApp() {
     } catch (error) {
         console.error('❌ App initialization failed:', error);
         
-    // Show error and hide loader
-    showPopupError('Critical error during app initialization. Please reload the page.');
-    hidePageLoader(true);
+        // Show error and hide loader
+        showPopupError('Critical error during app initialization. Please reload the page.');
+        hidePageLoader(true);
     }
 }
 
@@ -252,8 +264,209 @@ function showGamesLoadFailure(){
     }
 }
 
-// Check maintenance status (frontend-only)
+// Load backend configuration
+async function loadBackendConfiguration() {
+    try {
+        console.log('🔄 Loading configuration from backend...');
+        const response = await fetch(`${BACKEND_URL}/api/config`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const config = await response.json();
+        console.log('✅ Backend configuration loaded:', config);
+        
+        // Update local configuration with backend settings
+        serverConfig = config;
+        if (config.settings) {
+            // Merge backend settings with local settings, preserving user preferences
+            Object.keys(config.settings).forEach(key => {
+                if (settings[key] === undefined) {
+                    settings[key] = config.settings[key];
+                }
+            });
+        }
+        
+        // Update maintenance mode from backend
+        if (config.maintenanceMode) {
+            maintenanceMode = config.maintenanceMode;
+        }
+        
+        return config;
+    } catch (error) {
+        console.error('❌ Error loading backend configuration:', error);
+        // Continue with default configuration
+        return null;
+    }
+}
+
+// Check for application updates
+async function checkForUpdates() {
+    try {
+        console.log('🔄 Checking for updates...');
+        const response = await fetch(`${BACKEND_URL}/api/version?client=${APP_VERSION}`);
+        
+        if (!response.ok) {
+            console.warn('⚠️ Update check failed:', response.status);
+            return;
+        }
+        
+        const versionInfo = await response.json();
+        console.log('📊 Version info:', versionInfo);
+        
+        if (versionInfo.needsUpdate) {
+            showUpdateNotification(versionInfo);
+        }
+        
+        return versionInfo;
+    } catch (error) {
+        console.error('❌ Error checking for updates:', error);
+        // Non-critical error, continue without update notification
+    }
+}
+
+// Show update notification
+function showUpdateNotification(versionInfo) {
+    // Create update notification
+    const notification = document.createElement('div');
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+        <div class="update-notification-content">
+            <div class="update-icon">🔄</div>
+            <div class="update-text">
+                <h4>Update Available</h4>
+                <p>${versionInfo.updateMessage}</p>
+                <div class="update-actions">
+                    <button class="update-btn-secondary" onclick="this.closest('.update-notification').remove()">Later</button>
+                    <button class="update-btn-primary" onclick="location.reload()">Update Now</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .update-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
+            border: 1px solid #58a6ff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            max-width: 350px;
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .update-notification-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .update-icon {
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+        
+        .update-text h4 {
+            margin: 0 0 4px 0;
+            color: #58a6ff;
+            font-size: 16px;
+        }
+        
+        .update-text p {
+            margin: 0 0 12px 0;
+            color: #e6e6e6;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .update-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .update-btn-primary, .update-btn-secondary {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .update-btn-primary {
+            background: #58a6ff;
+            color: white;
+        }
+        
+        .update-btn-primary:hover {
+            background: #4a90e2;
+        }
+        
+        .update-btn-secondary {
+            background: transparent;
+            color: #a6a6a6;
+            border: 1px solid #444;
+        }
+        
+        .update-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 30000);
+}
+
+// Check maintenance status (now from backend)
 async function checkMaintenanceStatus() {
+    try {
+        console.log('🔄 Checking maintenance status from backend...');
+        const response = await fetch(`${BACKEND_URL}/api/maintenance`);
+        
+        if (!response.ok) {
+            console.warn('⚠️ Failed to fetch maintenance status:', response.status);
+            // Fall back to local check
+            return checkMaintenanceStatusLocal();
+        }
+        
+        const maintenanceConfig = await response.json();
+        maintenanceMode = maintenanceConfig;
+        console.log('🔧 Maintenance status from backend:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
+        return;
+        
+    } catch (error) {
+        console.warn('⚠️ Failed to check maintenance status from backend:', error);
+        // Fall back to local maintenance check
+        return checkMaintenanceStatusLocal();
+    }
+}
+
+// Fallback local maintenance check
+async function checkMaintenanceStatusLocal() {
     try {
         // Check for local maintenance mode setting
         const localSetting = localStorage.getItem('ww_maintenance_mode');
@@ -261,7 +474,7 @@ async function checkMaintenanceStatus() {
             const setting = JSON.parse(localSetting);
             if (setting && typeof setting.enabled === 'boolean') {
                 maintenanceMode = setting;
-                console.log('🔧 Maintenance status:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
+                console.log('🔧 Maintenance status (local):', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
                 return;
             }
         }
@@ -270,7 +483,7 @@ async function checkMaintenanceStatus() {
         maintenanceMode.enabled = false;
         console.log('🔧 Maintenance status: DISABLED (default)');
     } catch (error) {
-        console.warn('⚠️ Failed to check maintenance status:', error);
+        console.warn('⚠️ Failed to check local maintenance status:', error);
         // Keep maintenance mode disabled on error
         maintenanceMode.enabled = false;
     }
@@ -548,24 +761,53 @@ async function updateAuthUI(){
     }
 }
 
-// Load games from JSON
+// Load games from backend API
 async function loadGames() {
     try {
-        console.log('🔄 Loading games from games.json...');
-        const response = await fetch('./games.json');
+        console.log('🔄 Loading games from backend API...');
+        const response = await fetch(`${BACKEND_URL}/api/games`);
         console.log('📡 Fetch response status:', response.status, response.statusText);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-        console.log('📊 Raw JSON data:', data);
-        if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
-        games = data;
-        console.log(`✅ Successfully loaded ${games.length} games from JSON`);
+        console.log('📊 Raw JSON data from backend:', data);
+        
+        if (!Array.isArray(data) || data.length === 0) {
+            throw new Error('Invalid or empty games data');
+        }
+        
+        // Update thumbnail URLs to use backend API
+        games = data.map(game => ({
+            ...game,
+            thumbnail: game.thumbnail.startsWith('/api/thumbnails/') 
+                ? `${BACKEND_URL}${game.thumbnail}` 
+                : game.thumbnail
+        }));
+        
+        console.log(`✅ Successfully loaded ${games.length} games from backend`);
         return games;
     } catch (error) {
-        console.error('❌ Error loading games.json:', error);
-        showPopupError('Failed to load games. Please try again later.');
-        games = [];
-        return games;
+        console.error('❌ Error loading games from backend:', error);
+        
+        // Fallback to local games.json
+        console.log('🔄 Falling back to local games.json...');
+        try {
+            const response = await fetch('./games.json');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
+            games = data;
+            console.log(`✅ Successfully loaded ${games.length} games from local fallback`);
+            return games;
+        } catch (fallbackError) {
+            console.error('❌ Error loading games from local fallback:', fallbackError);
+            showPopupError('Failed to load games from both backend and local sources. Please try again later.');
+            games = [];
+            return games;
+        }
     }
 }
 
@@ -1101,21 +1343,18 @@ function loadGame(game) {
             return;
         }
         
-        // Apply proxy if enabled
-    if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
-            // Use ?url= parameter format which is more standard for proxy services
+        // Apply proxy if enabled (now using backend proxy)
+        if (isProxyEnabled && !gameUrl.startsWith(proxyUrl)) {
+            // Use ?url= parameter format which is standard for the backend proxy
             gameUrl = proxyUrl + '?url=' + encodeURIComponent(gameUrl);
         } else if (!isProxyEnabled && gameUrl.startsWith(proxyUrl)) {
             // Extract URL from proxy format
             if (gameUrl.includes('?url=')) {
                 gameUrl = decodeURIComponent(gameUrl.split('?url=')[1]);
             } else {
-                gameUrl = decodeURIComponent(gameUrl.replace(proxyUrl, ''));
+                gameUrl = decodeURIComponent(gameUrl.replace(proxyUrl + '/', ''));
             }
         }
-        
-        // Validate URL
-    // Final sanity check already performed above
         
         console.log('Loading game URL:', gameUrl);
         
@@ -1262,6 +1501,11 @@ function showError(message) {
             document.body.removeChild(toast);
         }, 300);
     }, 5000);
+}
+
+// Popup error function for critical errors
+function showPopupError(message) {
+    showError(message);
 }
 
 // Service Worker registration

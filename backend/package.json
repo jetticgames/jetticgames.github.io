@@ -1,22 +1,31 @@
 {
   "name": "waterwall-backend",
-  "version": "1.0.0",
-  "description": "Cloudflare Worker proxy for WaterWall gaming platform",
+  "version": "2.0.0",
+  "description": "Complete backend API for WaterWall gaming platform powered by Cloudflare Workers",
   "main": "worker.js",
   "scripts": {
     "deploy": "wrangler publish",
     "deploy:staging": "wrangler publish --env staging",
     "deploy:production": "wrangler publish --env production",
     "dev": "wrangler dev",
+    "dev:remote": "wrangler dev --remote",
     "logs": "wrangler tail",
-    "test": "wrangler dev --local"
+    "logs:production": "wrangler tail --env production",
+    "test": "wrangler dev --local",
+    "kv:create": "wrangler kv:namespace create CONFIG_KV && wrangler kv:namespace create RATE_LIMIT_KV",
+    "kv:create:preview": "wrangler kv:namespace create CONFIG_KV --preview && wrangler kv:namespace create RATE_LIMIT_KV --preview",
+    "maintenance:enable": "curl -X PUT -H 'Content-Type: application/json' -d '{\"enabled\":true}' https://your-worker.workers.dev/api/maintenance",
+    "maintenance:disable": "curl -X PUT -H 'Content-Type: application/json' -d '{\"enabled\":false}' https://your-worker.workers.dev/api/maintenance"
   },
   "keywords": [
     "cloudflare",
     "worker",
-    "proxy",
+    "api",
+    "backend",
     "games",
-    "cors"
+    "proxy",
+    "cors",
+    "waterwall"
   ],
   "author": "WaterWall Team",
   "license": "MIT",

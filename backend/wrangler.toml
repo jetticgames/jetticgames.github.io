@@ -1,23 +1,51 @@
-name = "waterwall-proxy"
+name = "waterwall-backend"
 main = "worker.js"
 compatibility_date = "2023-05-18"
 
+# KV Namespaces for backend functionality
+[[kv_namespaces]]
+binding = "CONFIG_KV"
+id = "your-config-kv-namespace-id"
+preview_id = "your-config-preview-kv-namespace-id"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-ratelimit-kv-namespace-id"
+preview_id = "your-ratelimit-preview-kv-namespace-id"
+
 [env.production]
-name = "waterwall-proxy"
+name = "waterwall-backend"
 routes = [
-  { pattern = "yourdomain.com/backend/*", zone_name = "yourdomain.com" }
+  { pattern = "yourdomain.com/api/*", zone_name = "yourdomain.com" },
+  { pattern = "yourdomain.com/proxy/*", zone_name = "yourdomain.com" }
 ]
 
+[[env.production.kv_namespaces]]
+binding = "CONFIG_KV"
+id = "your-production-config-kv-namespace-id"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-production-ratelimit-kv-namespace-id"
+
 [env.staging]
-name = "waterwall-proxy-staging"
+name = "waterwall-backend-staging"
 
-# Uncomment and configure if you need KV storage for caching
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
-# preview_id = "your-preview-kv-namespace-id"
+[[env.staging.kv_namespaces]]
+binding = "CONFIG_KV"
+id = "your-staging-config-kv-namespace-id"
 
-# Uncomment if you need environment variables
-# [vars]
-# ENVIRONMENT = "production"
-# MAX_REQUESTS_PER_MINUTE = "100"
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-staging-ratelimit-kv-namespace-id"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+APP_VERSION = "2.0.0"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
