@@ -3688,7 +3688,11 @@ function initProfileDropdown(){
         e.stopPropagation();
         if(!(await socialEnsureAuth())){ 
             console.debug('[ProfileDropdown] not authenticated, redirecting to login');
-            login(); 
+            if(auth0Client) {
+                auth0Client.loginWithRedirect();
+            } else {
+                console.warn('[ProfileDropdown] auth0Client not available');
+            }
             return; 
         }
         console.debug('[ProfileDropdown] authenticated, calling toggleProfileDropdown');
@@ -3710,9 +3714,9 @@ function toggleProfileDropdown(force){
         return;
     }
     const rect = acct.getBoundingClientRect();
-    // keep above account (raise up) using fixed positioning from CSS
+    // Position above account button (raise up) - dropdown should appear above the button
     profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
-    profileDropdownEl.style.top = (rect.top - 12) + 'px';
+    profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
     profileOpen = (force!==undefined? force : !profileOpen);
     profileDropdownEl.classList.toggle('open', profileOpen);
     profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true');
