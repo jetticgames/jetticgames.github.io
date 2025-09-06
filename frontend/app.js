@@ -3681,25 +3681,29 @@ function initProfileDropdown(){
     const accountNav = document.getElementById('accountNavItem');
     if(!profileDropdownEl || !accountNav) return;
     console.debug('[ProfileDropdown] initialized');
-    // Click handling for account nav is centralized in handleAccountButton()/navigation to avoid double toggles.
+    // Direct click handler (simplified)
+    accountNav.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        if(!(await socialEnsureAuth())){ login(); return; }
+        toggleProfileDropdown();
+    });
     document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
     document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
     document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
 }
-function toggleProfileDropdown(force){ if(profileDropdownEl){ profileOpen = (force!==undefined? force : !profileOpen); profileDropdownEl.classList.toggle('open', profileOpen); profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true'); } }
-// Reposition dropdown relative to account button each toggle
-const __origToggleProfileDropdown = toggleProfileDropdown;
-toggleProfileDropdown = function(force){
+function toggleProfileDropdown(force){
     if(!profileDropdownEl){ profileDropdownEl=document.getElementById('profileDropdown'); }
     const acct=document.getElementById('accountNavItem');
-    if(!profileDropdownEl || !acct){ return; }
-    // Determine anchor (center top above account button area)
+    if(!profileDropdownEl || !acct) return;
     const rect = acct.getBoundingClientRect();
-    // Place dropdown centered horizontally over account item and above it if near bottom; since account is near bottom, raise upward
+    // keep above account (raise up) using fixed positioning from CSS
     profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
-    profileDropdownEl.style.top = (rect.top - 8) + 'px';
-    __origToggleProfileDropdown(force);
-};
+    profileDropdownEl.style.top = (rect.top - 12) + 'px';
+    profileOpen = (force!==undefined? force : !profileOpen);
+    profileDropdownEl.classList.toggle('open', profileOpen);
+    profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true');
+    console.debug('[ProfileDropdown] toggle ->', profileOpen);
+}
 function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
 
 // Avatar & profile form logic
