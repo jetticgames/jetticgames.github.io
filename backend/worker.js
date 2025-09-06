@@ -2545,11 +2545,6 @@ function jwkToCryptoKey(jwk){
 async function requireAuth(request, env){
     try {
         const token = await extractBearer(request); 
-        if(!token) return {error:unauthorized()};
-        
-async function requireAuth(request, env){
-    try {
-        const token = await extractBearer(request); 
         if(!token) {
             console.warn('Auth: No bearer token found in request');
             return {error:unauthorized()};
