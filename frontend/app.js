@@ -3827,7 +3827,6 @@ async function socialFetchUser(){
                 try {
                     console.debug('[Social] Attempting to refresh token and retry...');
                     const freshToken = await auth0Client.getTokenSilently({
-                        audience: AUTH0_AUDIENCE,
                         scope: 'openid profile email',
                         ignoreCache: true
                     });
