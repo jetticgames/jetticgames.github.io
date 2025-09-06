@@ -16,6 +16,7 @@
 - **Dynamic Thumbnails**: All game thumbnails served through optimized backend API
 - **Configuration Management**: All app settings managed remotely via backend
 - **Version Control**: Sophisticated version management with automatic update prompts
+- **Backend Asset Serving**: All frontend assets (CSS, JS, images, JSON) served from backend for instant updates
 
 ### Enhanced Architecture
 - **Full-Stack Solution**: Complete frontend + backend integration
@@ -24,6 +25,7 @@
 - **API-First Design**: RESTful API architecture
 - **Caching Strategy**: Optimized caching at multiple levels
 - **Error Handling**: Comprehensive error handling and fallbacks
+- **Instant Updates**: No cache clearing required - updates propagate immediately
 
 ## 🏗️ Architecture Overview
 
@@ -39,13 +41,15 @@ WaterWall v2.0 Architecture
 │   ├── /api/config - Configuration API
 │   ├── /api/version - Version management API
 │   ├── /api/maintenance - Maintenance mode API
-│   ├── /api/thumbnails/* - Thumbnail serving API
+│   ├── /api/thumbnails/* - Legacy thumbnail serving API
+│   ├── /api/assets/* - Universal asset serving API (CSS, JS, images, JSON)
 │   ├── /api/stats - Statistics API
 │   └── /proxy?url= - Enhanced proxy service
 └── Infrastructure
     ├── KV Storage for configuration persistence
     ├── Rate limiting with KV-based tracking
     ├── Global edge distribution
+    ├── Backend asset serving (instant updates without cache clearing)
     └── Automatic scaling
 ```
 

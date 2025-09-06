@@ -83,7 +83,64 @@ const GAMES_DATABASE = [
     }
 ];
 
-// Thumbnail mappings for backward compatibility
+// Asset mappings - All assets served from backend for instant updates
+const ASSET_MAPPINGS = {
+    // Game thumbnails
+    'thumbnails/cookieclicker.jpg': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/cookieclicker.jpg',
+        contentType: 'image/jpeg',
+        maxAge: 604800 // 7 days
+    },
+    'thumbnails/tetris.webp': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/tetris.webp',
+        contentType: 'image/webp',
+        maxAge: 604800
+    },
+    'thumbnails/snake.gif': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/snake.gif',
+        contentType: 'image/gif',
+        maxAge: 604800
+    },
+    'thumbnails/pacman.avif': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/pacman.avif',
+        contentType: 'image/avif',
+        maxAge: 604800
+    },
+    'thumbnails/chess.png': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/chess.png',
+        contentType: 'image/png',
+        maxAge: 604800
+    },
+    
+    // Core assets that can be served from backend
+    'assets/logo.png': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/logo.png',
+        contentType: 'image/png',
+        maxAge: 604800
+    },
+    'assets/styles.css': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/styles.css',
+        contentType: 'text/css',
+        maxAge: 86400 // 1 day for CSS
+    },
+    'assets/app.js': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/app.js',
+        contentType: 'application/javascript',
+        maxAge: 3600 // 1 hour for JS (frequent updates)
+    },
+    'assets/sw.js': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/sw.js',
+        contentType: 'application/javascript',
+        maxAge: 3600
+    },
+    'assets/games.json': {
+        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/games.json',
+        contentType: 'application/json',
+        maxAge: 300 // 5 minutes for frequently updated content
+    }
+};
+
+// Legacy thumbnail mappings for backward compatibility
 const THUMBNAIL_MAPPINGS = {
     'cookieclicker.jpg': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/cookieclicker.jpg',
     'tetris.webp': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/tetris.webp', 
@@ -143,9 +200,17 @@ export default {
                 'GET /api/version - Get version info and check for updates',
                 'GET /api/maintenance - Get maintenance status',
                 'PUT /api/maintenance - Update maintenance status (admin)',
-                'GET /api/thumbnails/{filename} - Get game thumbnails',
+                'GET /api/thumbnails/{filename} - Get game thumbnails (legacy)',
+                'GET /api/assets/{path} - Get any frontend asset (JS, CSS, images, JSON)',
                 'GET /proxy?url= - Proxy requests',
                 'GET /health - Health check'
+            ],
+            assetEndpoints: [
+                'GET /api/assets/app.js - Main application JavaScript (auto-configured)',
+                'GET /api/assets/styles.css - Application styles',
+                'GET /api/assets/games.json - Games database',
+                'GET /api/assets/logo.png - Site logo',
+                'GET /api/thumbnails/cookieclicker.jpg - Game thumbnails'
             ]
         }), {
             status: 200,
@@ -183,9 +248,14 @@ async function handleAPIRequest(request, url, env, ctx) {
             return handleMaintenanceAPI(request, env);
         }
         
-        // Thumbnails endpoint
+        // Thumbnails endpoint (legacy)
         if (path.startsWith('/thumbnails/')) {
             return handleThumbnailAPI(request, url, env);
+        }
+        
+        // Universal assets endpoint
+        if (path.startsWith('/assets/')) {
+            return handleAssetAPI(request, url, env);
         }
         
         // Stats endpoint
@@ -1223,6 +1293,83 @@ async function handleThumbnailAPI(request, url, env) {
         
         // Return a placeholder image or error
         return new Response('Failed to load thumbnail', {
+            status: 500,
+            headers: getCORSHeaders()
+        });
+    }
+}
+
+// Handle universal assets API - serves all frontend assets from backend
+async function handleAssetAPI(request, url, env) {
+    const assetPath = url.pathname.replace('/api/', ''); // Remove /api/ prefix
+    const asset = ASSET_MAPPINGS[assetPath];
+    
+    if (!asset) {
+        return new Response('Asset not found', {
+            status: 404,
+            headers: getCORSHeaders()
+        });
+    }
+    
+    try {
+        // Add cache-busting for frequently updated assets
+        const cacheKey = `asset-${assetPath}-${Date.now()}`;
+        const cacheControl = `public, max-age=${asset.maxAge}`;
+        
+        // Check if this is a dynamic request with version parameter
+        const urlParams = new URLSearchParams(url.search);
+        const versionParam = urlParams.get('v');
+        let sourceUrl = asset.url;
+        
+        // For JS/CSS/JSON, add cache busting if version param present
+        if (versionParam && (asset.contentType.includes('javascript') || 
+                           asset.contentType.includes('css') || 
+                           asset.contentType.includes('json'))) {
+            sourceUrl += `?v=${versionParam}`;
+        }
+        
+        // Fetch the asset
+        const response = await fetch(sourceUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch asset: ${response.status}`);
+        }
+        
+        // For app.js, inject the backend URL dynamically
+        let responseBody = response.body;
+        if (assetPath === 'assets/app.js') {
+            const text = await response.text();
+            const backendUrl = `${url.protocol}//${url.host}`;
+            const modifiedText = text.replace(
+                /const BACKEND_URL = ['"`][^'"`]*['"`];?/g,
+                `const BACKEND_URL = '${backendUrl}';`
+            );
+            responseBody = modifiedText;
+        }
+        
+        // Create response with optimized headers
+        const headers = {
+            'Content-Type': asset.contentType,
+            'Cache-Control': cacheControl,
+            'Access-Control-Allow-Origin': '*',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'SAMEORIGIN'
+        };
+        
+        // Add ETag for better caching
+        if (versionParam) {
+            headers['ETag'] = `"${versionParam}"`;
+        }
+        
+        return new Response(responseBody, {
+            status: 200,
+            headers
+        });
+        
+    } catch (error) {
+        console.error('Asset fetch error:', error);
+        
+        return new Response(`Failed to load asset: ${assetPath}`, {
             status: 500,
             headers: getCORSHeaders()
         });

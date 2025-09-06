@@ -824,20 +824,33 @@ async function loadGames() {
     } catch (error) {
         console.error('❌ Error loading games from backend:', error);
         
-        // Fallback to local games.json
-        console.log('🔄 Falling back to local games.json...');
+        // Fallback to backend asset endpoint (in case /api/games fails but asset serving works)
+        console.log('🔄 Trying backend asset endpoint for games.json...');
         try {
-            const response = await fetch('./games.json');
+            const response = await fetch(`${BACKEND_URL}/api/assets/games.json?v=${Date.now()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
             if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
             games = data;
-            console.log(`✅ Successfully loaded ${games.length} games from local fallback`);
+            console.log(`✅ Successfully loaded ${games.length} games from backend assets`);
             return games;
-        } catch (fallbackError) {
-            console.error('❌ Error loading games from local fallback:', fallbackError);
-            showPopupError('Failed to load games from both backend and local sources. Please try again later.');
-            games = [];
+        } catch (assetError) {
+            console.error('❌ Error loading games from backend assets:', assetError);
+            
+            // Final fallback to local games.json
+            console.log('🔄 Falling back to local games.json...');
+            try {
+                const response = await fetch('./games.json');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                if (!Array.isArray(data) || data.length === 0) throw new Error('Invalid or empty games data');
+                games = data;
+                console.log(`✅ Successfully loaded ${games.length} games from local fallback`);
+                return games;
+            } catch (fallbackError) {
+                console.error('❌ Error loading games from all sources:', fallbackError);
+                showPopupError('Failed to load games from all sources. Please try again later.');
+                games = [];
             return games;
         }
     }

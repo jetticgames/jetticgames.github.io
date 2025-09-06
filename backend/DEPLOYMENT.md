@@ -79,8 +79,10 @@ wrangler deploy
 
 **Benefits**:
 - Persistent configuration storage
-- Rate limiting protection
+- Rate limiting protection  
 - Full backend functionality
+- **Backend asset serving** (CSS, JS, images served from backend for instant updates)
+- **No cache clearing required** when you update assets
 
 ## Testing Your Deployment
 
@@ -93,8 +95,10 @@ curl https://your-worker-name.your-account.workers.dev/health
 # Test the games API
 curl https://your-worker-name.your-account.workers.dev/api/games
 
-# Test version checking
-curl "https://your-worker-name.your-account.workers.dev/api/version?client=2.0.0"
+# Test asset serving
+curl https://your-worker-name.your-account.workers.dev/api/assets/app.js
+curl https://your-worker-name.your-account.workers.dev/api/assets/styles.css
+curl https://your-worker-name.your-account.workers.dev/api/thumbnails/snake.gif
 ```
 
 ## Updating Frontend Configuration

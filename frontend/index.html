@@ -4,8 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaterWall - Ultimate Gaming Platform</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/png" href="logo.png">
+    
+    <!-- Dynamic Backend Asset Loading -->
+    <script>
+        // Auto-detect backend URL for asset loading
+        const BACKEND_URL = window.location.hostname === 'localhost' 
+            ? 'https://waterwallrelayservice.zonikyo.workers.dev'
+            : window.location.origin;
+        
+        // Load CSS from backend with cache-busting
+        function loadBackendCSS() {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `${BACKEND_URL}/api/assets/styles.css?v=${Date.now()}`;
+            link.onerror = function() {
+                // Fallback to local CSS if backend fails
+                const fallback = document.createElement('link');
+                fallback.rel = 'stylesheet';
+                fallback.href = 'styles.css';
+                document.head.appendChild(fallback);
+            };
+            document.head.appendChild(link);
+        }
+        
+        // Load CSS immediately
+        loadBackendCSS();
+    </script>
+    
+    <link rel="icon" type="image/png" href="logo.png" id="favicon">
+    <script>
+        // Update favicon to use backend
+        document.getElementById('favicon').href = `${BACKEND_URL}/api/assets/logo.png`;
+    </script>
     <!-- Font Awesome for icons -->
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -236,7 +266,27 @@
         <iframe id="fullscreenFrame" src="" title="Game Fullscreen"></iframe>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Load app.js from backend with fallback -->
+    <script>
+        function loadBackendJS() {
+            const script = document.createElement('script');
+            script.src = `${BACKEND_URL}/api/assets/app.js?v=${Date.now()}`;
+            script.onerror = function() {
+                // Fallback to local JS if backend fails
+                const fallback = document.createElement('script');
+                fallback.src = 'app.js';
+                document.body.appendChild(fallback);
+            };
+            document.body.appendChild(script);
+        }
+        
+        // Load JS when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadBackendJS);
+        } else {
+            loadBackendJS();
+        }
+    </script>
     <!-- Update Confirmation Modal -->
     <div id="updateModal" class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle" style="display:none;">
         <div class="update-modal-backdrop"></div>
