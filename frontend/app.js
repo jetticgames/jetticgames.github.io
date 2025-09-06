@@ -1,6 +1,8 @@
+// CACHE BUSTER VERSION: 20250906-NOCACHE-AUTH-FIX
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: AUTH_FIX_v3 - No audience validation');
+console.log('🔧 Version: 20250906-NOCACHE-AUTH-FIX - No audience validation');
+console.log('⚠️  If you see AUTH0_AUDIENCE errors, clear browser cache!');
 
 // Application configuration
 const APP_VERSION = '2.0.1';
@@ -3781,7 +3783,8 @@ async function getAuthToken() {
 }
 
 async function socialFetchUser(){ 
-    console.log('[Social] socialFetchUser called - AUTH_FIX_v3 version');
+    console.log('🚨 socialFetchUser called - VERSION 20250906-NOCACHE-AUTH-FIX');
+    console.log('🚨 If you see AUTH0_AUDIENCE errors after this, CLEAR YOUR BROWSER CACHE!');
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
         return false; // Return false to indicate no data fetched

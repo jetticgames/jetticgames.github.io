@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Prevent caching of this page to ensure updates are loaded -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>WaterWall - Ultimate Gaming Platform</title>
     
     <!-- Simplified Asset Loading with Local Default -->
@@ -422,8 +426,8 @@
         <iframe id="fullscreenFrame" src="" title="Game Fullscreen"></iframe>
     </div>
 
-    <!-- Load local app.js (reliable) - with cache busting -->
-    <script src="app.js?v=auth-fix-v3"></script>
+    <!-- Load local app.js (reliable) - with aggressive cache busting -->
+    <script src="app.js?v=20250906-nocache&t=1"></script>
     <!-- Update Confirmation Modal -->
     <div id="updateModal" class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle" style="display:none;">
         <div class="update-modal-backdrop"></div>
