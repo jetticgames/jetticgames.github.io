@@ -3687,6 +3687,19 @@ function initProfileDropdown(){
     document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
 }
 function toggleProfileDropdown(force){ if(profileDropdownEl){ profileOpen = (force!==undefined? force : !profileOpen); profileDropdownEl.classList.toggle('open', profileOpen); profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true'); } }
+// Reposition dropdown relative to account button each toggle
+const __origToggleProfileDropdown = toggleProfileDropdown;
+toggleProfileDropdown = function(force){
+    if(!profileDropdownEl){ profileDropdownEl=document.getElementById('profileDropdown'); }
+    const acct=document.getElementById('accountNavItem');
+    if(!profileDropdownEl || !acct){ return; }
+    // Determine anchor (center top above account button area)
+    const rect = acct.getBoundingClientRect();
+    // Place dropdown centered horizontally over account item and above it if near bottom; since account is near bottom, raise upward
+    profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
+    profileDropdownEl.style.top = (rect.top - 8) + 'px';
+    __origToggleProfileDropdown(force);
+};
 function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
 
 // Avatar & profile form logic
