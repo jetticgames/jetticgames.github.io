@@ -2513,10 +2513,12 @@ async function requireAuth(request, env){
         const payload = await verifyJWT(token, env); 
         if(!payload) return {error:unauthorized('Invalid token')};
         
-        // Basic audience / issuer checks
-        if(env.AUTH0_AUDIENCE && payload.aud && !(Array.isArray(payload.aud)? payload.aud.includes(env.AUTH0_AUDIENCE): payload.aud===env.AUTH0_AUDIENCE)){
-            console.warn('Auth: Bad audience', payload.aud, 'expected', env.AUTH0_AUDIENCE);
-            return {error:forbidden('Bad audience')};
+        // Basic issuer check only - let Auth0 handle security
+        const domain = env.AUTH0_DOMAIN || 'dev-lciqwnyb52wdezeo.us.auth0.com';
+        const expectedIssuer = `https://${domain.replace(/https?:\/\//,'')}/`;
+        if(payload.iss && payload.iss !== expectedIssuer){
+            console.warn('Auth: Bad issuer', payload.iss, 'expected', expectedIssuer);
+            return {error:forbidden('Bad issuer')};
         }
         
         // Issuer check

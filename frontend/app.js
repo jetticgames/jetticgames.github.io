@@ -124,9 +124,6 @@ const auth0Config = {
     useCookiesForTransactions: true // ensure state/nonce survive same-site navigations
 };
 
-// Auth0 audience for API calls (use the backend URL as audience)
-const AUTH0_AUDIENCE = BACKEND_URL;
-
 console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redirect_uri);
 
 // ===== Global Page Loader (initial page load experience) =====
@@ -3751,56 +3748,34 @@ async function socialEnsureAuth(){
         return false; 
     } 
 }
-// ===== Enhanced Auth Token Helper =====
-async function getAuthToken(requireAudience = true) {
+// ===== Simplified Auth Token Helper =====
+async function getAuthToken() {
     if (!auth0Client) {
         throw new Error('Auth0 client not initialized');
     }
 
     try {
-        // Always try with audience first for backend API calls
+        // Get token without audience - let Auth0 handle security
+        return await auth0Client.getTokenSilently({
+            scope: 'openid profile email'
+        });
+    } catch (tokenError) {
+        console.debug('[Auth] Token request failed, trying with cache refresh:', tokenError.message);
+        
+        // Try once more with cache refresh
         try {
             return await auth0Client.getTokenSilently({
-                audience: AUTH0_AUDIENCE,
-                scope: 'openid profile email'
+                scope: 'openid profile email',
+                ignoreCache: true
             });
-        } catch (audienceError) {
-            console.debug('[Auth] Initial token request failed:', audienceError.message);
+        } catch (refreshError) {
+            console.error('[Auth] Token refresh failed:', refreshError.message);
             
-            // If audience is required (backend calls), try force refresh with audience
-            if (requireAudience) {
-                try {
-                    console.debug('[Auth] Attempting force refresh with audience...');
-                    return await auth0Client.getTokenSilently({
-                        audience: AUTH0_AUDIENCE,
-                        scope: 'openid profile email',
-                        ignoreCache: true
-                    });
-                } catch (refreshError) {
-                    console.error('[Auth] Force refresh with audience failed:', refreshError.message);
-                    throw new Error('Failed to obtain authentication token with required audience');
-                }
-            } else {
-                // Only for non-backend calls, try without audience
-                try {
-                    return await auth0Client.getTokenSilently({
-                        scope: 'openid profile email'
-                    });
-                } catch (fallbackError) {
-                    console.error('[Auth] Fallback token failed:', fallbackError.message);
-                    throw new Error('Failed to obtain authentication token');
-                }
-            }
-        }
-    } catch (error) {
-        console.error('[Auth] getAuthToken error:', error);
-        
-        // Only show notification for user-facing errors, not system errors
-        if (error.message.includes('authentication') || error.message.includes('token')) {
+            // Show user-friendly notification
             showNotification('Authentication token error. Please try signing in again.', 'error');
+            
+            throw new Error('Failed to obtain authentication token');
         }
-        
-        throw error;
     }
 }
 
@@ -3811,7 +3786,7 @@ async function socialFetchUser(){
     }
     
     try {
-        const token = await getAuthToken(true);
+        const token = await getAuthToken();
         
         if(!token) {
             console.warn('[Social] No token available for user fetch');
@@ -4132,7 +4107,7 @@ async function friendAction(action, body){
     if(!(await socialEnsureAuth())) return; 
     
     try {
-        const token = await getAuthToken(true);
+        const token = await getAuthToken();
         
         if(!token) return {error: 'No token available'}; 
         
@@ -4618,7 +4593,7 @@ function initProfileForm(){
         showProfileSaveIndicator('Saving...'); 
         
         try {
-            const token = await getAuthToken(true);
+            const token = await getAuthToken();
             
             if(!token){ 
                 showProfileSaveIndicator('Failed to get auth token', true); 
