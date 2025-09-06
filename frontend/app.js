@@ -3678,21 +3678,37 @@ function initProfileDropdown(){
     if(profileDropdownEl){ return; }
     profileDropdownEl = document.getElementById('profileDropdown');
     const accountNav = document.getElementById('accountNavItem');
+    console.debug('[ProfileDropdown] attempting init, dropdown found:', !!profileDropdownEl, 'account nav found:', !!accountNav);
     if(!profileDropdownEl || !accountNav) return;
     console.debug('[ProfileDropdown] initialized');
-    // NOTE: We intentionally do NOT add another click handler here because
-    // the global navigation handler already calls handleAccountButton(),
-    // which (once authenticated) creates & toggles the dropdown exactly once.
-    // A second listener here caused a double toggle (open->closed instantly),
-    // making the menu appear to do nothing.
+    // Add direct click handler to accountNav with higher priority
+    accountNav.addEventListener('click', async (e)=>{
+        console.debug('[ProfileDropdown] DIRECT account click handler fired!');
+        e.preventDefault();
+        e.stopPropagation();
+        if(!(await socialEnsureAuth())){ 
+            console.debug('[ProfileDropdown] not authenticated, redirecting to login');
+            login(); 
+            return; 
+        }
+        console.debug('[ProfileDropdown] authenticated, calling toggleProfileDropdown');
+        toggleProfileDropdown();
+    }, true); // use capture phase to fire before bubbling handlers
     document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
     document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
     document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
 }
 function toggleProfileDropdown(force){
-    if(!profileDropdownEl){ profileDropdownEl=document.getElementById('profileDropdown'); }
+    console.debug('[ProfileDropdown] toggleProfileDropdown called with force:', force);
+    if(!profileDropdownEl){ 
+        profileDropdownEl=document.getElementById('profileDropdown'); 
+        console.debug('[ProfileDropdown] had to re-find dropdown element:', !!profileDropdownEl);
+    }
     const acct=document.getElementById('accountNavItem');
-    if(!profileDropdownEl || !acct) return;
+    if(!profileDropdownEl || !acct) {
+        console.warn('[ProfileDropdown] missing elements - dropdown:', !!profileDropdownEl, 'account:', !!acct);
+        return;
+    }
     const rect = acct.getBoundingClientRect();
     // keep above account (raise up) using fixed positioning from CSS
     profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
@@ -3700,7 +3716,7 @@ function toggleProfileDropdown(force){
     profileOpen = (force!==undefined? force : !profileOpen);
     profileDropdownEl.classList.toggle('open', profileOpen);
     profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true');
-    console.debug('[ProfileDropdown] toggle ->', profileOpen);
+    console.debug('[ProfileDropdown] toggle complete - profileOpen:', profileOpen, 'element classes:', profileDropdownEl.className);
 }
 function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
 
