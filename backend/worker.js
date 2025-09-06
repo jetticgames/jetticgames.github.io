@@ -3,7 +3,7 @@
 
 // Maintenance mode configuration
 const MAINTENANCE_MODE = {
-    enabled: false, // Set to true to enable maintenance mode
+    enabled: true, // Set to true to enable maintenance mode
     message: "WaterWall is currently under maintenance. We'll be back online soon!",
     estimatedTime: "Please check back in a few hours."
 };
