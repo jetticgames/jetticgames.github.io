@@ -729,8 +729,26 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     margin-top: 0;
 }
 .friends-columns {margin-top:8px;}
-.friends-panel {background: var(--bg-secondary); border:1px solid var(--border-primary); padding:16px 18px 18px; border-radius:14px; position:relative; overflow:hidden;}
+.friends-panel {background: var(--bg-secondary); border:1px solid var(--border-primary); padding:16px 18px 18px; border-radius:14px; position:relative; overflow:hidden; margin-bottom: 24px;}
+.friends-panel:last-child {margin-bottom: 0;}
 .friends-panel h3 {font-size:16px; font-weight:600; margin:0 0 12px; display:flex; align-items:center; gap:6px;}
+
+/* Friends page layout improvements */
+#friendsPage .games-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 400px;
+}
+
+#friendsPage .empty-state {
+    margin-top: 60px;
+}
+
+#friendsContent {
+    width: 100%;
+    align-self: stretch;
+}
 .friends-list .friend-item {background:var(--bg-tertiary); border:1px solid var(--border-primary); padding:8px 10px; border-radius:10px; display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; line-height:1.3; transition:.25s;}
 .friends-list .friend-item.online {border-color:#2ea04333; box-shadow:0 0 0 1px #2ea04333;}
 .friends-list .friend-item:hover {background:#1e242c;}
@@ -770,8 +788,10 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .friends-tab.active {
-    background: var(--accent-color);
-    color: white;
+    background: transparent;
+    color: var(--text-primary);
+    border: 2px solid var(--accent-color);
+    border-bottom: none;
 }
 
 .friends-tab-content {
@@ -2613,6 +2633,8 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .empty-state {
     text-align: center;
     max-width: 400px;
+    margin: 0 auto;
+    padding: 40px 20px;
 }
 
 .empty-icon {

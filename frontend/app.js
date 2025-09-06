@@ -3896,6 +3896,11 @@ function showFriendsPage(){
     page.classList.add('active');
     void page.offsetHeight; // reflow
     
+    // Initialize tabs immediately when page is shown
+    setTimeout(() => {
+        initFriendsTabs();
+    }, 50);
+    
     // Always re-render to check current auth state
     renderFriendsPage();
 }
@@ -3987,9 +3992,6 @@ async function renderFriendsPage(){
             '<li class="muted-hint">No sent requests</li>'; 
     }
     
-    // Initialize tab system
-    initFriendsTabs();
-    
     // Wire up events
     wireFriendsEvents(); 
     updatePresence(); 
@@ -4030,18 +4032,31 @@ function initFriendsTabs() {
             } else {
                 console.error('Could not find tab content for:', targetTab);
             }
+            
+            // Debug: Log all current active states
+            console.log('Current active tabs:', [...tabs].filter(t => t.classList.contains('active')).map(t => t.dataset.tab));
+            console.log('Current active contents:', [...contents].filter(c => c.classList.contains('active')).map(c => c.id));
         });
     });
     
-    // Ensure the first tab is active by default
-    if (tabs.length > 0) {
-        const firstTab = tabs[0];
-        const firstContent = contents[0];
-        if (firstTab && firstContent) {
-            firstTab.classList.add('active');
-            firstContent.classList.add('active');
+    // Ensure only the first tab is active by default and all others are inactive
+    tabs.forEach((tab, index) => {
+        if (index === 0) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
         }
-    }
+    });
+    
+    contents.forEach((content, index) => {
+        if (index === 0) {
+            content.classList.add('active');
+        } else {
+            content.classList.remove('active');
+        }
+    });
+    
+    console.log('Friends tabs initialized - Active tab:', [...tabs].find(t => t.classList.contains('active'))?.dataset.tab);
 }
 
 function shortUserId(id){ return id.split('|').pop(); }
