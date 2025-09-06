@@ -11,7 +11,7 @@ const CONFIG_CACHE_TTL = 1800; // 30 minutes
 const DEFAULT_CONFIG = {
     version: APP_VERSION,
     maintenanceMode: {
-        enabled: false,
+        enabled: true,
         message: "WaterWall is currently under maintenance. We'll be back online soon!",
         estimatedTime: "Please check back in a few hours."
     },
@@ -48,7 +48,7 @@ const GAMES_DATABASE = [
         "description": "A version of Minecraft 1.5.2 tailored for browser play, offering the classic survival and creative modes.",
         "category": "sandbox",
         "embed": "https://eaglercraftgame.github.io/go/minecraft-1.5.2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/eaglercraft1.5.2.png"
     },
     {
         "id": 2,
@@ -56,7 +56,7 @@ const GAMES_DATABASE = [
         "description": "An enhanced version of Minecraft 1.8 for browsers, featuring additional client-side improvements and tweaks.",
         "category": "sandbox",
         "embed": "https://astraclientorg.github.io/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/eaglercraft1.8.png"
     },
     {
         "id": 3,
@@ -64,7 +64,7 @@ const GAMES_DATABASE = [
         "description": "The original Minecraft experience, playable in a web browser, offering the iconic sandbox gameplay.",
         "category": "sandbox",
         "embed": "https://minecraftunblocked.gitlab.io/go/minecraft-beta/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/Survival-games-Minecraft-3852067660.jpg"
     },
     
     // Racing & Driving Games
@@ -74,7 +74,7 @@ const GAMES_DATABASE = [
         "description": "A fast-paced 3D running game where you navigate a ball down a steep, endless slope.",
         "category": "racing",
         "embed": "https://theslope.github.io/games/slope/index.html",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/slope.png"
     },
     {
         "id": 5,
@@ -82,7 +82,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Slope, featuring more challenging levels and enhanced graphics.",
         "category": "racing",
         "embed": "https://slope-2.gitlab.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/slope2.png"
     },
     {
         "id": 6,
@@ -90,7 +90,7 @@ const GAMES_DATABASE = [
         "description": "A multiplayer version of Slope where you can compete against other players.",
         "category": "racing",
         "embed": "https://education76.github.io/g7/slope-2-multiplayer/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/slope-multiplayer-646454450.jpg"
     },
     {
         "id": 7,
@@ -98,7 +98,7 @@ const GAMES_DATABASE = [
         "description": "A driving game focused on performing stunts and overcoming various obstacles.",
         "category": "racing",
         "embed": "https://drive-madgame.github.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/drive-mad-1427835126.jpg"
     },
     {
         "id": 8,
@@ -106,7 +106,7 @@ const GAMES_DATABASE = [
         "description": "A motocross racing game with challenging tracks and obstacles.",
         "category": "racing",
         "embed": "https://motox3m.gitlab.io/game/moto-x3m/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/motox3m.png"
     },
     {
         "id": 9,
@@ -114,7 +114,7 @@ const GAMES_DATABASE = [
         "description": "An extended version of Moto X3M with additional levels.",
         "category": "racing",
         "embed": "https://motox3m.gitlab.io/x3m-1.20.1p/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/motox3mextended.png"
     },
     {
         "id": 10,
@@ -122,7 +122,7 @@ const GAMES_DATABASE = [
         "description": "A summer-themed version of Moto X3M.",
         "category": "racing",
         "embed": "https://education76.github.io/g/moto-x3m-pool-party/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/moto-x3m-pool-party-1092271902.jpg"
     },
     {
         "id": 11,
@@ -130,7 +130,7 @@ const GAMES_DATABASE = [
         "description": "A winter-themed version of Moto X3M.",
         "category": "racing",
         "embed": "https://motox3munblocked.github.io/4-winter/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/moto-x3m-winter-1546391187.jpg"
     },
     {
         "id": 12,
@@ -138,7 +138,7 @@ const GAMES_DATABASE = [
         "description": "A stunt driving game set in a city environment.",
         "category": "racing",
         "embed": "https://ubg77.github.io/edit/city-car-driving-stunt-master/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/citycarstuntdriver.png"
     },
     {
         "id": 13,
@@ -146,7 +146,7 @@ const GAMES_DATABASE = [
         "description": "A 3D car stunt game with challenging tracks.",
         "category": "racing",
         "embed": "https://ubg77.github.io/edit/city-car-driving-stunt-master/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sky-car-stunt-3d-racing-games-screenshot-3772473604.jpg"
     },
     {
         "id": 14,
@@ -154,7 +154,7 @@ const GAMES_DATABASE = [
         "description": "A parking simulation game with various challenges.",
         "category": "racing",
         "embed": "https://parking-fury.gitlab.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/parking-fury-1290644957.png"
     },
     {
         "id": 15,
@@ -162,7 +162,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Parking Fury with new levels.",
         "category": "racing",
         "embed": "https://gnhustgames.github.io/parking-fury-2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/parkingfury2new-641888004.jpg"
     },
     {
         "id": 16,
@@ -170,7 +170,7 @@ const GAMES_DATABASE = [
         "description": "Another sequel in the Parking Fury series.",
         "category": "racing",
         "embed": "https://parkingfury3.github.io/gamefle/parking-fury-3/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/ParkingFury3_OG-logo-2904042009.jpg"
     },
     {
         "id": 17,
@@ -178,7 +178,7 @@ const GAMES_DATABASE = [
         "description": "A drifting game where you navigate through various tracks.",
         "category": "racing",
         "embed": "https://drift-boss.gitlab.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/driftboss.png"
     },
     {
         "id": 18,
@@ -186,7 +186,7 @@ const GAMES_DATABASE = [
         "description": "A driving game where you balance an egg on a car.",
         "category": "racing",
         "embed": "https://webglmath.github.io/eggy-car/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/eggy-car-1413036222.webp"
     },
     {
         "id": 19,
@@ -194,7 +194,7 @@ const GAMES_DATABASE = [
         "description": "A multiplayer kart racing game with weapons.",
         "category": "racing",
         "embed": "https://smashkartsunblocked.github.io/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/smashkarts.png"
     },
     
     // Shooter Games
@@ -204,7 +204,7 @@ const GAMES_DATABASE = [
         "description": "A competitive building and shooting game where players can challenge each other in 1v1 battles.",
         "category": "shooter",
         "embed": "https://1vl.school/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/1v1-lol-Unblocked-Game-2936374542.jpg"
     },
     {
         "id": 21,
@@ -212,7 +212,7 @@ const GAMES_DATABASE = [
         "description": "A shooting game where time moves only when you move.",
         "category": "shooter",
         "embed": "https://gnhustgames.github.io/timeshooter2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/time-shooter-2-3430007738.jpg"
     },
     {
         "id": 22,
@@ -220,7 +220,7 @@ const GAMES_DATABASE = [
         "description": "A shooting game where you play as a sniper completing various missions.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sniperassasin.png"
     },
     {
         "id": 23,
@@ -228,7 +228,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Sniper Assassin with new missions.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sniper-assassin-2-3470249355.jpg"
     },
     {
         "id": 24,
@@ -236,7 +236,7 @@ const GAMES_DATABASE = [
         "description": "The third installment in the Sniper Assassin series.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-3/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sniperassasin3.png"
     },
     {
         "id": 25,
@@ -244,7 +244,7 @@ const GAMES_DATABASE = [
         "description": "Another sequel in the Sniper Assassin series.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-4/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sniperassasin4.png"
     },
     {
         "id": 26,
@@ -252,7 +252,7 @@ const GAMES_DATABASE = [
         "description": "The fifth installment in the Sniper Assassin series.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-5/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/sniperassasinfinal.png"
     },
     {
         "id": 27,
@@ -260,7 +260,7 @@ const GAMES_DATABASE = [
         "description": "A tactical shooting game with various missions.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/tacticalassasin2.png"
     },
     {
         "id": 28,
@@ -268,7 +268,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Tactical Assassin with new missions.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin-2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/tactical-assassin-android-001-3883766304.webp"
     },
     {
         "id": 29,
@@ -276,7 +276,7 @@ const GAMES_DATABASE = [
         "description": "Another sequel in the Tactical Assassin series.",
         "category": "shooter",
         "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin-3/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/tactical.assassin3-1026657409.jpg"
     },
     {
         "id": 30,
@@ -284,7 +284,7 @@ const GAMES_DATABASE = [
         "description": "A classic first-person shooter game.",
         "category": "shooter",
         "embed": "https://gnhustgames.github.io/quake/wwwwsadwsw",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/EGS_Quake_idSoftwareNightdiveStudios_S1_2560x1440-b31ed6ea4d89261b0556846ffd842d67-553107640.jpg"
     },
     {
         "id": 31,
@@ -292,7 +292,7 @@ const GAMES_DATABASE = [
         "description": "A first-person shooter game with various multiplayer modes.",
         "category": "shooter",
         "embed": "https://ubg44.github.io/BulletForce/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/bulletforce.png"
     },
     {
         "id": 32,
@@ -300,7 +300,7 @@ const GAMES_DATABASE = [
         "description": "A multiplayer first-person shooter game.",
         "category": "shooter",
         "embed": "https://ubgwtf.gitlab.io/mad-gunz/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/mad-gunz-3016738451.png"
     },
     
     // Platform & Adventure Games
@@ -310,7 +310,7 @@ const GAMES_DATABASE = [
         "description": "A classic platformer where you run and jump through a series of challenging levels.",
         "category": "adventure",
         "embed": "https://dnrweqffuwjtx.cloudfront.net/games/2024/flash/run-1/index.html",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/Run_OG-logo-1274939593.jpg"
     },
     {
         "id": 34,
@@ -318,7 +318,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Run with more complex levels and new characters.",
         "category": "adventure",
         "embed": "https://ubg89.github.io/Run2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/run2-1880122649.webp"
     },
     {
         "id": 35,
@@ -326,7 +326,7 @@ const GAMES_DATABASE = [
         "description": "The third installment in the Run series, featuring new levels and gameplay mechanics.",
         "category": "adventure",
         "embed": "https://lekug.github.io/tn6pS9dCf37xAhkJv/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/Run3_OG-logo-542179002.jpg"
     },
     {
         "id": 36,
@@ -334,7 +334,7 @@ const GAMES_DATABASE = [
         "description": "A game where you raise and train a duck to compete in races.",
         "category": "adventure",
         "embed": "https://ducklifegame.github.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/DuckLife_OG-logo-2499380549.jpg"
     },
     {
         "id": 37,
@@ -342,7 +342,7 @@ const GAMES_DATABASE = [
         "description": "The sequel to Duck Life with more features and challenges.",
         "category": "adventure",
         "embed": "https://unblockeds-games.github.io/iframe/Duck-Life-2/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/ducklife2.png"
     },
     {
         "id": 38,
@@ -350,7 +350,7 @@ const GAMES_DATABASE = [
         "description": "Another sequel in the Duck Life series with enhanced gameplay.",
         "category": "adventure",
         "embed": "https://unblockedgames911.gitlab.io/duck-life-3/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/ducklife3.png"
     },
     {
         "id": 39,
@@ -358,7 +358,7 @@ const GAMES_DATABASE = [
         "description": "The fourth installment in the Duck Life series.",
         "category": "adventure",
         "embed": "https://htmlxm.github.io/h/duck-life-4",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/ducklife4.png"
     },
     {
         "id": 40,
@@ -366,7 +366,7 @@ const GAMES_DATABASE = [
         "description": "A rhythm-based platformer with challenging levels.",
         "category": "adventure",
         "embed": "https://q9shks-8080.csb.app/service/hvtrs8%2F-ggooevr%7Bgcmg.mre%2Feaoe-ggooevr%7B-faqh%2Flktg%2F/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/geometrydash.png"
     },
     {
         "id": 41,
@@ -374,7 +374,7 @@ const GAMES_DATABASE = [
         "description": "An endless runner game where you dodge obstacles and collect coins.",
         "category": "adventure",
         "embed": "https://subway-surfers.gitlab.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/subway-surfers-desktop-hero-2020-final-1505522840.jpg"
     },
     {
         "id": 42,
@@ -382,7 +382,7 @@ const GAMES_DATABASE = [
         "description": "An arcade game where you help a character cross roads and avoid obstacles.",
         "category": "adventure",
         "embed": "https://webglmath.github.io/eggy-car/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/crossyroad.png"
     },
     {
         "id": 43,
@@ -390,7 +390,7 @@ const GAMES_DATABASE = [
         "description": "A fast-paced tunnel racing game.",
         "category": "adventure",
         "embed": "https://liminthoi.github.io/games/tunnel-rush/index.html",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/tunnel-rush-3219939059.png"
     },
     {
         "id": 44,
@@ -398,7 +398,7 @@ const GAMES_DATABASE = [
         "description": "A ragdoll physics-based platformer with various levels.",
         "category": "adventure",
         "embed": "https://sreekar617.github.io/hw/index.html",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/happywheels.png"
     },
     
     // Arcade Games
@@ -408,7 +408,7 @@ const GAMES_DATABASE = [
         "description": "A simple yet addictive arcade game where you navigate a bird through pipes.",
         "category": "arcade",
         "embed": "https://ccported.github.io/fb/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/flappy-bird-screenshot-1296977527.jpg"
     },
     {
         "id": 46,
@@ -416,7 +416,7 @@ const GAMES_DATABASE = [
         "description": "A multiplayer party game with various mini-games.",
         "category": "arcade",
         "embed": "https://gnhustgames.github.io/fallboys/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/fall-boys-unblocked-1054828642.jpg"
     },
     
     // Horror Games
@@ -426,7 +426,7 @@ const GAMES_DATABASE = [
         "description": "A horror game where you survive nights in a haunted pizzeria.",
         "category": "horror",
         "embed": "https://fivenightsatfreddysonline.github.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/Five-Nights-at-Freddys-f01-res-3753001984.jpg"
     },
     {
         "id": 48,
@@ -434,7 +434,7 @@ const GAMES_DATABASE = [
         "description": "An exploration game set in the eerie and endless backrooms.",
         "category": "horror",
         "embed": "https://unblockeds-games.github.io/iframe/backrooms/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/the-backrooms-lcwz7av7xsd9fl5l-993472238.jpg"
     },
     
     // Simulation & Management Games
@@ -444,7 +444,7 @@ const GAMES_DATABASE = [
         "description": "A city-building game with a focus on creativity and aesthetics.",
         "category": "simulation",
         "embed": "https://manscod.github.io/other/townscaper/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/EGS_Townscaper_OskarStlberg_S3_2560x1440-558540cb0b62cb5520f1f9e5b4c7a204-2698187929.jpg"
     },
     {
         "id": 50,
@@ -452,7 +452,7 @@ const GAMES_DATABASE = [
         "description": "A management game where you run a monkey-themed grocery store.",
         "category": "simulation",
         "embed": "https://monkeymartonline.github.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/monkeymart-half-2564318793.png"
     },
     
     // Puzzle Games
@@ -462,7 +462,7 @@ const GAMES_DATABASE = [
         "description": "A sliding puzzle game where you combine tiles to reach the number 2048.",
         "category": "puzzle",
         "embed": "https://ovolve.github.io/2048-AI/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/2048.png"
     },
     {
         "id": 52,
@@ -470,7 +470,7 @@ const GAMES_DATABASE = [
         "description": "A puzzle game where you combine elements to create new items.",
         "category": "puzzle",
         "embed": "https://classroom15x.com/coolmath/LittleAlchemy2/?gd_sdk_referrer_url=https://classroom15x.com/play/little-alchemy-2",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/littlealchemy2.png"
     },
     {
         "id": 53,
@@ -478,7 +478,7 @@ const GAMES_DATABASE = [
         "description": "The classic puzzle game where you clear a minefield.",
         "category": "puzzle",
         "embed": "https://minesweeper.github.io/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/minesweeper.png"
     },
     
     // Classic Games
@@ -488,7 +488,7 @@ const GAMES_DATABASE = [
         "description": "An incremental game where you click to produce cookies.",
         "category": "classic",
         "embed": "https://ozh.github.io/cookieclicker/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/cookieclicker.png"
     },
     {
         "id": 55,
@@ -496,7 +496,7 @@ const GAMES_DATABASE = [
         "description": "A classic pool game playable in a browser.",
         "category": "classic",
         "embed": "https://8-ball-pool-online.github.io/file/",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/Miniclip-8-Ball-Pool-4.6.2-594489945.jpg"
     },
     {
         "id": 56,
@@ -504,7 +504,7 @@ const GAMES_DATABASE = [
         "description": "The classic card game, Solitaire.",
         "category": "classic",
         "embed": "https://www.google.com/logos/fnbx/solitaire/standalone.html",
-        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+        "thumbnail": "images/2x1_NSwitchDS_SolitaireClassicCardGame_image1600w-751113320.jpg"
     }
 ];
 
