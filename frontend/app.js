@@ -3715,7 +3715,7 @@ async function socialEnsureAuth(){
 async function socialFetchUser(){ 
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
-        return;
+        return false; // Return false to indicate no data fetched
     }
     
     try {
@@ -3726,15 +3726,20 @@ async function socialFetchUser(){
                 scope: 'openid profile email'
             });
         } catch(audienceError) {
-            console.debug('[Social] Retrying token without audience due to error:', audienceError);
-            token = await auth0Client.getTokenSilently({
-                scope: 'openid profile email'
-            });
+            console.debug('[Social] Retrying token without audience due to error:', audienceError.message);
+            try {
+                token = await auth0Client.getTokenSilently({
+                    scope: 'openid profile email'
+                });
+            } catch(noAudienceError) {
+                console.warn('[Social] Failed to get token even without audience:', noAudienceError.message);
+                throw new Error('Unable to get authentication token');
+            }
         }
         
         if(!token) {
             console.warn('[Social] No token available for user fetch');
-            return;
+            throw new Error('No authentication token available');
         }
         
         const r = await fetch(`${BACKEND_URL}/api/user`, {
@@ -3746,19 +3751,36 @@ async function socialFetchUser(){
             socialState.user=data.user; 
             socialState.loaded=true; 
             console.debug('[Social] User data loaded:', data.user?.profile?.username || 'unnamed');
-            syncFavoritesWithCloud(); 
-            renderFriendsPage(); 
+            
+            // These are non-critical, so catch their errors
+            try {
+                syncFavoritesWithCloud(); 
+            } catch(syncError) {
+                console.debug('[Social] Favorites sync failed:', syncError);
+            }
+            
+            try {
+                renderFriendsPage(); 
+            } catch(renderError) {
+                console.debug('[Social] Friends page render failed:', renderError);
+            }
+            
+            return true; // Successfully fetched user data
         } else {
             console.warn('[Social] User fetch failed with status:', r.status);
             
             if(r.status === 401) {
-                console.warn('[Social] 401 Unauthorized - token may be invalid');
-                // Don't retry automatically to prevent loops
-                throw new Error('Authentication failed - please log out and back in');
+                console.warn('[Social] 401 Unauthorized - authentication token may be invalid or expired');
+                throw new Error('Authentication failed - token may be expired');
+            } else if(r.status === 403) {
+                console.warn('[Social] 403 Forbidden - insufficient permissions');
+                throw new Error('Access denied - insufficient permissions');
+            } else {
+                throw new Error(`User fetch failed with status ${r.status}`);
             }
         }
     } catch(e){ 
-        console.error('[Social] User data fetch failed:', e);
+        console.error('[Social] User data fetch failed:', e.message);
         throw e; // Re-throw so calling functions know it failed
     } 
 }
@@ -4119,19 +4141,34 @@ initAuth0 = async function(){
         // Initialize social features if authenticated
         if(await socialEnsureAuth()){ 
             console.debug('[Social] User authenticated, initializing social features');
-            await socialFetchUser(); 
-            presenceHeartbeat(); 
-            if(!socialState.presenceInterval) {
-                socialState.presenceInterval = setInterval(()=>{ 
-                    presenceHeartbeat(); 
-                    updatePresence(); 
-                }, 30000); 
+            
+            // Try to fetch user data, but don't fail initialization if it doesn't work
+            try {
+                await socialFetchUser(); 
+                console.debug('[Social] User data fetched successfully during initialization');
+            } catch(userFetchError) {
+                console.warn('[Social] Failed to fetch user data during initialization:', userFetchError.message);
+                console.debug('[Social] This is not critical - user data will be fetched when needed');
+            }
+            
+            // Start presence system (this should be more robust)
+            try {
+                presenceHeartbeat(); 
+                if(!socialState.presenceInterval) {
+                    socialState.presenceInterval = setInterval(()=>{ 
+                        presenceHeartbeat(); 
+                        updatePresence(); 
+                    }, 30000); 
+                }
+            } catch(presenceError) {
+                console.debug('[Social] Presence system failed to start:', presenceError);
             }
         } else {
             console.debug('[Social] User not authenticated, skipping social features');
         }
     } catch(e){
-        console.error('[Social] Error in enhanced initAuth0:', e);
+        console.warn('[Social] Non-critical error in enhanced initAuth0:', e.message);
+        // Don't fail initialization for social features
     } 
 };
 
