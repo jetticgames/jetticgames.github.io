@@ -120,8 +120,7 @@ body, * { cursor: none !important; }
 .account-action-btn:hover {background:#262e36;}
 .account-action-btn.danger {background:#f85149; border-color:#da3633;}
 .account-action-btn.danger:hover {background:#da3633;}
-.nav-bottom {display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:10px 14px 16px; gap:8px;}
-.nav-bottom .nav-status {order: 0; margin-bottom: 8px;}
+.nav-bottom {display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:10px 14px 16px; gap:0;}
 .nav-bottom .nav-item {flex:0 0 auto;}
 
 /* Create a row container for account and settings */
@@ -131,56 +130,78 @@ body, * { cursor: none !important; }
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    order: 1;
+    width: 100%;
 }
 
 .nav-bottom .nav-account {order: 1; margin-right:auto;}
 .nav-bottom .nav-settings {order: 2; margin-left:auto;}
 .nav-bottom .nav-link {display:flex; align-items:center; gap:8px;}
 
-/* Status Indicator Styles */
-.nav-status {
+/* Header Status Indicator Styles */
+.header-status {
     display: flex;
     align-items: center;
-    padding: 0;
-    margin-left: 12px; /* Align with the nav-icon padding */
+    margin-right: 16px;
 }
 
-.status-indicator {
+.header-status .status-indicator {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
-    font-size: 12px;
-    color: var(--text-secondary);
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.status-dot {
-    width: 8px;
-    height: 8px;
+.header-status .status-dot {
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background: #7d8590;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 2px rgba(125, 133, 144, 0.2);
 }
 
-.status-dot.online {
-    background: #238636;
-    animation: pulse-online 2s infinite;
+.header-status .status-dot.online {
+    background: #2ea043;
+    box-shadow: 0 0 0 2px rgba(46, 160, 67, 0.3), 0 0 8px rgba(46, 160, 67, 0.4);
+    animation: pulse-online-modern 2s infinite;
 }
 
-.status-dot.offline {
+.header-status .status-dot.offline {
     background: #f85149;
+    box-shadow: 0 0 0 2px rgba(248, 81, 73, 0.3);
 }
 
-@keyframes pulse-online {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+@keyframes pulse-online-modern {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1; 
+    }
+    50% { 
+        transform: scale(1.1);
+        opacity: 0.8; 
+    }
 }
 
-.status-text {
-    font-weight: 500;
+.header-status .status-text {
+    color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.header-status .status-text.online {
+    color: #2ea043;
+}
+
+.header-status .status-text.offline {
+    color: #f85149;
 }
 @media (max-width:1200px){ .account-iframe {height:300px;} }
 /* Update modal */
@@ -714,8 +735,35 @@ body, * { cursor: none !important; }
 /* Ad Column */
 .ad-column { display:flex; flex-direction:column; gap:22px; padding-top:4px; }
 .ad-slot { width:100%; aspect-ratio:1/1; background:#161b22; border:1px solid #30363d; border-radius:16px; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-.ad-slot iframe { width:100%; height:100%; border:0; border-radius:inherit; background:#0d1117; }
-.ad-slot::after { content:'Ad'; position:absolute; top:6px; left:10px; font-size:10px; letter-spacing:.8px; text-transform:uppercase; background:#30363d; color:#9ba3af; padding:3px 7px; border-radius:6px; font-weight:600; }
+.ad-slot iframe { 
+    width:100% !important; 
+    height:100% !important; 
+    border:0; 
+    border-radius:inherit; 
+    background:#0d1117; 
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    object-fit:cover;
+}
+.ad-slot img, 
+.ad-slot object, 
+.ad-slot embed,
+.ad-slot video { 
+    width:100% !important; 
+    height:100% !important; 
+    border:0; 
+    border-radius:inherit; 
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    object-fit:cover;
+}
+.ad-slot::after { content:'Ad'; position:absolute; top:6px; left:10px; font-size:10px; letter-spacing:.8px; text-transform:uppercase; background:#30363d; color:#9ba3af; padding:3px 7px; border-radius:6px; font-weight:600; z-index:1; }
 .ad-slot.loading::before { content:""; position:absolute; inset:0; background:linear-gradient(110deg,#1a1f25 8%,#222a33 18%,#1a1f25 33%); background-size:200% 100%; animation:adShimmer 1.4s linear infinite; }
 @keyframes adShimmer { to { background-position:-200% 0; } }
 

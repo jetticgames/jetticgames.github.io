@@ -3300,14 +3300,14 @@ let lastKnownStatus = null;
 function initBackendStatusMonitoring() {
     console.log('🔄 Initializing backend status monitoring');
     
-    // Listen for online/offline events
+    // Listen for online/offline events (as hints, but verify with actual requests)
     window.addEventListener('online', () => {
-        console.log('🌐 User came back online');
-        checkBackendStatus(); // Immediately check when coming back online
+        console.log('🌐 Browser detected network restoration');
+        setTimeout(checkBackendStatus, 1000); // Check after a brief delay
     });
     
     window.addEventListener('offline', () => {
-        console.log('📡 User went offline');
+        console.log('📡 Browser detected network loss');
         updateStatusDisplay(false);
         lastKnownStatus = false;
     });
@@ -3315,8 +3315,8 @@ function initBackendStatusMonitoring() {
     // Perform initial status check
     checkBackendStatus();
     
-    // Set up interval to check every 30 seconds
-    statusCheckInterval = setInterval(checkBackendStatus, 30000);
+    // Set up interval to check every 15 seconds (more frequent for better UX)
+    statusCheckInterval = setInterval(checkBackendStatus, 15000);
 }
 
 async function checkBackendStatus() {
@@ -3328,21 +3328,12 @@ async function checkBackendStatus() {
         return;
     }
     
-    // First check if user is online at all
-    if (!navigator.onLine) {
-        updateStatusDisplay(false);
-        if (lastKnownStatus !== false) {
-            console.warn('❌ User is offline (no internet connection)');
-            lastKnownStatus = false;
-        }
-        return;
-    }
-    
     try {
         // Use a lightweight endpoint to check backend availability
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (shorter for better UX)
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
         
+        // Try to fetch from our backend first
         const response = await fetch(`${window.WATERWALL_BACKEND_URL}/api/health`, {
             method: 'GET',
             signal: controller.signal,
@@ -3362,10 +3353,34 @@ async function checkBackendStatus() {
             throw new Error(`HTTP ${response.status}`);
         }
     } catch (error) {
-        updateStatusDisplay(false);
-        if (lastKnownStatus !== false) {
-            console.warn('❌ Backend offline:', error.name === 'AbortError' ? 'Request timeout' : error.message);
-            lastKnownStatus = false;
+        // If backend fails, try a fallback connectivity test
+        try {
+            const fallbackController = new AbortController();
+            const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 2000);
+            
+            // Try to fetch a small image from a reliable CDN to test internet connectivity
+            await fetch('https://www.google.com/favicon.ico', {
+                method: 'HEAD',
+                signal: fallbackController.signal,
+                cache: 'no-cache',
+                mode: 'no-cors'
+            });
+            
+            clearTimeout(fallbackTimeoutId);
+            
+            // If we can reach Google but not our backend, backend is offline but user has internet
+            updateStatusDisplay(false);
+            if (lastKnownStatus !== false) {
+                console.warn('❌ Backend offline (internet connection available):', error.name === 'AbortError' ? 'Request timeout' : error.message);
+                lastKnownStatus = false;
+            }
+        } catch (fallbackError) {
+            // Both backend and fallback failed - user is likely offline
+            updateStatusDisplay(false);
+            if (lastKnownStatus !== false) {
+                console.warn('❌ No internet connection detected');
+                lastKnownStatus = false;
+            }
         }
     }
 }
@@ -3378,15 +3393,16 @@ function updateStatusDisplay(isOnline) {
     
     // Remove existing classes
     statusDot.classList.remove('online', 'offline');
+    statusText.classList.remove('online', 'offline');
     
     if (isOnline) {
         statusDot.classList.add('online');
+        statusText.classList.add('online');
         statusText.textContent = 'Online';
-        statusText.style.color = '#238636';
     } else {
         statusDot.classList.add('offline');
+        statusText.classList.add('offline');
         statusText.textContent = 'Offline';
-        statusText.style.color = '#f85149';
     }
 }
 
