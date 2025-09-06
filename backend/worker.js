@@ -23,26 +23,26 @@ const DEFAULT_CONFIG = {
     // Feature Toggles - Admin can enable/disable any feature globally
     features: {
         // Core Features
-        accountSystemEnabled: false,        // Enable/disable Auth0 login system
-        favoritesEnabled: false,           // Enable/disable favorites functionality
-        searchEnabled: false,              // Enable/disable game search
-        fullscreenEnabled: false,          // Enable/disable fullscreen mode
-        categoriesEnabled: false,          // Enable/disable category filtering
-        settingsMenuEnabled: false,        // Enable/disable entire settings menu
-        updatingEnabled: false,            // Enable/disable update checks and notifications
+        accountSystemEnabled: true,        // Enable/disable Auth0 login system
+        favoritesEnabled: true,           // Enable/disable favorites functionality
+        searchEnabled: true,              // Enable/disable game search
+        fullscreenEnabled: true,          // Enable/disable fullscreen mode
+        categoriesEnabled: true,          // Enable/disable category filtering
+        settingsMenuEnabled: true,        // Enable/disable entire settings menu
+        updatingEnabled: true,            // Enable/disable update checks and notifications
         
         // Visual Features
-        particlesEnabled: false,           // Enable/disable background particles system
-        customCursorEnabled: false,        // Enable/disable custom cursor functionality
+        particlesEnabled: true,           // Enable/disable background particles system
+        customCursorEnabled: true,        // Enable/disable custom cursor functionality
         
         // Advanced Features
-        proxyEnabled: false,               // Enable/disable proxy functionality globally
-        gameEmbedEnabled: false,           // Enable/disable game embedding
-        themeCustomizationEnabled: false,  // Enable/disable theme customization
-        keyboardShortcutsEnabled: false,   // Enable/disable keyboard shortcuts
+        proxyEnabled: true,               // Enable/disable proxy functionality globally
+        gameEmbedEnabled: true,           // Enable/disable game embedding
+        themeCustomizationEnabled: true,  // Enable/disable theme customization
+        keyboardShortcutsEnabled: true,   // Enable/disable keyboard shortcuts
         
         // Content Controls
-        adVerificationEnabled: false,     // Enable/disable ad verification page
+        adVerificationEnabled: true,     // Enable/disable ad verification page
         mobileAccessEnabled: false,       // Enable/disable mobile device access
         
         // Admin Controls
