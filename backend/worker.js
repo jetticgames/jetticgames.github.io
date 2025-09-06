@@ -717,6 +717,7 @@ export default {
             message: 'WaterWall Backend API',
             version: APP_VERSION,
             endpoints: [
+                'GET /api/health - Health check endpoint',
                 'GET /api/games - Get all games',
                 'GET /api/config - Get application configuration',
                 'GET /api/version - Get version info and check for updates',
@@ -758,6 +759,11 @@ async function handleAPIRequest(request, url, env, ctx) {
     const method = request.method;
     
     try {
+        // Health check endpoint
+        if (path === '/health') {
+            return handleHealthAPI(request, env);
+        }
+        
         // Games endpoint
         if (path === '/games') {
             return handleGamesAPI(request, env);
@@ -1630,6 +1636,30 @@ function logRequest(request, targetUrl, status) {
 }
 
 // API Handler Functions
+
+// Handle health check API
+async function handleHealthAPI(request, env) {
+    const healthData = {
+        status: 'OK',
+        version: APP_VERSION,
+        timestamp: new Date().toISOString(),
+        uptime: 'N/A', // Cloudflare Workers don't have persistent uptime
+        services: {
+            database: 'OK',
+            api: 'OK'
+        },
+        games_count: GAMES_DATABASE.length
+    };
+
+    return new Response(JSON.stringify(healthData), {
+        status: 200,
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            ...getCORSHeaders()
+        }
+    });
+}
 
 // Handle games API
 async function handleGamesAPI(request, env) {

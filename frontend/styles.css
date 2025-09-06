@@ -120,11 +120,67 @@ body, * { cursor: none !important; }
 .account-action-btn:hover {background:#262e36;}
 .account-action-btn.danger {background:#f85149; border-color:#da3633;}
 .account-action-btn.danger:hover {background:#da3633;}
-.nav-bottom {display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:10px 14px 16px; gap:0;}
+.nav-bottom {display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; padding:10px 14px 16px; gap:8px;}
+.nav-bottom .nav-status {order: 0; margin-bottom: 8px;}
 .nav-bottom .nav-item {flex:0 0 auto;}
-.nav-bottom .nav-account {margin-right:auto;}
-.nav-bottom .nav-settings {margin-left:auto;}
+
+/* Create a row container for account and settings */
+.nav-bottom .nav-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    order: 1;
+}
+
+.nav-bottom .nav-account {order: 1; margin-right:auto;}
+.nav-bottom .nav-settings {order: 2; margin-left:auto;}
 .nav-bottom .nav-link {display:flex; align-items:center; gap:8px;}
+
+/* Status Indicator Styles */
+.nav-status {
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #7d8590;
+    transition: background-color 0.3s ease;
+}
+
+.status-dot.online {
+    background: #238636;
+    animation: pulse-online 2s infinite;
+}
+
+.status-dot.offline {
+    background: #f85149;
+}
+
+@keyframes pulse-online {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.status-text {
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 @media (max-width:1200px){ .account-iframe {height:300px;} }
 /* Update modal */
 .update-modal {position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; font-family:inherit;}

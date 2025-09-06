@@ -241,6 +241,9 @@ async function startApp() {
         await initAuth0();
         signalPageLoaderStage('auth');
         
+        // Initialize backend status monitoring
+        initBackendStatusMonitoring();
+        
         // Force render games immediately
         forceRenderGames();
         
@@ -3226,6 +3229,88 @@ if (document.readyState === 'loading') {
 } else {
     initializeAdminControls();
 }
+
+// ===== Backend Status Monitoring =====
+let statusCheckInterval = null;
+let lastKnownStatus = null;
+
+function initBackendStatusMonitoring() {
+    console.log('🔄 Initializing backend status monitoring');
+    
+    // Perform initial status check
+    checkBackendStatus();
+    
+    // Set up interval to check every 30 seconds
+    statusCheckInterval = setInterval(checkBackendStatus, 30000);
+}
+
+async function checkBackendStatus() {
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    if (!statusDot || !statusText) {
+        console.warn('Status indicator elements not found');
+        return;
+    }
+    
+    try {
+        // Use a lightweight endpoint to check backend availability
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const response = await fetch(`${window.WATERWALL_BACKEND_URL}/api/health`, {
+            method: 'GET',
+            signal: controller.signal,
+            cache: 'no-cache'
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+            updateStatusDisplay(true);
+            if (lastKnownStatus !== true) {
+                console.log('✅ Backend online');
+                lastKnownStatus = true;
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        updateStatusDisplay(false);
+        if (lastKnownStatus !== false) {
+            console.warn('❌ Backend offline:', error.message);
+            lastKnownStatus = false;
+        }
+    }
+}
+
+function updateStatusDisplay(isOnline) {
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    if (!statusDot || !statusText) return;
+    
+    // Remove existing classes
+    statusDot.classList.remove('online', 'offline');
+    
+    if (isOnline) {
+        statusDot.classList.add('online');
+        statusText.textContent = 'Online';
+        statusText.style.color = '#238636';
+    } else {
+        statusDot.classList.add('offline');
+        statusText.textContent = 'Offline';
+        statusText.style.color = '#f85149';
+    }
+}
+
+// Clean up interval on page unload
+window.addEventListener('beforeunload', () => {
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+    }
+});
 
 
 

@@ -98,17 +98,26 @@
                 </ul>
                 
                 <ul class="nav-list nav-bottom">
-                    <li class="nav-item nav-account" id="accountNavItem">
-                        <a href="#" class="nav-link account-link" style="justify-content:flex-start;">
-                            <i class="nav-icon fas fa-user-circle"></i>
-                            <span id="accountLabel">Sign in / Sign up</span>
-                        </a>
+                    <!-- WaterWall Online Services Status -->
+                    <li class="nav-item nav-status">
+                        <div class="status-indicator">
+                            <div class="status-dot" id="statusDot"></div>
+                            <span class="status-text" id="statusText">Checking...</span>
+                        </div>
                     </li>
-                    <li class="nav-item nav-settings" data-page="settings">
-                        <a href="#" class="nav-link" style="justify-content:flex-end;">
-                            <i class="nav-icon fas fa-cog"></i>
-                        </a>
-                    </li>
+                    <div class="nav-actions">
+                        <li class="nav-item nav-account" id="accountNavItem">
+                            <a href="#" class="nav-link account-link" style="justify-content:flex-start;">
+                                <i class="nav-icon fas fa-user-circle"></i>
+                                <span id="accountLabel">Sign in / Sign up</span>
+                            </a>
+                        </li>
+                        <li class="nav-item nav-settings" data-page="settings">
+                            <a href="#" class="nav-link" style="justify-content:flex-end;">
+                                <i class="nav-icon fas fa-cog"></i>
+                            </a>
+                        </li>
+                    </div>
                 </ul>
             </nav>
         </aside>
