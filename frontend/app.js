@@ -1290,6 +1290,11 @@ function showHomePage(){
     forceRenderGames();
     buildCategoryTabs();
     renderFavoritesSection();
+    
+    // Show main content offline overlay if currently offline
+    if (document.body.classList.contains('offline-mode')) {
+        showMainContentOfflineOverlay();
+    }
 }
 
 function showCategoriesPage() {
@@ -1345,6 +1350,11 @@ function showFavoritesPage(){
     hideAllPages();
     const fav=document.getElementById('favoritesPage'); if(fav) fav.classList.add('active');
     renderFavoritesPage();
+    
+    // Show main content offline overlay if currently offline
+    if (document.body.classList.contains('offline-mode')) {
+        showMainContentOfflineOverlay();
+    }
 }
 
 function showSettingsPage(){
@@ -1406,6 +1416,11 @@ function showGamePage(game) {
     // Load the game after a brief delay to ensure iframe is ready
     setTimeout(() => {
         loadGame(game);
+        
+        // Show game offline overlay if currently offline
+        if (document.body.classList.contains('offline-mode')) {
+            showGameOfflineOverlay();
+        }
     }, 100);
     // Update favorite heart state now that currentGame is set
     updateFavoriteButtonState();
@@ -3421,10 +3436,12 @@ function updateStatusDisplay(isOnline) {
         statusDot.classList.add('online');
         statusText.classList.add('online');
         statusText.textContent = 'Online';
+        hideOfflineMode();
     } else {
         statusDot.classList.add('offline');
         statusText.classList.add('offline');
         statusText.textContent = 'Offline';
+        showOfflineMode();
     }
 }
 
@@ -3433,6 +3450,134 @@ window.addEventListener('beforeunload', () => {
     if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
         statusCheckInterval = null;
+    }
+});
+
+// ===== Offline Mode Management =====
+function showOfflineMode() {
+    console.log('📱 Entering offline mode');
+    
+    // Add offline class to body
+    document.body.classList.add('offline-mode');
+    
+    // Show offline overlays container
+    const offlineOverlays = document.getElementById('offlineOverlays');
+    if (offlineOverlays) {
+        offlineOverlays.style.display = 'block';
+    }
+    
+    // Show main content offline overlay (for homepage/favorites)
+    showMainContentOfflineOverlay();
+    
+    // Show game offline overlay if a game is currently open
+    if (currentGame) {
+        showGameOfflineOverlay();
+    }
+    
+    // Show ads offline overlay
+    showAdsOfflineOverlay();
+}
+
+function hideOfflineMode() {
+    console.log('🌐 Exiting offline mode');
+    
+    // Remove offline class from body
+    document.body.classList.remove('offline-mode');
+    
+    // Hide offline overlays container
+    const offlineOverlays = document.getElementById('offlineOverlays');
+    if (offlineOverlays) {
+        offlineOverlays.style.display = 'none';
+    }
+    
+    // Hide all individual overlays
+    hideMainContentOfflineOverlay();
+    hideGameOfflineOverlay();
+    hideAdsOfflineOverlay();
+}
+
+function showMainContentOfflineOverlay() {
+    const overlay = document.getElementById('mainOfflineOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+        
+        // Position the overlay over the main content area
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            const rect = mainContent.getBoundingClientRect();
+            overlay.style.position = 'fixed';
+            overlay.style.top = rect.top + 'px';
+            overlay.style.left = rect.left + 'px';
+            overlay.style.width = rect.width + 'px';
+            overlay.style.height = rect.height + 'px';
+        }
+    }
+}
+
+function hideMainContentOfflineOverlay() {
+    const overlay = document.getElementById('mainOfflineOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function showGameOfflineOverlay() {
+    const overlay = document.getElementById('gameOfflineOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+        
+        // Position the overlay over the game iframe
+        const gameFrame = document.getElementById('gameFrame');
+        if (gameFrame) {
+            const rect = gameFrame.getBoundingClientRect();
+            overlay.style.position = 'fixed';
+            overlay.style.top = rect.top + 'px';
+            overlay.style.left = rect.left + 'px';
+            overlay.style.width = rect.width + 'px';
+            overlay.style.height = rect.height + 'px';
+        }
+    }
+}
+
+function hideGameOfflineOverlay() {
+    const overlay = document.getElementById('gameOfflineOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function showAdsOfflineOverlay() {
+    const overlay = document.getElementById('adsOfflineOverlay');
+    const adColumn = document.getElementById('adColumn');
+    
+    if (overlay && adColumn) {
+        overlay.style.display = 'flex';
+        
+        // Position the overlay over the ad column
+        const rect = adColumn.getBoundingClientRect();
+        overlay.style.position = 'fixed';
+        overlay.style.top = rect.top + 'px';
+        overlay.style.left = rect.left + 'px';
+        overlay.style.width = rect.width + 'px';
+        overlay.style.height = rect.height + 'px';
+    }
+}
+
+function hideAdsOfflineOverlay() {
+    const overlay = document.getElementById('adsOfflineOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// Update overlay positions on window resize
+window.addEventListener('resize', () => {
+    if (document.body.classList.contains('offline-mode')) {
+        showMainContentOfflineOverlay();
+        if (currentGame) {
+            showGameOfflineOverlay();
+        }
+        showAdsOfflineOverlay();
     }
 });
 

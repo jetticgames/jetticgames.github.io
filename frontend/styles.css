@@ -203,6 +203,115 @@ body, * { cursor: none !important; }
 .header-status .status-text.offline {
     color: #f85149;
 }
+
+/* Offline Overlays */
+.offline-overlays {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.game-offline-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(13, 17, 23, 0.95);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    pointer-events: auto;
+}
+
+.main-offline-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(13, 17, 23, 0.98);
+    backdrop-filter: blur(12px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    pointer-events: auto;
+}
+
+.ads-offline-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(13, 17, 23, 0.9);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: auto;
+    border-radius: 16px;
+}
+
+.offline-content {
+    text-align: center;
+    color: var(--text-primary);
+    padding: 32px;
+    max-width: 400px;
+}
+
+.offline-content i {
+    font-size: 48px;
+    color: #f85149;
+    margin-bottom: 16px;
+    opacity: 0.8;
+}
+
+.offline-content h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.offline-content h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.offline-content p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.offline-content span {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Hide content when offline */
+.offline-mode .games-grid,
+.offline-mode #categoryTabs,
+.offline-mode #allGamesTitle,
+.offline-mode #favoritesTitle,
+.offline-mode #favoriteGamesSection,
+.offline-mode #favoritesPageGrid,
+.offline-mode .ad-column {
+    display: none !important;
+}
 @media (max-width:1200px){ .account-iframe {height:300px;} }
 /* Update modal */
 .update-modal {position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; font-family:inherit;}
