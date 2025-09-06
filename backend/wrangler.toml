@@ -52,11 +52,11 @@ ENVIRONMENT = "development"
 APP_VERSION = "2.0.0"
 # --- Auth0 Configuration (set via `wrangler secret put` for secrets) ---
 # Your Auth0 tenant domain (e.g. dev-xxxxxxx.us.auth0.com)
-AUTH0_DOMAIN = "your-auth0-domain"
+AUTH0_DOMAIN = "dev-lciqwnyb52wdezeo.us.auth0.com"
 # Audience for Access Tokens (API Identifier configured in Auth0).  If not set the worker will default to https://<domain>/api/v2/ for Management calls only.
-AUTH0_AUDIENCE = "your-api-audience"
+AUTH0_AUDIENCE = "https://waterwall-backend.zonikyo.workers.dev"
 # Comma separated list of allowed SPA client IDs that can call this backend
-AUTH0_ALLOWED_CLIENT_IDS = "spa-client-id-1,spa-client-id-2"
+AUTH0_ALLOWED_CLIENT_IDS = "sbABJXSUTPmROG9WTrdB0LrUBtTwnWxO"
 # The following must be added as secrets (NOT committed):
 # AUTH0_MGMT_CLIENT_ID
 # AUTH0_MGMT_CLIENT_SECRET

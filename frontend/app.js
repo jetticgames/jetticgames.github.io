@@ -3758,42 +3758,48 @@ async function getAuthToken(requireAudience = true) {
     }
 
     try {
-        // First attempt with audience
-        if (requireAudience) {
-            try {
-                return await auth0Client.getTokenSilently({
-                    audience: AUTH0_AUDIENCE,
-                    scope: 'openid profile email'
-                });
-            } catch (audienceError) {
-                console.debug('[Auth] Audience token failed, trying without audience:', audienceError.message);
-            }
-        }
-
-        // Fallback without audience
+        // Always try with audience first for backend API calls
         try {
             return await auth0Client.getTokenSilently({
+                audience: AUTH0_AUDIENCE,
                 scope: 'openid profile email'
             });
-        } catch (fallbackError) {
-            console.warn('[Auth] Fallback token failed:', fallbackError.message);
+        } catch (audienceError) {
+            console.debug('[Auth] Initial token request failed:', audienceError.message);
             
-            // Try forcing refresh
-            try {
-                console.debug('[Auth] Attempting force refresh...');
-                return await auth0Client.getTokenSilently({
-                    audience: requireAudience ? AUTH0_AUDIENCE : undefined,
-                    scope: 'openid profile email',
-                    ignoreCache: true
-                });
-            } catch (refreshError) {
-                console.error('[Auth] Force refresh failed:', refreshError.message);
-                throw new Error('Failed to obtain authentication token after multiple attempts');
+            // If audience is required (backend calls), try force refresh with audience
+            if (requireAudience) {
+                try {
+                    console.debug('[Auth] Attempting force refresh with audience...');
+                    return await auth0Client.getTokenSilently({
+                        audience: AUTH0_AUDIENCE,
+                        scope: 'openid profile email',
+                        ignoreCache: true
+                    });
+                } catch (refreshError) {
+                    console.error('[Auth] Force refresh with audience failed:', refreshError.message);
+                    throw new Error('Failed to obtain authentication token with required audience');
+                }
+            } else {
+                // Only for non-backend calls, try without audience
+                try {
+                    return await auth0Client.getTokenSilently({
+                        scope: 'openid profile email'
+                    });
+                } catch (fallbackError) {
+                    console.error('[Auth] Fallback token failed:', fallbackError.message);
+                    throw new Error('Failed to obtain authentication token');
+                }
             }
         }
     } catch (error) {
         console.error('[Auth] getAuthToken error:', error);
-        showNotification('Authentication token error. Please try signing in again.', 'error');
+        
+        // Only show notification for user-facing errors, not system errors
+        if (error.message.includes('authentication') || error.message.includes('token')) {
+            showNotification('Authentication token error. Please try signing in again.', 'error');
+        }
+        
         throw error;
     }
 }
@@ -3841,7 +3847,50 @@ async function socialFetchUser(){
             
             if(r.status === 401) {
                 console.warn('[Social] 401 Unauthorized - authentication token may be invalid or expired');
-                throw new Error('Authentication failed - token may be expired');
+                
+                // Try to get a fresh token and retry once
+                try {
+                    console.debug('[Social] Attempting to refresh token and retry...');
+                    const freshToken = await auth0Client.getTokenSilently({
+                        audience: AUTH0_AUDIENCE,
+                        scope: 'openid profile email',
+                        ignoreCache: true
+                    });
+                    
+                    // Retry the request with fresh token
+                    const retryResponse = await fetch(`${BACKEND_URL}/api/user`, {
+                        headers:{Authorization:`Bearer ${freshToken}`}
+                    });
+                    
+                    if(retryResponse.ok) {
+                        const data = await retryResponse.json();
+                        console.debug('[Social] User data received on retry');
+                        socialState.user=data.user; 
+                        socialState.loaded=true; 
+                        console.debug('[Social] User data loaded on retry:', data.user?.profile?.username || 'unnamed');
+                        
+                        // These are non-critical, so catch their errors
+                        try {
+                            syncFavoritesWithCloud(); 
+                        } catch(syncError) {
+                            console.debug('[Social] Favorites sync failed:', syncError);
+                        }
+                        
+                        try {
+                            renderFriendsPage(); 
+                        } catch(renderError) {
+                            console.debug('[Social] Friends page render failed:', renderError);
+                        }
+                        
+                        return true;
+                    } else {
+                        console.error('[Social] Retry also failed with status:', retryResponse.status);
+                        throw new Error('Authentication failed - token may be expired');
+                    }
+                } catch (retryError) {
+                    console.error('[Social] Token refresh failed:', retryError);
+                    throw new Error('Authentication failed - token may be expired');
+                }
             } else if(r.status === 403) {
                 console.warn('[Social] 403 Forbidden - insufficient permissions');
                 throw new Error('Access denied - insufficient permissions');
