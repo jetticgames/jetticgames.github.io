@@ -1,13 +1,6 @@
 // Cloudflare Worker script for WaterWall proxy
 // This worker acts as a reverse proxy to bypass CORS and domain restrictions
 
-// Maintenance mode configuration
-const MAINTENANCE_MODE = {
-    enabled: true, // Set to true to enable maintenance mode
-    message: "WaterWall is currently under maintenance. We'll be back online soon!",
-    estimatedTime: "Please check back in a few hours."
-};
-
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -15,21 +8,6 @@ export default {
         // Handle CORS preflight requests
         if (request.method === 'OPTIONS') {
             return handleCORS();
-        }
-        
-        // Handle maintenance status check
-        if (url.pathname === '/maintenance-status') {
-            return new Response(JSON.stringify({
-                maintenanceMode: MAINTENANCE_MODE.enabled,
-                message: MAINTENANCE_MODE.message,
-                estimatedTime: MAINTENANCE_MODE.estimatedTime
-            }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getCORSHeaders()
-                }
-            });
         }
         
         // Check rate limits

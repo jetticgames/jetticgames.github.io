@@ -252,30 +252,26 @@ function showGamesLoadFailure(){
     }
 }
 
-// Check maintenance status from backend
+// Check maintenance status (frontend-only)
 async function checkMaintenanceStatus() {
     try {
-        // First check for local override
-        const localOverride = localStorage.getItem('ww_maintenance_override');
-        if (localOverride) {
-            const override = JSON.parse(localOverride);
-            if (override && typeof override.enabled === 'boolean') {
-                maintenanceMode = override;
-                console.log('🔧 Using local maintenance override:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
+        // Check for local maintenance mode setting
+        const localSetting = localStorage.getItem('ww_maintenance_mode');
+        if (localSetting) {
+            const setting = JSON.parse(localSetting);
+            if (setting && typeof setting.enabled === 'boolean') {
+                maintenanceMode = setting;
+                console.log('🔧 Maintenance status:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
                 return;
             }
         }
         
-        // Then check backend
-        const response = await fetch('https://waterwallrelayservice.zonikyo.workers.dev/maintenance-status');
-        if (response.ok) {
-            const status = await response.json();
-            maintenanceMode = status;
-            console.log('🔧 Maintenance status from backend:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
-        }
+        // Default to disabled
+        maintenanceMode.enabled = false;
+        console.log('🔧 Maintenance status: DISABLED (default)');
     } catch (error) {
         console.warn('⚠️ Failed to check maintenance status:', error);
-        // Keep maintenance mode disabled if we can't reach the backend
+        // Keep maintenance mode disabled on error
         maintenanceMode.enabled = false;
     }
 }
@@ -1496,7 +1492,7 @@ function ensureSettingsPage(){
                                 <label class="switch-row" for="maintenanceToggleSetting">
                                     <div class="switch-text">
                                         <span class="setting-title">🚧 Maintenance Mode</span>
-                                        <span class="setting-sub">Disable all games and show maintenance notice</span>
+                                        <span class="setting-sub">Hide all games and show maintenance notice (local setting)</span>
                                     </div>
                                     <input type="checkbox" id="maintenanceToggleSetting" class="ww-switch-input" ${maintenanceMode.enabled?'checked':''} onchange="toggleMaintenanceMode(this)">
                                     <span class="ww-switch" aria-hidden="true"></span>
@@ -2708,11 +2704,11 @@ function toggleMaintenanceMode(toggleElement) {
         renderFavoritesSection();
     }
     
-    // Save maintenance state to localStorage (local override)
+    // Save maintenance state to localStorage
     try {
-        localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+        localStorage.setItem('ww_maintenance_mode', JSON.stringify(maintenanceMode));
     } catch (e) {
-        console.warn('Failed to save maintenance override:', e);
+        console.warn('Failed to save maintenance mode:', e);
     }
 }
 

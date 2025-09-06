@@ -83,16 +83,16 @@
         
         <div class="section">
             <h3>Local Controls</h3>
-            <p>These controls simulate what site administrators can do through the settings page:</p>
+            <p>These controls manage the frontend maintenance mode setting:</p>
             <button onclick="enableMaintenance()">🚧 Enable Maintenance Mode</button>
             <button onclick="disableMaintenance()" class="danger">✅ Disable Maintenance Mode</button>
-            <button onclick="clearOverride()">🗑️ Clear Local Override</button>
+            <button onclick="clearSettings()">🗑️ Clear Maintenance Settings</button>
         </div>
         
         <div class="section">
-            <h3>Backend Status</h3>
-            <pre id="backendStatus">Click "Check Backend" to view</pre>
-            <button onclick="checkBackend()">🌐 Check Backend Status</button>
+            <h3>Local Storage</h3>
+            <pre id="localStorageStatus">Click "Check Local Storage" to view</pre>
+            <button onclick="checkLocalStorage()">💾 Check Local Storage</button>
         </div>
         
         <div class="section">
@@ -101,6 +101,7 @@
             <p>2. Open <a href="index.html" target="_blank" style="color: #58a6ff;">index.html</a> in another tab to see the effect</p>
             <p>3. When maintenance is enabled, games should be hidden and a maintenance notice should appear</p>
             <p>4. Check the settings page to see the maintenance toggle</p>
+            <p>5. Maintenance mode is stored in browser localStorage and persists across sessions</p>
         </div>
     </div>
 
@@ -128,53 +129,55 @@
 
         function checkStatus() {
             try {
-                const localOverride = localStorage.getItem('ww_maintenance_override');
-                if (localOverride) {
-                    const override = JSON.parse(localOverride);
-                    if (override && typeof override.enabled === 'boolean') {
-                        maintenanceMode = override;
-                        console.log('Using local maintenance override:', maintenanceMode.enabled);
+                const localSetting = localStorage.getItem('ww_maintenance_mode');
+                if (localSetting) {
+                    const setting = JSON.parse(localSetting);
+                    if (setting && typeof setting.enabled === 'boolean') {
+                        maintenanceMode = setting;
+                        console.log('Using maintenance mode setting:', maintenanceMode.enabled);
                     }
                 }
             } catch (e) {
-                console.warn('Failed to check local override:', e);
+                console.warn('Failed to check maintenance setting:', e);
             }
             updateStatus();
         }
 
         function enableMaintenance() {
             maintenanceMode.enabled = true;
-            localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+            localStorage.setItem('ww_maintenance_mode', JSON.stringify(maintenanceMode));
             updateStatus();
             alert('✅ Maintenance mode enabled! Check index.html to see the effect.');
         }
 
         function disableMaintenance() {
             maintenanceMode.enabled = false;
-            localStorage.setItem('ww_maintenance_override', JSON.stringify(maintenanceMode));
+            localStorage.setItem('ww_maintenance_mode', JSON.stringify(maintenanceMode));
             updateStatus();
             alert('✅ Maintenance mode disabled! Games should be available again.');
         }
 
-        function clearOverride() {
-            localStorage.removeItem('ww_maintenance_override');
+        function clearSettings() {
+            localStorage.removeItem('ww_maintenance_mode');
             maintenanceMode.enabled = false;
             updateStatus();
-            alert('✅ Local override cleared! Backend status will be used.');
+            alert('✅ Maintenance settings cleared! Default state restored.');
         }
 
-        async function checkBackend() {
-            const statusEl = document.getElementById('backendStatus');
-            statusEl.textContent = 'Checking backend...';
-            
+        function checkLocalStorage() {
+            const statusEl = document.getElementById('localStorageStatus');
             try {
-                const response = await fetch('https://waterwallrelayservice.zonikyo.workers.dev/maintenance-status');
-                if (response.ok) {
-                    const status = await response.json();
-                    statusEl.textContent = JSON.stringify(status, null, 2);
-                } else {
-                    statusEl.textContent = `Error: ${response.status} ${response.statusText}`;
-                }
+                const maintenanceData = localStorage.getItem('ww_maintenance_mode');
+                const settingsData = localStorage.getItem('ww_settings');
+                const favoritesData = localStorage.getItem('ww_favorites');
+                
+                const data = {
+                    maintenance: maintenanceData ? JSON.parse(maintenanceData) : null,
+                    settings: settingsData ? JSON.parse(settingsData) : null,
+                    favorites: favoritesData ? JSON.parse(favoritesData) : null
+                };
+                
+                statusEl.textContent = JSON.stringify(data, null, 2);
             } catch (error) {
                 statusEl.textContent = `Error: ${error.message}`;
             }
