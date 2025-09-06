@@ -1112,6 +1112,9 @@ function handleNavigation(e) {
                 case 'favorites':
                     showFavoritesPage();
                     break;
+                case 'friends':
+                    showFriendsPage();
+                    break;
                 case 'settings':
                     showSettingsPage();
                     break;
