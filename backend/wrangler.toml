@@ -50,6 +50,35 @@ id = "your-staging-ratelimit-kv-namespace-id"
 [vars]
 ENVIRONMENT = "development"
 APP_VERSION = "2.0.0"
+# --- Auth0 Configuration (set via `wrangler secret put` for secrets) ---
+# Your Auth0 tenant domain (e.g. dev-xxxxxxx.us.auth0.com)
+AUTH0_DOMAIN = "your-auth0-domain"
+# Audience for Access Tokens (API Identifier configured in Auth0).  If not set the worker will default to https://<domain>/api/v2/ for Management calls only.
+AUTH0_AUDIENCE = "your-api-audience"
+# Comma separated list of allowed SPA client IDs that can call this backend
+AUTH0_ALLOWED_CLIENT_IDS = "spa-client-id-1,spa-client-id-2"
+# The following must be added as secrets (NOT committed):
+# AUTH0_MGMT_CLIENT_ID
+# AUTH0_MGMT_CLIENT_SECRET
+
+# --- Feature Flags for new social/profile layer ---
+FRIENDS_FEATURE_ENABLED = "true"
+PROFILE_CUSTOMIZATION_ENABLED = "true"
+PRESENCE_ENABLED = "true"
+
+# Presence heartbeat interval (seconds) advised to clients
+PRESENCE_HEARTBEAT_INTERVAL = "30"
+
+# KV Namespace bindings (add actual ids under each environment) for username index & presence tracking
+# [[kv_namespaces]]
+# binding = "USER_INDEX_KV"
+# id = "paste-username-index-kv-id"
+# preview_id = "paste-username-index-kv-preview-id"
+
+# [[kv_namespaces]]
+# binding = "PRESENCE_KV"
+# id = "paste-presence-kv-id"
+# preview_id = "paste-presence-kv-preview-id"
 
 [env.production.vars]
 ENVIRONMENT = "production"

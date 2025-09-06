@@ -3581,6 +3581,68 @@ window.addEventListener('resize', () => {
     }
 });
 
+// ================= Social Layer (User Sync, Friends, Profile, Presence) =================
+let socialState = { loaded:false, user:null, syncing:false, presenceInterval:null };
+async function socialEnsureAuth(){ if(!auth0Client) return false; try { return await auth0Client.isAuthenticated(); } catch { return false; } }
+async function socialFetchUser(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r = await fetch(`${BACKEND_URL}/api/user`, {headers:{Authorization:`Bearer ${token}`}}); if(r.ok){ const data = await r.json(); socialState.user=data.user; socialState.loaded=true; syncFavoritesWithCloud(); renderFriendsPage(); } } catch(e){ console.warn('User data fetch failed', e);} }
+
+// Sync favorites/settings local->cloud & cloud->local minimal strategy
+async function syncFavoritesWithCloud(){ if(!socialState.user) return; // Merge
+    const cloudFav = Array.isArray(socialState.user.favorites)? socialState.user.favorites:[]; const localFav = favorites.slice();
+    // union
+    const merged = Array.from(new Set([...cloudFav, ...localFav]));
+    // If differs push to backend
+    if(JSON.stringify(merged)!==JSON.stringify(cloudFav)){
+        const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(token){ try { await fetch(`${BACKEND_URL}/api/user/favorites`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(merged)}); } catch(e){} }
+    }
+    favorites = merged; saveFavoritesToCookies(); renderFavoritesSection();
+}
+
+// Override favorite toggle to initiate sync when authenticated
+const __origToggleFavorite = window.toggleFavoriteFromGamePage;
+if(typeof __origToggleFavorite === 'function'){
+    window.toggleFavoriteFromGamePage = async function(){ __origToggleFavorite.apply(this, arguments); if(await socialEnsureAuth()){ setTimeout(()=>socialUploadFavorites(),500); } };
+}
+async function socialUploadFavorites(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { await fetch(`${BACKEND_URL}/api/user/favorites`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(favorites)}); } catch(e){ console.warn('Fav upload fail', e);} }
+
+// Friends Page logic
+function showFriendsPage(){ const page=document.getElementById('friendsPage'); if(!page) return; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); page.classList.add('active'); page.style.display='block'; renderFriendsPage(); }
+
+// Attach to nav switch
+(function hookNav(){ const navContainer=document.querySelector('.sidebar-nav'); if(!navContainer) return; const orig = updateNavigationStats; // not altering existing switch logic, add listener separately
+    navContainer.addEventListener('click', e=>{ const li=e.target.closest('li.nav-item[data-page="friends"]'); if(li){ e.preventDefault(); showFriendsPage(); }});
+})();
+
+async function renderFriendsPage(){ const page=document.getElementById('friendsPage'); if(!page) return; const authNotice=document.getElementById('friendsAuthNotice'); const content=document.getElementById('friendsContent'); const loggedIn = await socialEnsureAuth(); if(!loggedIn){ authNotice.style.display='block'; content.style.display='none'; const btn=document.getElementById('friendsLoginBtn'); if(btn) btn.onclick=()=>login(); return; } authNotice.style.display='none'; content.style.display='block';
+    if(!socialState.user) { await socialFetchUser(); }
+    const u = socialState.user; if(!u) return; const friends = u.friends||{list:[], incoming:[], outgoing:[]};
+    const friendsList = document.getElementById('friendsList'); const incomingList=document.getElementById('incomingList'); const outgoingList=document.getElementById('outgoingList');
+    if(friendsList){ friendsList.innerHTML = friends.list.length? friends.list.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-remove="${id}" class="mini-btn">Remove</button></div></li>`).join('') : '<li class="muted-hint">No friends yet</li>'; }
+    if(incomingList){ incomingList.innerHTML = friends.incoming.length? friends.incoming.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-accept="${id}" class="mini-btn">Accept</button><button data-decline="${id}" class="mini-btn danger">Decline</button></div></li>`).join('') : '<li class="muted-hint">No requests</li>'; }
+    if(outgoingList){ outgoingList.innerHTML = friends.outgoing.length? friends.outgoing.map(id=>`<li class="friend-item" data-id="${id}"><span>${shortUserId(id)}</span><div class="friend-actions"><button data-cancel="${id}" class="mini-btn">Cancel</button></div></li>`).join('') : '<li class="muted-hint">No sent requests</li>'; }
+    wireFriendsEvents(); updatePresence(); }
+
+function shortUserId(id){ return id.split('|').pop(); }
+
+async function wireFriendsEvents(){ const page=document.getElementById('friendsPage'); if(!page) return; page.querySelectorAll('button[data-remove]').forEach(b=> b.onclick=()=>friendAction('remove',{user:b.getAttribute('data-remove')})); page.querySelectorAll('button[data-accept]').forEach(b=> b.onclick=()=>friendAction('accept',{from:b.getAttribute('data-accept')})); page.querySelectorAll('button[data-decline]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-decline')})); page.querySelectorAll('button[data-cancel]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-cancel')})); const form=document.getElementById('addFriendForm'); if(form){ form.onsubmit= async e=>{ e.preventDefault(); const uname=document.getElementById('addFriendUsername').value.trim(); if(!uname) return; const res = await friendAction('request',{username:uname}); const fb=document.getElementById('addFriendFeedback'); if(fb) fb.textContent = res?.error? res.error : 'Request sent'; if(!res.error) form.reset(); }; }}
+
+async function friendAction(action, body){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(body)}); const data= await r.json(); if(r.ok){ await socialFetchUser(); } return data; } catch(e){ return {error:'Network error'}; } }
+
+// Presence
+async function presenceHeartbeat(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const gameId = currentGame? currentGame.id : null; await fetch(`${BACKEND_URL}/api/presence`, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({game:gameId})}); } catch(e){} }
+async function updatePresence(){ if(!socialState.user || !socialState.user.friends) return; const ids = socialState.user.friends.list.join(','); if(!ids) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const r = await fetch(`${BACKEND_URL}/api/presence?ids=${encodeURIComponent(ids)}`, {headers:{Authorization:`Bearer ${token}`}}); if(!r.ok) return; const data = await r.json(); const presenceList=document.getElementById('presenceList'); if(presenceList){ presenceList.innerHTML = Object.keys(data.presence||{}).length? Object.entries(data.presence).map(([id,p])=>`<li class="friend-item online"><span>${shortUserId(id)}</span><span class="presence-pill">${p.game? 'In game #'+p.game : 'Online'}</span></li>`).join('') : '<li class="muted-hint">No friends online</li>'; } } catch(e){} }
+
+// Kick off social fetch after auth established
+const __origInitAuth0 = initAuth0;
+initAuth0 = async function(){ await __origInitAuth0(); try { if(await socialEnsureAuth()){ await socialFetchUser(); presenceHeartbeat(); if(!socialState.presenceInterval) socialState.presenceInterval = setInterval(()=>{ presenceHeartbeat(); updatePresence(); }, 30000); } } catch(e){} };
+
+// Public API for UI debugging
+window.WaterWallSocial = { refreshUser: socialFetchUser, pushFavorites: socialUploadFavorites };
+
+// MutationObserver to refresh when friends page inserted dynamically
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>{ if(location.hash==='#friends') showFriendsPage(); }); }
+// ============================================================================
+
 
 
 

@@ -95,6 +95,12 @@
                             <span>Favorites</span>
                         </a>
                     </li>
+                    <li class="nav-item" data-page="friends">
+                        <a href="#" class="nav-link">
+                            <i class="nav-icon fas fa-user-friends"></i>
+                            <span>Friends</span>
+                        </a>
+                    </li>
                 </ul>
                 
                 <ul class="nav-list nav-bottom">
@@ -171,6 +177,47 @@
                             <div id="categoryTabs" class="category-tabs"></div>
                         </div>
                         <div class="games-grid" id="allGames"></div>
+                    </section>
+                </div>
+                <!-- Friends Page (dynamic content injected by app.js) -->
+                <div id="friendsPage" class="page" style="display:none;">
+                    <section class="games-section">
+                        <div class="section-header">
+                            <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
+                        </div>
+                        <div id="friendsAuthNotice" class="empty-state" style="display:none;">
+                            <h3>Sign in required</h3>
+                            <p>You must sign in to view and manage friends.</p>
+                            <button id="friendsLoginBtn" class="update-check-btn">Sign In</button>
+                        </div>
+                        <div id="friendsContent" style="display:none;">
+                            <div class="friends-columns" style="display:grid; gap:24px; grid-template-columns:repeat(auto-fit, minmax(260px,1fr));">
+                                <div class="friends-panel" id="friendsListPanel">
+                                    <h3 style="margin-top:0;">Your Friends</h3>
+                                    <ul id="friendsList" class="friends-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                                </div>
+                                <div class="friends-panel" id="incomingPanel">
+                                    <h3 style="margin-top:0;">Incoming Requests</h3>
+                                    <ul id="incomingList" class="friends-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                                </div>
+                                <div class="friends-panel" id="outgoingPanel">
+                                    <h3 style="margin-top:0;">Sent Requests</h3>
+                                    <ul id="outgoingList" class="friends-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                                </div>
+                                <div class="friends-panel" id="addFriendPanel">
+                                    <h3 style="margin-top:0;">Add Friend</h3>
+                                    <form id="addFriendForm" style="display:flex; gap:8px;">
+                                        <input type="text" id="addFriendUsername" placeholder="Username" style="flex:1;" autocomplete="off" />
+                                        <button type="submit" class="update-check-btn">Send</button>
+                                    </form>
+                                    <div id="addFriendFeedback" class="muted-hint" style="margin-top:8px; font-size:12px;"></div>
+                                </div>
+                                <div class="friends-panel" id="presencePanel">
+                                    <h3 style="margin-top:0;">Online Status</h3>
+                                    <ul id="presenceList" class="friends-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                                </div>
+                            </div>
+                        </div>
                     </section>
                 </div>
                 <!-- Inline auth status elements (minimal) -->
