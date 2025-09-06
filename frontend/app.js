@@ -784,6 +784,9 @@ function forceRenderGames() {
     allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
     console.log('✅ All games rendered:', games.length);
     renderFavoritesSection();
+    
+    // Render ads in sidebar
+    renderAdColumn();
 }
 
 
@@ -1425,22 +1428,41 @@ function generateGameDescription(game) {
 
 // Replace suggested games with ads
 function renderAdColumn(){
+    console.log('🎯 Rendering ad column...');
     const col=document.getElementById('adColumn');
-    if(!col) return;
+    if(!col) {
+        console.error('❌ Ad column element not found');
+        return;
+    }
     col.innerHTML='';
     // Determine number of ads based on viewport & content height (min 2, up to 6)
     const base = Math.ceil(window.innerHeight / 300); // rough vertical capacity
     const count = Math.min(Math.max(base,2),6);
+    console.log(`📊 Creating ${count} ad slots for viewport height ${window.innerHeight}px`);
+    
     for(let i=0;i<count;i++){
         const slot=document.createElement('div');
         slot.className='ad-slot loading';
-    // Insert provided ad snippet EXACTLY as given
-    slot.innerHTML = "<div id=\"frame\" style=\"width: 100%;margin: auto;background: rgba(0, 0, 0, 0.50);position: relative; z-index: 99998;\">\n          <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive'\n                            style='border:0; padding:0; width:70%; height:auto; overflow:hidden;display: block;margin: auto'></iframe>\n        </div>";
+    // Insert provided ad snippet with full coverage and unique IDs
+    slot.innerHTML = `<div class="ad-frame" style="width: 100%; height: 100%; margin: 0; background: rgba(0, 0, 0, 0.50); position: absolute; top: 0; left: 0; z-index: 1;">
+          <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive'
+                            style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display: block; position: absolute; top: 0; left: 0;'></iframe>
+        </div>`;
     // Remove loading class once iframe loads
     const innerFrame = slot.querySelector('iframe');
-    if(innerFrame){ innerFrame.addEventListener('load', ()=> slot.classList.remove('loading')); }
+    if(innerFrame){ 
+        innerFrame.addEventListener('load', ()=> {
+            slot.classList.remove('loading');
+            console.log('✅ Ad loaded in slot', i+1);
+        });
+        innerFrame.addEventListener('error', ()=> {
+            console.warn('❌ Ad failed to load in slot', i+1);
+            slot.classList.remove('loading');
+        });
+    }
         col.appendChild(slot);
     }
+    console.log(`✅ Ad column rendered with ${count} slots`);
 }
 
 // (Removed suggested game card creation in favor of ads)

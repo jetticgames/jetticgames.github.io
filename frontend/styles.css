@@ -561,6 +561,9 @@ body, * { cursor: none !important; }
 
 .header-actions {
     margin-left: auto; /* push search fully to the right */
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .search-container {
