@@ -675,6 +675,10 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         
+        // Log all incoming requests for debugging
+        console.log(`🔍 Request: ${request.method} ${url.pathname}`);
+        console.log(`🔍 Headers: Authorization=${request.headers.get('Authorization') ? 'Present' : 'Missing'}`);
+        
         // Handle CORS preflight requests
         if (request.method === 'OPTIONS') {
             return handleCORS();
@@ -2444,6 +2448,15 @@ handleAPIRequest = async function(request, url, env, ctx){
     if(path.startsWith('/user')){
         return handleUserRoot(request, url, env, ctx);
     }
+    // TEMPORARY DEBUG ENDPOINT - bypasses auth
+    if(path === '/debug-auth'){
+        return jsonResponse({
+            message: 'Debug endpoint working',
+            headers: Object.fromEntries(request.headers.entries()),
+            url: url.toString(),
+            timestamp: new Date().toISOString()
+        });
+    }
     if(path.startsWith('/friends')){
         return handleFriendsRoot(request, url, env, ctx);
     }
@@ -2456,7 +2469,11 @@ handleAPIRequest = async function(request, url, env, ctx){
 // ---- Auth Helpers ----
 async function extractBearer(request){
     const auth = request.headers.get('Authorization') || request.headers.get('authorization');
-    if(!auth) return null; const m = auth.match(/^Bearer (.+)$/i); return m? m[1]:null;
+    console.log('Auth: Authorization header:', auth ? 'Present (length ' + auth.length + ')' : 'Missing');
+    if(!auth) return null; 
+    const m = auth.match(/^Bearer (.+)$/i); 
+    console.log('Auth: Bearer token extracted:', m ? 'Yes' : 'No');
+    return m? m[1]:null;
 }
 function jsonResponse(obj, status=200, extra={}){ return new Response(JSON.stringify(obj), {status, headers:{'Content-Type':'application/json', ...getCORSHeaders(), ...extra}}); }
 function unauthorized(msg='Unauthorized'){ return jsonResponse({error:msg},401); }
@@ -2530,8 +2547,22 @@ async function requireAuth(request, env){
         const token = await extractBearer(request); 
         if(!token) return {error:unauthorized()};
         
+async function requireAuth(request, env){
+    try {
+        const token = await extractBearer(request); 
+        if(!token) {
+            console.warn('Auth: No bearer token found in request');
+            return {error:unauthorized()};
+        }
+        
+        console.log('Auth: Token found, length:', token.length);
+        console.log('Auth: Token prefix:', token.substring(0, 20) + '...');
+        
         const payload = await verifyJWT(token, env); 
-        if(!payload) return {error:unauthorized('Invalid token')};
+        if(!payload) {
+            console.warn('Auth: JWT verification failed');
+            return {error:unauthorized('Invalid token')};
+        }
         
         // Log token claims for debugging
         console.log('Auth: Token payload claims:', {
@@ -2542,25 +2573,8 @@ async function requireAuth(request, env){
             exp: payload.exp
         });
         
-        // Basic issuer check only - let Auth0 handle security
-        const domain = env.AUTH0_DOMAIN || 'dev-lciqwnyb52wdezeo.us.auth0.com';
-        const expectedIssuer = `https://${domain.replace(/https?:\/\//,'')}/`;
-        if(payload.iss && payload.iss !== expectedIssuer){
-            console.warn('Auth: Bad issuer', payload.iss, 'expected', expectedIssuer);
-            // For debugging - don't fail on issuer mismatch, just log it
-            console.log('Auth: Ignoring issuer check for debugging');
-        }
-        
-        // Allowed client IDs (azp claim for SPA access tokens)
-        if(env.AUTH0_ALLOWED_CLIENT_IDS){
-            const allowed = env.AUTH0_ALLOWED_CLIENT_IDS.split(',').map(s=>s.trim()).filter(Boolean);
-            if(payload.azp && !allowed.includes(payload.azp)){
-                console.warn('Auth: Client not allowed', payload.azp, 'allowed:', allowed);
-                // For debugging - don't fail on client check, just log it
-                console.log('Auth: Ignoring client check for debugging');
-            }
-        }
-        
+        // TEMPORARILY DISABLED - Accept any valid Auth0 JWT for debugging
+        console.log('Auth: DEBUGGING MODE - Accepting any valid Auth0 JWT');
         console.log('Auth: Token validation passed, allowing access');
         
         return {payload, token};
@@ -2744,7 +2758,20 @@ async function fetchAuth0User(userId, env){
     try { const token = await getManagementToken(env); const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,''); const r = await fetch(`https://${domain}/api/v2/users/${encodeURIComponent(userId)}`, {headers:{Authorization:`Bearer ${token}`}}); if(!r.ok){ console.warn('User fetch fail', r.status); return null;} return await r.json(); } catch(e){ console.error('fetchAuth0User error', e); return null; }
 }
 async function patchAuth0User(userId, env, body){
-    try { const token = await getManagementToken(env); const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,''); const r = await fetch(`https://${domain}/api/v2/users/${encodeURIComponent(userId)}`, {method:'PATCH', headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'}, body: JSON.stringify(body)}); if(!r.ok){ console.warn('User patch fail', r.status); } } catch(e){ console.error('patchAuth0User error', e); }
+    try { 
+        const token = await getManagementToken(env); 
+        const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,''); 
+        const r = await fetch(`https://${domain}/api/v2/users/${encodeURIComponent(userId)}`, {
+            method:'PATCH', 
+            headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'}, 
+            body: JSON.stringify(body)
+        }); 
+        if(!r.ok){ 
+            console.warn('User patch fail', r.status); 
+        } 
+    } catch(e){ 
+        console.error('patchAuth0User error', e); 
+    }
 }
 
 // ================= END SOCIAL LAYER =================

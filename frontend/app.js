@@ -3785,6 +3785,22 @@ async function getAuthToken() {
 async function socialFetchUser(){ 
     console.log('🚨 socialFetchUser called - VERSION 20250906-NOCACHE-AUTH-FIX');
     console.log('🚨 If you see AUTH0_AUDIENCE errors after this, CLEAR YOUR BROWSER CACHE!');
+    console.log('⚠️  Note: Backend may need to be redeployed with authentication fixes');
+    
+    // Test backend connectivity first
+    try {
+        console.log('🔍 Testing backend connectivity...');
+        const testResponse = await fetch(`${BACKEND_URL}/api/debug-auth`);
+        if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log('✅ Backend is reachable:', testData.message);
+        } else {
+            console.warn('⚠️  Backend test endpoint returned:', testResponse.status);
+        }
+    } catch (testError) {
+        console.warn('⚠️  Backend connectivity test failed:', testError.message);
+    }
+    
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
         return false; // Return false to indicate no data fetched
