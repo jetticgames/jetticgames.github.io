@@ -956,6 +956,12 @@ function bindAuthButtons(){
     // Sidebar account item acts as unified auth control
     const accountNav=document.getElementById('accountNavItem');
     // accountNav click handled via delegated navigation handler; no direct onclick to avoid double firing
+    if(accountNav && !accountNav.onclick){
+        accountNav.addEventListener('click', (e)=>{
+            // Allow navigation handler to capture; if not, manually invoke
+            if(!e.defaultPrevented){ e.preventDefault(); handleAccountButton(); }
+        });
+    }
     const loginBtn=document.getElementById('loginBtn');
     if(loginBtn){ loginBtn.onclick=()=> auth0Client.loginWithRedirect(); }
     const logoutBtn=document.getElementById('logoutBtn');
@@ -971,7 +977,8 @@ function handleAccountButton(){
         // Authenticated – prefer profile dropdown if available
         const pdEl = document.getElementById('profileDropdown');
         if(pdEl){
-            if(!profileDropdownEl) { try { initProfileDropdown(); } catch(_){} }
+            if(!profileDropdownEl){ try { initProfileDropdown(); } catch(e){ console.warn('initProfileDropdown failed', e); } }
+            if(!profileDropdownEl){ console.warn('Profile dropdown element still missing'); return; }
             toggleProfileDropdown();
             return;
         }
@@ -3664,10 +3671,7 @@ function initProfileDropdown(){
     profileDropdownEl = document.getElementById('profileDropdown');
     const accountNav = document.getElementById('accountNavItem');
     if(!profileDropdownEl || !accountNav) return;
-    accountNav.addEventListener('click', async (e)=>{
-        if(!(await socialEnsureAuth())){ login(); return; }
-        e.preventDefault(); toggleProfileDropdown();
-    });
+    // Click handling for account nav is centralized in handleAccountButton()/navigation to avoid double toggles.
     document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
     document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
     document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
