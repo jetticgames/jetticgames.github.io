@@ -992,41 +992,97 @@ function bindAuthButtons(){
     if(logoutCancelBtn){ logoutCancelBtn.onclick=()=> closeLogoutModal(); }
 }
 
-function handleAccountButton(){
-    if(!auth0Client){ markAuthUnavailable(); return; }
-    auth0Client.isAuthenticated().then(isAuth=>{
-        if(!isAuth){ auth0Client.loginWithRedirect(); return; }
-    let pdEl = document.getElementById('profileDropdown');
-    if(!pdEl){
-        const hdr=document.querySelector('.sidebar-header');
-        if(hdr){
-            hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`);
-            pdEl=document.getElementById('profileDropdown');
-            // Initialize only once right after creation
-            profileDropdownEl=null; // reset so init function proceeds
-            initProfileDropdown();
-        }
+async function handleAccountButton(){
+    console.debug('[Auth] handleAccountButton called');
+    
+    if(!auth0Client){ 
+        console.debug('[Auth] No auth0Client, marking unavailable');
+        markAuthUnavailable(); 
+        return; 
     }
-    // If already initialized just toggle
-    toggleProfileDropdown();
-    }).catch(()=>{ markAuthUnavailable(); });
+    
+    try {
+        const isAuth = await socialEnsureAuth();
+        console.debug('[Auth] socialEnsureAuth result:', isAuth);
+        
+        if(!isAuth){ 
+            console.debug('[Auth] Not authenticated, redirecting to login');
+            auth0Client.loginWithRedirect(); 
+            return; 
+        }
+        
+        console.debug('[Auth] User is authenticated, showing dropdown');
+        
+        let pdEl = document.getElementById('profileDropdown');
+        if(!pdEl){
+            const hdr=document.querySelector('.sidebar-header');
+            if(hdr){
+                hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`);
+                pdEl=document.getElementById('profileDropdown');
+                // Initialize only once right after creation
+                profileDropdownEl=null; // reset so init function proceeds
+                initProfileDropdown();
+            }
+        }
+        // If already initialized just toggle
+        toggleProfileDropdown();
+    } catch(e) {
+        console.error('[Auth] handleAccountButton error:', e);
+        markAuthUnavailable();
+    }
 }
 function openLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='flex'; setTimeout(()=> logoutConfirmBtn?.focus(), 30);} }
 function closeLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='none'; } }
 
+function login() {
+    console.debug('[Auth] Login function called');
+    if(auth0Client) {
+        auth0Client.loginWithRedirect();
+    } else {
+        console.error('[Auth] Auth0 client not available for login');
+    }
+}
+
+async function refreshAuthState() {
+    console.debug('[Auth] Refreshing authentication state');
+    
+    // Update the auth UI
+    await updateAuthUI();
+    
+    // If friends page is currently visible, re-render it
+    const friendsPage = document.getElementById('friendsPage');
+    if(friendsPage && friendsPage.style.display !== 'none') {
+        console.debug('[Auth] Friends page visible, re-rendering');
+        await renderFriendsPage();
+    }
+}
+
 async function updateAuthUI(){
-    if(!auth0Client){ if(accountLabelEl) accountLabelEl.textContent='Auth...'; return; }
+    if(!auth0Client){ 
+        if(accountLabelEl) accountLabelEl.textContent='Auth...'; 
+        return; 
+    }
+    
     try {
-        const isAuth = await auth0Client.isAuthenticated();
+        const isAuth = await socialEnsureAuth();
+        console.debug('[Auth] updateAuthUI - isAuth:', isAuth);
+        
         if(isAuth){
-            const user = await auth0Client.getUser();
-            const label = user && (user.given_name || user.nickname || user.name || user.email);
-            if(accountLabelEl) accountLabelEl.textContent = label || 'Account';
+            try {
+                const user = await auth0Client.getUser();
+                const label = user && (user.given_name || user.nickname || user.name || user.email);
+                if(accountLabelEl) accountLabelEl.textContent = label || 'Account';
+                console.debug('[Auth] Updated UI for authenticated user:', label);
+            } catch(userError) {
+                console.error('[Auth] Error getting user info:', userError);
+                if(accountLabelEl) accountLabelEl.textContent = 'Account';
+            }
         } else {
             if(accountLabelEl) accountLabelEl.textContent='Sign in';
+            console.debug('[Auth] Updated UI for unauthenticated user');
         }
     } catch(e){
-        console.error('updateAuthUI error', e);
+        console.error('[Auth] updateAuthUI error:', e);
         if(accountLabelEl) accountLabelEl.textContent='Auth error';
     }
 }
@@ -3631,40 +3687,22 @@ window.addEventListener('resize', () => {
 // ================= Social Layer (User Sync, Friends, Profile, Presence) =================
 let socialState = { loaded:false, user:null, syncing:false, presenceInterval:null };
 async function socialEnsureAuth(){ 
-    if(!auth0Client) return false; 
+    if(!auth0Client) {
+        console.debug('[Auth] No auth0Client available');
+        return false; 
+    }
+    
     try { 
         const isAuthenticated = await auth0Client.isAuthenticated(); 
+        console.debug('[Auth] auth0Client.isAuthenticated():', isAuthenticated);
+        
         if(!isAuthenticated) {
             console.debug('[Auth] User not authenticated');
             return false;
         }
         
-        // Test if we can get a valid token
-        try {
-            const token = await auth0Client.getTokenSilently({
-                audience: AUTH0_AUDIENCE,
-                scope: 'openid profile email'
-            });
-            if(!token) {
-                console.warn('[Auth] No token available despite being authenticated');
-                return false;
-            }
-            return true;
-        } catch(tokenError) {
-            console.warn('[Auth] Token retrieval failed:', tokenError);
-            // Try once more with cache disabled
-            try {
-                await auth0Client.getTokenSilently({
-                    audience: AUTH0_AUDIENCE,
-                    scope: 'openid profile email',
-                    cacheMode: 'off'
-                });
-                return true;
-            } catch(retryError) {
-                console.error('[Auth] Token retry failed:', retryError);
-                return false;
-            }
-        }
+        return true; // If user is authenticated, we're good
+        
     } catch(e) { 
         console.error('[Auth] socialEnsureAuth failed:', e);
         return false; 
@@ -3700,32 +3738,6 @@ async function socialFetchUser(){
             renderFriendsPage(); 
         } else {
             console.warn('[Social] User fetch failed with status:', r.status);
-            if(r.status === 401 || r.status === 403) {
-                console.warn('[Social] Auth token may be invalid, clearing cache');
-                // Clear token cache and try once more
-                try {
-                    const freshToken = await auth0Client.getTokenSilently({
-                        audience: AUTH0_AUDIENCE,
-                        scope: 'openid profile email',
-                        cacheMode: 'off'
-                    });
-                    if(freshToken) {
-                        const retryR = await fetch(`${BACKEND_URL}/api/user`, {
-                            headers:{Authorization:`Bearer ${freshToken}`}
-                        });
-                        if(retryR.ok) {
-                            const retryData = await retryR.json();
-                            socialState.user = retryData.user;
-                            socialState.loaded = true;
-                            console.debug('[Social] User data loaded on retry');
-                            syncFavoritesWithCloud();
-                            renderFriendsPage();
-                        }
-                    }
-                } catch(retryError) {
-                    console.error('[Social] Retry fetch failed:', retryError);
-                }
-            }
         }
     } catch(e){ 
         console.error('[Social] User data fetch failed:', e);
@@ -3753,11 +3765,15 @@ async function socialUploadFavorites(){ if(!(await socialEnsureAuth())) return; 
 
 // Friends Page logic
 function showFriendsPage(){
+    console.debug('[Friends] showFriendsPage called');
     hideAllPages(true);
-    const page=document.getElementById('friendsPage'); if(!page) return;
+    const page=document.getElementById('friendsPage'); 
+    if(!page) return;
     page.style.display='block';
     page.classList.add('active');
     void page.offsetHeight; // reflow
+    
+    // Always re-render to check current auth state
     renderFriendsPage();
 }
 
@@ -3770,27 +3786,39 @@ async function renderFriendsPage(){
     const page=document.getElementById('friendsPage'); 
     if(!page) return; 
     
+    console.debug('[Friends] renderFriendsPage called');
+    
     const authNotice=document.getElementById('friendsAuthNotice'); 
     const content=document.getElementById('friendsContent'); 
+    
+    // Always start by hiding both sections
+    if(authNotice) authNotice.style.display='none';
+    if(content) content.style.display='none';
+    
     const loggedIn = await socialEnsureAuth(); 
+    console.debug('[Friends] Authentication check result:', loggedIn);
     
     if(!loggedIn){ 
-        authNotice.style.display='block'; 
-        content.style.display='none'; 
+        console.debug('[Friends] User not authenticated, showing auth notice');
+        if(authNotice) authNotice.style.display='block'; 
         const btn=document.getElementById('friendsLoginBtn'); 
         if(btn) btn.onclick=()=>login(); 
         return; 
     } 
     
-    authNotice.style.display='none'; 
-    content.style.display='block';
+    console.debug('[Friends] User authenticated, showing friends content');
+    if(content) content.style.display='block';
     
     if(!socialState.user) { 
+        console.debug('[Friends] No user data, fetching...');
         await socialFetchUser(); 
     }
     
     const u = socialState.user; 
-    if(!u) return; 
+    if(!u) {
+        console.warn('[Friends] Failed to get user data after fetch');
+        return;
+    }
     
     const friends = u.friends||{list:[], incoming:[], outgoing:[]};
     
@@ -3959,7 +3987,31 @@ async function refreshFriendsPage() {
 
 // Kick off social fetch after auth established
 const __origInitAuth0 = initAuth0;
-initAuth0 = async function(){ await __origInitAuth0(); try { if(await socialEnsureAuth()){ await socialFetchUser(); presenceHeartbeat(); if(!socialState.presenceInterval) socialState.presenceInterval = setInterval(()=>{ presenceHeartbeat(); updatePresence(); }, 30000); } } catch(e){} };
+initAuth0 = async function(){ 
+    await __origInitAuth0(); 
+    
+    try { 
+        // Refresh auth state after initialization
+        await refreshAuthState();
+        
+        // Initialize social features if authenticated
+        if(await socialEnsureAuth()){ 
+            console.debug('[Social] User authenticated, initializing social features');
+            await socialFetchUser(); 
+            presenceHeartbeat(); 
+            if(!socialState.presenceInterval) {
+                socialState.presenceInterval = setInterval(()=>{ 
+                    presenceHeartbeat(); 
+                    updatePresence(); 
+                }, 30000); 
+            }
+        } else {
+            console.debug('[Social] User not authenticated, skipping social features');
+        }
+    } catch(e){
+        console.error('[Social] Error in enhanced initAuth0:', e);
+    } 
+};
 
 // Public API for UI debugging
 window.WaterWallSocial = { refreshUser: socialFetchUser, pushFavorites: socialUploadFavorites };
@@ -3999,6 +4051,26 @@ function setupGlobalErrorHandler() {
         event.preventDefault();
     });
 }
+
+// Monitor authentication state changes
+let lastAuthState = false;
+async function monitorAuthState() {
+    if(!auth0Client) return;
+    
+    try {
+        const currentAuthState = await socialEnsureAuth();
+        if(currentAuthState !== lastAuthState) {
+            console.debug('[Auth] Authentication state changed:', lastAuthState, '->', currentAuthState);
+            lastAuthState = currentAuthState;
+            await refreshAuthState();
+        }
+    } catch(e) {
+        console.error('[Auth] Error monitoring auth state:', e);
+    }
+}
+
+// Start monitoring authentication state
+setInterval(monitorAuthState, 2000); // Check every 2 seconds
 
 // Initialize error handling
 setupGlobalErrorHandler();
