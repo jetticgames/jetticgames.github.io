@@ -3714,9 +3714,20 @@ function toggleProfileDropdown(force){
         return;
     }
     const rect = acct.getBoundingClientRect();
-    // Position above account button (raise up) - dropdown should appear above the button
-    profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
-    profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarRect = sidebar ? sidebar.getBoundingClientRect() : null;
+    
+    if(sidebarRect) {
+        // Position dropdown to span sidebar width with small gaps
+        profileDropdownEl.style.left = (sidebarRect.left + 12) + 'px'; // 12px gap from left
+        profileDropdownEl.style.width = (sidebarRect.width - 24) + 'px'; // 12px gap on each side
+        profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
+        profileDropdownEl.style.transform = 'none'; // remove centering transform
+    } else {
+        // Fallback to original centering if sidebar not found
+        profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
+        profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
+    }
     profileOpen = (force!==undefined? force : !profileOpen);
     profileDropdownEl.classList.toggle('open', profileOpen);
     profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true');

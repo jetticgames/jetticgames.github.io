@@ -737,8 +737,8 @@ body, * { cursor: none !important; }
 #addFriendForm input:focus {outline:2px solid var(--accent-color); outline-offset:2px;}
 
 /* Profile dropdown (raise-up menu) */
-.profile-dropdown {position:fixed; left:0; top:0; transform:translate(-50%,0); background:var(--bg-secondary); border:1px solid var(--border-primary); border-radius:14px; width:220px; padding:10px 10px 12px; box-shadow:0 8px 34px -6px rgba(0,0,0,.6); opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease; z-index:4000; display:none; }
-.profile-dropdown.open {display:block; opacity:1; transform:translate(-50%,0); pointer-events:auto;}
+.profile-dropdown {position:fixed; left:0; top:0; transform:none; background:var(--bg-secondary); border:1px solid var(--border-primary); border-radius:14px; width:220px; padding:10px 10px 12px; box-shadow:0 8px 34px -6px rgba(0,0,0,.6); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:4000; display:none; }
+.profile-dropdown.open {display:block; opacity:1; pointer-events:auto;}
 .profile-dropdown ul {list-style:none; margin:0; padding:4px 0; display:flex; flex-direction:column; gap:4px;}
 .profile-dropdown li {margin:0;}
 .profile-dropdown button {width:100%; background:#1b2129; border:1px solid #30363d; color:#fff; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:500; text-align:left; cursor:pointer; transition:.25s; display:flex; align-items:center; gap:8px;}
