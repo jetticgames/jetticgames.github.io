@@ -3,7 +3,8 @@ console.log('🎮 WaterWall app.js is loading...');
 
 // Application configuration
 const APP_VERSION = '2.0.0';
-const BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev'; // Update this with your backend URL
+// Use backend URL from global scope if available, otherwise fallback to hardcoded
+const BACKEND_URL = window.WATERWALL_BACKEND_URL || 'https://waterwallrelayservice.zonikyo.workers.dev';
 
 let games = [];
 let __appInitStarted = false;
