@@ -9,7 +9,7 @@ let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = 'https://waterwallrelayservice.zonikyo.workers.dev/proxy';
 let favorites = [];
 let maintenanceMode = {
-    enabled: false,
+    enabled: true,
     message: "WaterWall is currently under maintenance. We'll be back online soon!",
     estimatedTime: "Please check back in a few hours."
 };
