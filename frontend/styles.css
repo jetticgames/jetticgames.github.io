@@ -143,6 +143,7 @@ body, * { cursor: none !important; }
     display: flex;
     align-items: center;
     padding: 0;
+    margin-left: 12px; /* Align with the nav-icon padding */
 }
 
 .status-indicator {

@@ -176,6 +176,41 @@ function hidePageLoader(force){
     });
 }
 
+function showOfflineError() {
+    if (!__pageLoaderEl) return;
+    
+    // Update the page loader to show offline error
+    const aplHint = __pageLoaderEl.querySelector('#aplHint');
+    const aplWarning = __pageLoaderEl.querySelector('.apl-warning');
+    
+    if (aplHint) {
+        aplHint.textContent = 'No internet connection detected';
+        aplHint.style.color = '#f85149';
+    }
+    
+    if (aplWarning) {
+        aplWarning.textContent = 'Please check your internet connection and reload the page.';
+        aplWarning.style.display = 'block';
+        aplWarning.style.color = '#f85149';
+    }
+    
+    // Hide spinner since we're not loading
+    const spinner = __pageLoaderEl.querySelector('.apl-spinner');
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
+    
+    // Add network reconnection listener
+    const retryWhenOnline = () => {
+        if (navigator.onLine) {
+            console.log('🌐 Network detected, reloading app...');
+            window.location.reload();
+        }
+    };
+    
+    window.addEventListener('online', retryWhenOnline, { once: true });
+}
+
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
@@ -216,6 +251,14 @@ async function startApp() {
     if(__appInitStarted){ return; }
     __appInitStarted = true;
     console.log('🎯 Starting main app initialization...');
+    
+    // Check if user is offline
+    if (!navigator.onLine) {
+        console.error('❌ No internet connection detected');
+        signalPageLoaderStage('offline');
+        showOfflineError();
+        return;
+    }
     
     try {
         // Initialize DOM elements first
@@ -260,7 +303,14 @@ async function startApp() {
     } catch (error) {
         console.error('❌ App initialization failed:', error);
         
-        // Show error and hide loader
+        // Check if this is a network-related error
+        if (!navigator.onLine || error.message.includes('Failed to fetch') || error.message.includes('No internet connection') || error.name === 'AbortError') {
+            console.error('❌ Network connectivity issue detected');
+            showOfflineError();
+            return; // Don't hide loader, stay on offline screen
+        }
+        
+        // Show error and hide loader for other errors
         showPopupError('Critical error during app initialization. Please reload the page.');
         hidePageLoader(true);
     }
@@ -311,7 +361,20 @@ function showGamesLoadFailure(){
 async function loadBackendConfiguration() {
     try {
         console.log('🔄 Loading comprehensive configuration from backend...');
-        const response = await fetch(`${BACKEND_URL}/api/config`);
+        
+        // Check network connectivity first
+        if (!navigator.onLine) {
+            throw new Error('No internet connection');
+        }
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for config
+        
+        const response = await fetch(`${BACKEND_URL}/api/config`, {
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3237,6 +3300,18 @@ let lastKnownStatus = null;
 function initBackendStatusMonitoring() {
     console.log('🔄 Initializing backend status monitoring');
     
+    // Listen for online/offline events
+    window.addEventListener('online', () => {
+        console.log('🌐 User came back online');
+        checkBackendStatus(); // Immediately check when coming back online
+    });
+    
+    window.addEventListener('offline', () => {
+        console.log('📡 User went offline');
+        updateStatusDisplay(false);
+        lastKnownStatus = false;
+    });
+    
     // Perform initial status check
     checkBackendStatus();
     
@@ -3253,15 +3328,26 @@ async function checkBackendStatus() {
         return;
     }
     
+    // First check if user is online at all
+    if (!navigator.onLine) {
+        updateStatusDisplay(false);
+        if (lastKnownStatus !== false) {
+            console.warn('❌ User is offline (no internet connection)');
+            lastKnownStatus = false;
+        }
+        return;
+    }
+    
     try {
         // Use a lightweight endpoint to check backend availability
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (shorter for better UX)
         
         const response = await fetch(`${window.WATERWALL_BACKEND_URL}/api/health`, {
             method: 'GET',
             signal: controller.signal,
-            cache: 'no-cache'
+            cache: 'no-cache',
+            mode: 'cors'
         });
         
         clearTimeout(timeoutId);
@@ -3278,7 +3364,7 @@ async function checkBackendStatus() {
     } catch (error) {
         updateStatusDisplay(false);
         if (lastKnownStatus !== false) {
-            console.warn('❌ Backend offline:', error.message);
+            console.warn('❌ Backend offline:', error.name === 'AbortError' ? 'Request timeout' : error.message);
             lastKnownStatus = false;
         }
     }
