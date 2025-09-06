@@ -1369,8 +1369,8 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .game-info-bottom .icon-btn {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
+    background: transparent !important;
+    border: 2px solid var(--border-primary) !important;
     color: var(--text-primary);
     padding: 12px;
     border-radius: 12px;
@@ -1386,10 +1386,11 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .game-info-bottom .icon-btn:hover {
-    background: transparent;
-    border: 2px solid var(--accent-color);
+    background: transparent !important;
+    border: 2px solid var(--accent-color) !important;
     outline: none;
     transform: translateY(-1px);
+    filter: none !important;
 }
 
 .game-info-bottom .icon-btn:active {
@@ -1397,15 +1398,16 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .game-info-bottom .fav-btn.active {
-    background: transparent;
+    background: transparent !important;
     color: #e25555;
-    border: 2px solid #e25555;
+    border: 2px solid #e25555 !important;
 }
 
 .game-info-bottom .fav-btn.active:hover {
-    background: transparent;
-    border-color: #ff6b6b;
+    background: transparent !important;
+    border-color: #ff6b6b !important;
     outline: none;
+    filter: none !important;
 }
 
 .proxy-toggle-visual {
@@ -2807,8 +2809,8 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 .suggested-game-info {background:linear-gradient(to top, rgba(0,0,0,.7), rgba(0,0,0,0));}
 
 /* Buttons */
-.game-info-bottom .icon-btn {background:#21262d; border:1px solid #30363d;}
-.game-info-bottom .icon-btn:hover {background:#30363d;}
+.game-info-bottom .icon-btn {background: transparent !important; border: 2px solid var(--border-primary) !important;}
+.game-info-bottom .icon-btn:hover {background: transparent !important; border-color: var(--accent-color) !important; filter: none !important;}
 
 @media (max-width: 1200px) {
     .game-page-container {flex-direction:column;}
