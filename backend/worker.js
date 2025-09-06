@@ -41,45 +41,470 @@ const DEFAULT_CONFIG = {
 
 // Games database - now served from backend
 const GAMES_DATABASE = [
+    // Minecraft Games
     {
         "id": 1,
-        "title": "Cookie Clicker",
-        "description": "Click a cookie. Earn cookies. Use cookies to get autoclickers. Get more cookies. Repeat.",
-        "category": "puzzle",
-        "embed": "https://unblockedgamesfree.github.io/cookie-clicker/",
-        "thumbnail": "/api/thumbnails/cookieclicker.jpg"
+        "title": "Eaglercraft 1.5.2 (Eagtek)",
+        "description": "A version of Minecraft 1.5.2 tailored for browser play, offering the classic survival and creative modes.",
+        "category": "sandbox",
+        "embed": "https://eaglercraftgame.github.io/go/minecraft-1.5.2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
     },
     {
         "id": 2,
-        "title": "Tetris",
-        "description": "Literally just tetris. If you don't know how to play, you are not a gamer.",
-        "category": "puzzle",
-        "embed": "https://djblue.github.io/tetris",
-        "thumbnail": "/api/thumbnails/tetris.webp"
+        "title": "Eaglercraft X 1.8 (Astraclient)",
+        "description": "An enhanced version of Minecraft 1.8 for browsers, featuring additional client-side improvements and tweaks.",
+        "category": "sandbox",
+        "embed": "https://astraclientorg.github.io/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
     },
     {
         "id": 3,
-        "title": "Snake",
-        "description": "Control a snake to eat food and grow longer without hitting walls or yourself. A classic arcade game that tests your reflexes and strategic thinking!",
-        "category": "arcade",
-        "embed": "https://snake-google-online.github.io/file",
-        "thumbnail": "/api/thumbnails/snake.gif"
+        "title": "Minecraft Classic",
+        "description": "The original Minecraft experience, playable in a web browser, offering the iconic sandbox gameplay.",
+        "category": "sandbox",
+        "embed": "https://minecraftunblocked.gitlab.io/go/minecraft-beta/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
     },
+    
+    // Racing & Driving Games
     {
         "id": 4,
-        "title": "Pac-Man",
-        "description": "Navigate mazes, eat dots, and avoid ghosts in this classic arcade game. Collect power pellets to turn the tables on your ghostly pursuers!",
-        "category": "arcade",
-        "embed": "https://smashkartsonlinegames.github.io/v88/pac-man",
-        "thumbnail": "/api/thumbnails/pacman.avif"
+        "title": "Slope",
+        "description": "A fast-paced 3D running game where you navigate a ball down a steep, endless slope.",
+        "category": "racing",
+        "embed": "https://theslope.github.io/games/slope/index.html",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
     },
     {
         "id": 5,
-        "title": "Chess",
-        "description": "Strategic board game for two players on a checkered board. Plan your moves carefully and outmaneuver your opponent to achieve checkmate!",
-        "category": "strategy",
-        "embed": "https://chessunblock.github.io/file/",
-        "thumbnail": "/api/thumbnails/chess.png"
+        "title": "Slope 2",
+        "description": "The sequel to Slope, featuring more challenging levels and enhanced graphics.",
+        "category": "racing",
+        "embed": "https://slope-2.gitlab.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 6,
+        "title": "Slope Multiplayer",
+        "description": "A multiplayer version of Slope where you can compete against other players.",
+        "category": "racing",
+        "embed": "https://education76.github.io/g7/slope-2-multiplayer/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 7,
+        "title": "Drive Mad",
+        "description": "A driving game focused on performing stunts and overcoming various obstacles.",
+        "category": "racing",
+        "embed": "https://drive-madgame.github.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 8,
+        "title": "Moto X3M",
+        "description": "A motocross racing game with challenging tracks and obstacles.",
+        "category": "racing",
+        "embed": "https://motox3m.gitlab.io/game/moto-x3m/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 9,
+        "title": "Moto X3M Extended",
+        "description": "An extended version of Moto X3M with additional levels.",
+        "category": "racing",
+        "embed": "https://motox3m.gitlab.io/x3m-1.20.1p/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 10,
+        "title": "Moto X3M Pool Party",
+        "description": "A summer-themed version of Moto X3M.",
+        "category": "racing",
+        "embed": "https://education76.github.io/g/moto-x3m-pool-party/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 11,
+        "title": "Moto X3M Winter",
+        "description": "A winter-themed version of Moto X3M.",
+        "category": "racing",
+        "embed": "https://motox3munblocked.github.io/4-winter/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 12,
+        "title": "Stunt Master City",
+        "description": "A stunt driving game set in a city environment.",
+        "category": "racing",
+        "embed": "https://ubg77.github.io/edit/city-car-driving-stunt-master/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 13,
+        "title": "Sky Car Stunt 3D",
+        "description": "A 3D car stunt game with challenging tracks.",
+        "category": "racing",
+        "embed": "https://ubg77.github.io/edit/city-car-driving-stunt-master/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 14,
+        "title": "Parking Fury",
+        "description": "A parking simulation game with various challenges.",
+        "category": "racing",
+        "embed": "https://parking-fury.gitlab.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 15,
+        "title": "Parking Fury 2",
+        "description": "The sequel to Parking Fury with new levels.",
+        "category": "racing",
+        "embed": "https://gnhustgames.github.io/parking-fury-2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 16,
+        "title": "Parking Fury 3",
+        "description": "Another sequel in the Parking Fury series.",
+        "category": "racing",
+        "embed": "https://parkingfury3.github.io/gamefle/parking-fury-3/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 17,
+        "title": "Drift Boss",
+        "description": "A drifting game where you navigate through various tracks.",
+        "category": "racing",
+        "embed": "https://drift-boss.gitlab.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 18,
+        "title": "Eggy Car",
+        "description": "A driving game where you balance an egg on a car.",
+        "category": "racing",
+        "embed": "https://webglmath.github.io/eggy-car/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 19,
+        "title": "Smash Karts",
+        "description": "A multiplayer kart racing game with weapons.",
+        "category": "racing",
+        "embed": "https://smashkartsunblocked.github.io/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Shooter Games
+    {
+        "id": 20,
+        "title": "1v1.lol",
+        "description": "A competitive building and shooting game where players can challenge each other in 1v1 battles.",
+        "category": "shooter",
+        "embed": "https://1vl.school/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 21,
+        "title": "Time Shooter 2",
+        "description": "A shooting game where time moves only when you move.",
+        "category": "shooter",
+        "embed": "https://gnhustgames.github.io/timeshooter2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 22,
+        "title": "Sniper Assassin",
+        "description": "A shooting game where you play as a sniper completing various missions.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 23,
+        "title": "Sniper Assassin 2",
+        "description": "The sequel to Sniper Assassin with new missions.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 24,
+        "title": "Sniper Assassin 3",
+        "description": "The third installment in the Sniper Assassin series.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-3/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 25,
+        "title": "Sniper Assassin 4",
+        "description": "Another sequel in the Sniper Assassin series.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-4/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 26,
+        "title": "Sniper Assassin 5",
+        "description": "The fifth installment in the Sniper Assassin series.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Sniper-Assassin-5/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 27,
+        "title": "Tactical Assassin",
+        "description": "A tactical shooting game with various missions.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 28,
+        "title": "Tactical Assassin 2",
+        "description": "The sequel to Tactical Assassin with new missions.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin-2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 29,
+        "title": "Tactical Assassin 3",
+        "description": "Another sequel in the Tactical Assassin series.",
+        "category": "shooter",
+        "embed": "https://unblockeds-games.github.io/iframe/Tactical-Assassin-3/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 30,
+        "title": "Quake",
+        "description": "A classic first-person shooter game.",
+        "category": "shooter",
+        "embed": "https://gnhustgames.github.io/quake/wwwwsadwsw",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 31,
+        "title": "BulletForce",
+        "description": "A first-person shooter game with various multiplayer modes.",
+        "category": "shooter",
+        "embed": "https://ubg44.github.io/BulletForce/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 32,
+        "title": "Mad Gunz",
+        "description": "A multiplayer first-person shooter game.",
+        "category": "shooter",
+        "embed": "https://ubgwtf.gitlab.io/mad-gunz/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Platform & Adventure Games
+    {
+        "id": 33,
+        "title": "Run",
+        "description": "A classic platformer where you run and jump through a series of challenging levels.",
+        "category": "adventure",
+        "embed": "https://dnrweqffuwjtx.cloudfront.net/games/2024/flash/run-1/index.html",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 34,
+        "title": "Run 2",
+        "description": "The sequel to Run with more complex levels and new characters.",
+        "category": "adventure",
+        "embed": "https://ubg89.github.io/Run2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 35,
+        "title": "Run 3",
+        "description": "The third installment in the Run series, featuring new levels and gameplay mechanics.",
+        "category": "adventure",
+        "embed": "https://lekug.github.io/tn6pS9dCf37xAhkJv/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 36,
+        "title": "Duck Life",
+        "description": "A game where you raise and train a duck to compete in races.",
+        "category": "adventure",
+        "embed": "https://ducklifegame.github.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 37,
+        "title": "Duck Life 2",
+        "description": "The sequel to Duck Life with more features and challenges.",
+        "category": "adventure",
+        "embed": "https://unblockeds-games.github.io/iframe/Duck-Life-2/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 38,
+        "title": "Duck Life 3",
+        "description": "Another sequel in the Duck Life series with enhanced gameplay.",
+        "category": "adventure",
+        "embed": "https://unblockedgames911.gitlab.io/duck-life-3/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 39,
+        "title": "Duck Life 4",
+        "description": "The fourth installment in the Duck Life series.",
+        "category": "adventure",
+        "embed": "https://htmlxm.github.io/h/duck-life-4",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 40,
+        "title": "Geometry Dash",
+        "description": "A rhythm-based platformer with challenging levels.",
+        "category": "adventure",
+        "embed": "https://q9shks-8080.csb.app/service/hvtrs8%2F-ggooevr%7Bgcmg.mre%2Feaoe-ggooevr%7B-faqh%2Flktg%2F/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 41,
+        "title": "Subway Surfers",
+        "description": "An endless runner game where you dodge obstacles and collect coins.",
+        "category": "adventure",
+        "embed": "https://subway-surfers.gitlab.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 42,
+        "title": "Crossy Road",
+        "description": "An arcade game where you help a character cross roads and avoid obstacles.",
+        "category": "adventure",
+        "embed": "https://webglmath.github.io/eggy-car/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 43,
+        "title": "Tunnel Rush",
+        "description": "A fast-paced tunnel racing game.",
+        "category": "adventure",
+        "embed": "https://liminthoi.github.io/games/tunnel-rush/index.html",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 44,
+        "title": "Happy Wheels",
+        "description": "A ragdoll physics-based platformer with various levels.",
+        "category": "adventure",
+        "embed": "https://sreekar617.github.io/hw/index.html",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Arcade Games
+    {
+        "id": 45,
+        "title": "Flappy Bird",
+        "description": "A simple yet addictive arcade game where you navigate a bird through pipes.",
+        "category": "arcade",
+        "embed": "https://ccported.github.io/fb/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 46,
+        "title": "Fallboys",
+        "description": "A multiplayer party game with various mini-games.",
+        "category": "arcade",
+        "embed": "https://gnhustgames.github.io/fallboys/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Horror Games
+    {
+        "id": 47,
+        "title": "Five Nights at Freddy's",
+        "description": "A horror game where you survive nights in a haunted pizzeria.",
+        "category": "horror",
+        "embed": "https://fivenightsatfreddysonline.github.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 48,
+        "title": "Backrooms",
+        "description": "An exploration game set in the eerie and endless backrooms.",
+        "category": "horror",
+        "embed": "https://unblockeds-games.github.io/iframe/backrooms/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Simulation & Management Games
+    {
+        "id": 49,
+        "title": "Townscaper",
+        "description": "A city-building game with a focus on creativity and aesthetics.",
+        "category": "simulation",
+        "embed": "https://manscod.github.io/other/townscaper/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 50,
+        "title": "Monkey Mart",
+        "description": "A management game where you run a monkey-themed grocery store.",
+        "category": "simulation",
+        "embed": "https://monkeymartonline.github.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Puzzle Games
+    {
+        "id": 51,
+        "title": "2048",
+        "description": "A sliding puzzle game where you combine tiles to reach the number 2048.",
+        "category": "puzzle",
+        "embed": "https://ovolve.github.io/2048-AI/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 52,
+        "title": "Little Alchemy 2",
+        "description": "A puzzle game where you combine elements to create new items.",
+        "category": "puzzle",
+        "embed": "https://classroom15x.com/coolmath/LittleAlchemy2/?gd_sdk_referrer_url=https://classroom15x.com/play/little-alchemy-2",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 53,
+        "title": "Minesweeper",
+        "description": "The classic puzzle game where you clear a minefield.",
+        "category": "puzzle",
+        "embed": "https://minesweeper.github.io/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    
+    // Classic Games
+    {
+        "id": 54,
+        "title": "Cookie Clicker",
+        "description": "An incremental game where you click to produce cookies.",
+        "category": "classic",
+        "embed": "https://ozh.github.io/cookieclicker/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 55,
+        "title": "8 Ball Pool",
+        "description": "A classic pool game playable in a browser.",
+        "category": "classic",
+        "embed": "https://8-ball-pool-online.github.io/file/",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
+    },
+    {
+        "id": 56,
+        "title": "Solitaire",
+        "description": "The classic card game, Solitaire.",
+        "category": "classic",
+        "embed": "https://www.google.com/logos/fnbx/solitaire/standalone.html",
+        "thumbnail": "https://t3.ftcdn.net/jpg/15/49/09/82/360_F_1549098272_4fDtehzGZGsdElKwXmkEg61T5alSrufQ.jpg"
     }
 ];
 
