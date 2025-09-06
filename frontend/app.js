@@ -1393,7 +1393,6 @@ function showHomePage(){
     document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
     const homeNavItem=document.querySelector('[data-page="home"]'); if(homeNavItem) homeNavItem.classList.add('active');
     const searchEl=document.getElementById('searchInput'); if(searchEl) searchEl.value='';
-    const titleEl=document.querySelector('#homePage .section-title'); if(titleEl) titleEl.textContent='All Games';
     forceRenderGames();
     buildCategoryTabs();
     renderFavoritesSection();
@@ -1600,20 +1599,27 @@ function filterByCategory(category){
     ensureHomePage(); hideAllPages(); const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
     let filtered=[];
     switch(category){
+        case 'all': filtered=games; break;
         case 'new': filtered=[...games].sort((a,b)=>b.id-a.id).slice(0,12); break;
         case 'popular': filtered=games.slice(0,12); break; // placeholder metric
         case 'updated': filtered=games.slice(-12); break; // placeholder metric
         default: filtered=games.filter(g=> (g.category||'').toLowerCase()===category.toLowerCase());
     }
     const grid=document.getElementById('allGames');
-    const title=document.querySelector('#homePage .section-title');
+    const title=document.querySelector('#homePage .games-section:not(#favoriteGamesSection) .section-title');
     if(grid) grid.innerHTML = filtered.length? filtered.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
-    if(title) title.textContent=`${capitalize(category)} Games (${filtered.length})`;
+    if(title) {
+        if(category === 'all') {
+            title.textContent = 'All Games';
+        } else {
+            title.textContent = `${capitalize(category)} Games (${filtered.length})`;
+        }
+    }
 }
 
 function showSearchResults(query, results){
     ensureHomePage(); hideAllPages(); const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
-    const grid=document.getElementById('allGames'); const title=document.querySelector('#homePage .section-title');
+    const grid=document.getElementById('allGames'); const title=document.querySelector('#homePage .games-section:not(#favoriteGamesSection) .section-title');
     if(title) title.textContent=`Results for "${query}" (${results.length})`;
     if(grid) grid.innerHTML = results.length? results.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
 }

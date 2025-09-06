@@ -977,12 +977,18 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .section-header {
     margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
 }
 
 .section-title {
     font-size: 24px;
     font-weight: 600;
     color: var(--text-primary);
+    margin: 0;
+    flex: 1;
 }
 
 /* Games Grid */
