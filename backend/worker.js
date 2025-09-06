@@ -688,7 +688,8 @@ export default {
         
         // API Routes
         if (url.pathname.startsWith('/api/')) {
-            return handleAPIRequest(request, url, env, ctx);
+            // Use routing wrapper that includes social/profile extensions (see social layer section)
+            return routeAPIRequest(request, url, env, ctx);
         }
         
         // Handle proxy requests
@@ -752,6 +753,16 @@ export default {
         });
     }
 };
+
+// Wrapper to ensure the monkey patched handleAPIRequest (extended social layer) is invoked safely
+async function routeAPIRequest(request, url, env, ctx) {
+    try {
+        return await handleAPIRequest(request, url, env, ctx);
+    } catch (e) {
+        console.error('routeAPIRequest fatal error', e);
+        return new Response(JSON.stringify({ error: 'Internal routing error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...getCORSHeaders() } });
+    }
+}
 
 // Handle API requests
 async function handleAPIRequest(request, url, env, ctx) {
@@ -1084,8 +1095,8 @@ function getCORSHeaders() {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Accept-Language, Content-Language, Range',
-        'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Content-Type, Date, Server, Transfer-Encoding, X-Powered-By',
-        'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Content-Type, Date, Server, Transfer-Encoding, X-Powered-By',
+    // Credentials not allowed with wildcard origin; remove to prevent browser warnings
         'Access-Control-Max-Age': '86400'
     };
 }
@@ -2485,9 +2496,13 @@ async function verifyJWT(token, env){
     }
 }
 
+const __jwkKeyCache = new Map();
 function jwkToCryptoKey(jwk){
-    // Cloudflare Workers allows importKey
-    return crypto.subtle.importKey('jwk', jwk, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, false, ['verify']);
+    const cacheKey = jwk.kid || `${jwk.n}.${jwk.e}`;
+    if(__jwkKeyCache.has(cacheKey)) return __jwkKeyCache.get(cacheKey);
+    const p = crypto.subtle.importKey('jwk', jwk, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, false, ['verify']);
+    __jwkKeyCache.set(cacheKey, p);
+    return p;
 }
 
 async function requireAuth(request, env){
