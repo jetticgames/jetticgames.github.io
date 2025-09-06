@@ -7,35 +7,132 @@ const VERSION_ENDPOINT_CACHE_TTL = 300; // 5 minutes
 const GAMES_CACHE_TTL = 3600; // 1 hour
 const CONFIG_CACHE_TTL = 1800; // 30 minutes
 
-// Default configuration that can be overridden
+// Comprehensive Admin-Controlled Configuration
+// This configuration can be overridden via backend API and controls ALL aspects of WaterWall
 const DEFAULT_CONFIG = {
     version: APP_VERSION,
+    
+    // Maintenance Mode Control
     maintenanceMode: {
-        enabled: false,
+        enabled: true,
         message: "WaterWall is currently under maintenance. We'll be back online soon!",
-        estimatedTime: "Please check back in a few hours."
+        estimatedTime: "Please check back in a few hours.",
+        blockProxy: true // Also disable proxy during maintenance
     },
-    settings: {
+    
+    // Feature Toggles - Admin can enable/disable any feature globally
+    features: {
+        // Core Features
+        accountSystemEnabled: false,        // Enable/disable Auth0 login system
+        favoritesEnabled: false,           // Enable/disable favorites functionality
+        searchEnabled: false,              // Enable/disable game search
+        fullscreenEnabled: false,          // Enable/disable fullscreen mode
+        categoriesEnabled: false,          // Enable/disable category filtering
+        settingsMenuEnabled: false,        // Enable/disable entire settings menu
+        updatingEnabled: false,            // Enable/disable update checks and notifications
+        
+        // Visual Features
+        particlesEnabled: false,           // Enable/disable background particles system
+        customCursorEnabled: false,        // Enable/disable custom cursor functionality
+        
+        // Advanced Features
+        proxyEnabled: false,               // Enable/disable proxy functionality globally
+        gameEmbedEnabled: false,           // Enable/disable game embedding
+        themeCustomizationEnabled: false,  // Enable/disable theme customization
+        keyboardShortcutsEnabled: false,   // Enable/disable keyboard shortcuts
+        
+        // Content Controls
+        adVerificationEnabled: false,     // Enable/disable ad verification page
+        mobileAccessEnabled: false,       // Enable/disable mobile device access
+        
+        // Admin Controls
+        debugModeEnabled: false,          // Enable/disable debug logging
+        analyticsEnabled: false,          // Enable/disable analytics tracking
+        errorReportingEnabled: true       // Enable/disable error reporting
+    },
+    
+    // Default Settings for New Users and Reset Function
+    defaultUserSettings: {
+        // Proxy Settings
         defaultProxy: false,
+        
+        // Theme & Visual Settings
         accentColor: '#58a6ff',
+        
+        // Particle Settings
         particlesEnabled: true,
         particleSpeed: 0.5,
         particleCount: 50,
         particleColor: '#58a6ff',
         particleLineDistance: 150,
         particleMouseInteraction: true,
+        
+        // Cursor Settings
         customCursorEnabled: true,
         cursorSize: 8,
         cursorColor: '#ffffff',
         cursorType: 'circle',
-        customCursorImage: null
+        customCursorImage: null,
+        
+        // Behavior Settings
+        autoFullscreen: false,
+        soundEnabled: true,
+        animationsEnabled: true,
+        autoSaveEnabled: true,
+        
+        // Privacy Settings
+        analyticsOptIn: false,
+        errorReportingOptIn: true
     },
-    features: {
-        auth0Enabled: true,
-        searchEnabled: true,
-        favoritesEnabled: true,
-        fullscreenEnabled: true,
-        categoriesEnabled: true
+    
+    // UI Controls - What elements are shown/hidden
+    uiControls: {
+        showHeader: true,
+        showFooter: true,
+        showSidebar: true,
+        showGameControls: true,
+        showProxyToggle: true,
+        showFavoriteButton: true,
+        showFullscreenButton: true,
+        showSearchBar: true,
+        showCategoryFilters: true,
+        showSettingsButton: true,
+        showUpdateNotifications: true,
+        showMaintenanceNotice: true
+    },
+    
+    // Content Management
+    contentControls: {
+        maxGamesPerPage: 50,
+        enableGameRatings: false,
+        enableGameComments: false,
+        enableGameSuggestions: true,
+        showGameDescriptions: true,
+        showGameThumbnails: true,
+        enableGameSearch: true,
+        enableCategoryFiltering: true
+    },
+    
+    // Security & Performance
+    systemControls: {
+        enableCORS: true,
+        enableCaching: true,
+        cacheTimeout: 3600,
+        enableRateLimiting: true,
+        maxRequestsPerMinute: 100,
+        enableCSP: true,
+        enableHTTPS: true,
+        enableCompression: true
+    },
+    
+    // Messaging & Communication
+    messaging: {
+        welcomeMessage: "Welcome to WaterWall! Enjoy our collection of games.",
+        maintenanceMessage: "WaterWall is currently under maintenance. We'll be back online soon!",
+        errorMessage: "Something went wrong. Please try again later.",
+        noGamesMessage: "No games found. Try adjusting your search or category filter.",
+        loadingMessage: "Loading games...",
+        offlineMessage: "You appear to be offline. Some features may not work."
     }
 };
 
@@ -625,6 +722,14 @@ export default {
                 'GET /api/version - Get version info and check for updates',
                 'GET /api/maintenance - Get maintenance status',
                 'PUT /api/maintenance - Update maintenance status (admin)',
+                'GET /api/admin/config - Get full admin configuration (admin)',
+                'PUT /api/admin/config - Update full admin configuration (admin)',
+                'GET /api/admin/features - Get feature toggles (admin)',
+                'PUT /api/admin/features - Update feature toggles (admin)',
+                'GET /api/admin/defaults - Get default user settings (admin)',
+                'PUT /api/admin/defaults - Update default user settings (admin)',
+                'GET /api/admin/ui - Get UI controls (admin)',
+                'PUT /api/admin/ui - Update UI controls (admin)',
                 'GET /api/thumbnails/{filename} - Get game thumbnails (legacy)',
                 'GET /api/assets/{path} - Get any frontend asset (JS, CSS, images, JSON)',
                 'GET /proxy?url= - Proxy requests',
@@ -671,6 +776,23 @@ async function handleAPIRequest(request, url, env, ctx) {
         // Maintenance mode endpoint
         if (path === '/maintenance') {
             return handleMaintenanceAPI(request, env);
+        }
+        
+        // Admin Configuration Management Endpoints
+        if (path === '/admin/config') {
+            return handleAdminConfigAPI(request, env);
+        }
+        
+        if (path === '/admin/features') {
+            return handleAdminFeaturesAPI(request, env);
+        }
+        
+        if (path === '/admin/defaults') {
+            return handleAdminDefaultsAPI(request, env);
+        }
+        
+        if (path === '/admin/ui') {
+            return handleAdminUIAPI(request, env);
         }
         
         // Thumbnails endpoint (legacy)
@@ -1526,14 +1648,24 @@ async function handleGamesAPI(request, env) {
 
 // Handle configuration API
 async function handleConfigAPI(request, env) {
-    // Check if there's custom config in KV storage
+    // Get the comprehensive admin configuration
     let config = { ...DEFAULT_CONFIG };
     
     try {
+        // Try new admin config system first
+        if (env.WATERWALL_KV) {
+            const adminConfig = await env.WATERWALL_KV.get('admin_config');
+            if (adminConfig) {
+                const parsed = JSON.parse(adminConfig);
+                config = { ...config, ...parsed };
+            }
+        }
+        
+        // Fallback to legacy config system
         if (env.CONFIG_KV) {
-            const customConfig = await env.CONFIG_KV.get('app_config', 'json');
-            if (customConfig) {
-                config = { ...config, ...customConfig };
+            const legacyConfig = await env.CONFIG_KV.get('app_config', 'json');
+            if (legacyConfig) {
+                config = { ...config, ...legacyConfig };
             }
         }
     } catch (error) {
@@ -1593,10 +1725,22 @@ async function handleVersionAPI(request, env) {
 // Handle maintenance API
 async function handleMaintenanceAPI(request, env) {
     if (request.method === 'GET') {
-        // Get maintenance status
+        // Get maintenance status from new admin config system
         let maintenanceConfig = DEFAULT_CONFIG.maintenanceMode;
         
         try {
+            // Try new admin config system first
+            if (env.WATERWALL_KV) {
+                const adminConfig = await env.WATERWALL_KV.get('admin_config');
+                if (adminConfig) {
+                    const parsed = JSON.parse(adminConfig);
+                    if (parsed.maintenanceMode) {
+                        maintenanceConfig = parsed.maintenanceMode;
+                    }
+                }
+            }
+            
+            // Fallback to legacy config system
             if (env.CONFIG_KV) {
                 const config = await env.CONFIG_KV.get('app_config', 'json');
                 if (config && config.maintenanceMode) {
@@ -1621,7 +1765,7 @@ async function handleMaintenanceAPI(request, env) {
         try {
             const body = await request.json();
             
-            if (!env.CONFIG_KV) {
+            if (!env.WATERWALL_KV && !env.CONFIG_KV) {
                 return new Response(JSON.stringify({
                     error: 'Configuration storage not available'
                 }), {
@@ -1633,11 +1777,20 @@ async function handleMaintenanceAPI(request, env) {
                 });
             }
             
-            // Get current config
+            // Get current admin config
             let config = { ...DEFAULT_CONFIG };
-            const existingConfig = await env.CONFIG_KV.get('app_config', 'json');
-            if (existingConfig) {
-                config = { ...config, ...existingConfig };
+            
+            if (env.WATERWALL_KV) {
+                const adminConfig = await env.WATERWALL_KV.get('admin_config');
+                if (adminConfig) {
+                    config = { ...config, ...JSON.parse(adminConfig) };
+                }
+            } else if (env.CONFIG_KV) {
+                // Fallback to legacy system
+                const existingConfig = await env.CONFIG_KV.get('app_config', 'json');
+                if (existingConfig) {
+                    config = { ...config, ...existingConfig };
+                }
             }
             
             // Update maintenance mode
@@ -1646,8 +1799,14 @@ async function handleMaintenanceAPI(request, env) {
                 ...body
             };
             
-            // Save back to KV
-            await env.CONFIG_KV.put('app_config', JSON.stringify(config));
+            // Save to preferred KV (new admin config system)
+            if (env.WATERWALL_KV) {
+                await env.WATERWALL_KV.put('admin_config', JSON.stringify(config));
+            } else if (env.CONFIG_KV) {
+                await env.CONFIG_KV.put('app_config', JSON.stringify(config));
+            }
+            
+            console.log('✅ Maintenance mode updated:', config.maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
             
             return new Response(JSON.stringify(config.maintenanceMode), {
                 status: 200,
@@ -1822,6 +1981,321 @@ async function handleStatsAPI(request, env) {
             'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
             ...getCORSHeaders()
         }
+    });
+}
+
+// ===== ADMIN CONFIGURATION API HANDLERS =====
+
+// Handle comprehensive admin configuration API
+async function handleAdminConfigAPI(request, env) {
+    if (request.method === 'GET') {
+        // Get full admin configuration
+        try {
+            let config = DEFAULT_CONFIG;
+            
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    const parsed = JSON.parse(storedConfig);
+                    config = { ...DEFAULT_CONFIG, ...parsed };
+                }
+            }
+            
+            return new Response(JSON.stringify(config), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+                    ...getCORSHeaders()
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching admin config:', error);
+            return new Response(JSON.stringify({ error: 'Failed to fetch admin configuration' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    if (request.method === 'PUT') {
+        // Update full admin configuration
+        try {
+            const newConfig = await request.json();
+            
+            // Validate required fields
+            if (!newConfig || typeof newConfig !== 'object') {
+                return new Response(JSON.stringify({ error: 'Invalid configuration data' }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+                });
+            }
+            
+            // Merge with existing config
+            let currentConfig = DEFAULT_CONFIG;
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
+                }
+            }
+            
+            const updatedConfig = { ...currentConfig, ...newConfig };
+            
+            // Store updated configuration
+            if (env.WATERWALL_KV) {
+                await env.WATERWALL_KV.put('admin_config', JSON.stringify(updatedConfig));
+                console.log('✅ Admin configuration updated');
+            }
+            
+            return new Response(JSON.stringify({ 
+                success: true, 
+                message: 'Admin configuration updated successfully',
+                config: updatedConfig
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        } catch (error) {
+            console.error('Error updating admin config:', error);
+            return new Response(JSON.stringify({ error: 'Failed to update admin configuration' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+    });
+}
+
+// Handle feature toggles API
+async function handleAdminFeaturesAPI(request, env) {
+    if (request.method === 'GET') {
+        try {
+            let features = DEFAULT_CONFIG.features;
+            
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    const config = JSON.parse(storedConfig);
+                    features = config.features || DEFAULT_CONFIG.features;
+                }
+            }
+            
+            return new Response(JSON.stringify(features), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+                    ...getCORSHeaders()
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching features:', error);
+            return new Response(JSON.stringify({ error: 'Failed to fetch features' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    if (request.method === 'PUT') {
+        try {
+            const newFeatures = await request.json();
+            
+            // Get current config
+            let currentConfig = DEFAULT_CONFIG;
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
+                }
+            }
+            
+            // Update features
+            currentConfig.features = { ...currentConfig.features, ...newFeatures };
+            
+            // Store updated configuration
+            if (env.WATERWALL_KV) {
+                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+                console.log('✅ Feature toggles updated');
+            }
+            
+            return new Response(JSON.stringify({ 
+                success: true, 
+                message: 'Feature toggles updated successfully',
+                features: currentConfig.features
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        } catch (error) {
+            console.error('Error updating features:', error);
+            return new Response(JSON.stringify({ error: 'Failed to update features' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+    });
+}
+
+// Handle default user settings API
+async function handleAdminDefaultsAPI(request, env) {
+    if (request.method === 'GET') {
+        try {
+            let defaults = DEFAULT_CONFIG.defaultUserSettings;
+            
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    const config = JSON.parse(storedConfig);
+                    defaults = config.defaultUserSettings || DEFAULT_CONFIG.defaultUserSettings;
+                }
+            }
+            
+            return new Response(JSON.stringify(defaults), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+                    ...getCORSHeaders()
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching defaults:', error);
+            return new Response(JSON.stringify({ error: 'Failed to fetch default settings' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    if (request.method === 'PUT') {
+        try {
+            const newDefaults = await request.json();
+            
+            // Get current config
+            let currentConfig = DEFAULT_CONFIG;
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
+                }
+            }
+            
+            // Update default settings
+            currentConfig.defaultUserSettings = { ...currentConfig.defaultUserSettings, ...newDefaults };
+            
+            // Store updated configuration
+            if (env.WATERWALL_KV) {
+                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+                console.log('✅ Default user settings updated');
+            }
+            
+            return new Response(JSON.stringify({ 
+                success: true, 
+                message: 'Default user settings updated successfully',
+                defaults: currentConfig.defaultUserSettings
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        } catch (error) {
+            console.error('Error updating defaults:', error);
+            return new Response(JSON.stringify({ error: 'Failed to update default settings' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+    });
+}
+
+// Handle UI controls API
+async function handleAdminUIAPI(request, env) {
+    if (request.method === 'GET') {
+        try {
+            let uiControls = DEFAULT_CONFIG.uiControls;
+            
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    const config = JSON.parse(storedConfig);
+                    uiControls = config.uiControls || DEFAULT_CONFIG.uiControls;
+                }
+            }
+            
+            return new Response(JSON.stringify(uiControls), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
+                    ...getCORSHeaders()
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching UI controls:', error);
+            return new Response(JSON.stringify({ error: 'Failed to fetch UI controls' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    if (request.method === 'PUT') {
+        try {
+            const newUIControls = await request.json();
+            
+            // Get current config
+            let currentConfig = DEFAULT_CONFIG;
+            if (env.WATERWALL_KV) {
+                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+                if (storedConfig) {
+                    currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
+                }
+            }
+            
+            // Update UI controls
+            currentConfig.uiControls = { ...currentConfig.uiControls, ...newUIControls };
+            
+            // Store updated configuration
+            if (env.WATERWALL_KV) {
+                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+                console.log('✅ UI controls updated');
+            }
+            
+            return new Response(JSON.stringify({ 
+                success: true, 
+                message: 'UI controls updated successfully',
+                uiControls: currentConfig.uiControls
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        } catch (error) {
+            console.error('Error updating UI controls:', error);
+            return new Response(JSON.stringify({ error: 'Failed to update UI controls' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
+            });
+        }
+    }
+    
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
     });
 }
 

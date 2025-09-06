@@ -13,6 +13,48 @@ let currentGame = null;
 let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = `${BACKEND_URL}/proxy`;
 let favorites = [];
+
+// Admin-controlled configuration (loaded from backend)
+let adminConfig = null;
+
+// Feature flags (controlled by admin)
+let features = {
+    accountSystemEnabled: true,
+    favoritesEnabled: true,
+    searchEnabled: true,
+    fullscreenEnabled: true,
+    categoriesEnabled: true,
+    settingsMenuEnabled: true,
+    updatingEnabled: true,
+    particlesEnabled: true,
+    customCursorEnabled: true,
+    proxyEnabled: true,
+    gameEmbedEnabled: true,
+    themeCustomizationEnabled: true,
+    keyboardShortcutsEnabled: true,
+    adVerificationEnabled: false,
+    mobileAccessEnabled: false,
+    debugModeEnabled: false,
+    analyticsEnabled: false,
+    errorReportingEnabled: true
+};
+
+// UI Controls (what elements to show/hide)
+let uiControls = {
+    showHeader: true,
+    showFooter: true,
+    showSidebar: true,
+    showGameControls: true,
+    showProxyToggle: true,
+    showFavoriteButton: true,
+    showFullscreenButton: true,
+    showSearchBar: true,
+    showCategoryFilters: true,
+    showSettingsButton: true,
+    showUpdateNotifications: true,
+    showMaintenanceNotice: true
+};
+
 let maintenanceMode = {
     enabled: false,
     message: "WaterWall is currently under maintenance. We'll be back online soon!",
@@ -265,7 +307,7 @@ function showGamesLoadFailure(){
 // Load backend configuration
 async function loadBackendConfiguration() {
     try {
-        console.log('🔄 Loading configuration from backend...');
+        console.log('🔄 Loading comprehensive configuration from backend...');
         const response = await fetch(`${BACKEND_URL}/api/config`);
         
         if (!response.ok) {
@@ -275,10 +317,35 @@ async function loadBackendConfiguration() {
         const config = await response.json();
         console.log('✅ Backend configuration loaded:', config);
         
-        // Update local configuration with backend settings
-        serverConfig = config;
+        // Store the full admin configuration
+        adminConfig = config;
+        serverConfig = config; // Keep for backward compatibility
+        
+        // Update feature flags
+        if (config.features) {
+            features = { ...features, ...config.features };
+            console.log('🔧 Feature flags updated:', features);
+        }
+        
+        // Update UI controls
+        if (config.uiControls) {
+            uiControls = { ...uiControls, ...config.uiControls };
+            console.log('🖼️ UI controls updated:', uiControls);
+        }
+        
+        // Update default user settings (used for new users and reset)
+        if (config.defaultUserSettings) {
+            // For existing users, only fill in missing settings
+            Object.keys(config.defaultUserSettings).forEach(key => {
+                if (settings[key] === undefined) {
+                    settings[key] = config.defaultUserSettings[key];
+                }
+            });
+            console.log('⚙️ Default settings applied');
+        }
+        
+        // Legacy support for old config format
         if (config.settings) {
-            // Merge backend settings with local settings, preserving user preferences
             Object.keys(config.settings).forEach(key => {
                 if (settings[key] === undefined) {
                     settings[key] = config.settings[key];
@@ -289,7 +356,11 @@ async function loadBackendConfiguration() {
         // Update maintenance mode from backend
         if (config.maintenanceMode) {
             maintenanceMode = config.maintenanceMode;
+            console.log('🔧 Maintenance mode status:', maintenanceMode.enabled ? 'ENABLED' : 'DISABLED');
         }
+        
+        // Apply feature-based UI changes immediately
+        applyFeatureToggles();
         
         return config;
     } catch (error) {
@@ -297,6 +368,65 @@ async function loadBackendConfiguration() {
         // Continue with default configuration
         return null;
     }
+}
+
+// Apply feature toggles to the UI
+function applyFeatureToggles() {
+    // Hide/show elements based on admin configuration
+    
+    // Search functionality
+    if (!features.searchEnabled || !uiControls.showSearchBar) {
+        const searchContainer = document.querySelector('.search-container');
+        if (searchContainer) searchContainer.style.display = 'none';
+    }
+    
+    // Category filters
+    if (!features.categoriesEnabled || !uiControls.showCategoryFilters) {
+        const filterBtns = document.querySelector('.filter-btns');
+        if (filterBtns) filterBtns.style.display = 'none';
+    }
+    
+    // Settings menu
+    if (!features.settingsMenuEnabled || !uiControls.showSettingsButton) {
+        const settingsBtn = document.querySelector('[data-page="settings"]');
+        if (settingsBtn) settingsBtn.style.display = 'none';
+    }
+    
+    // Proxy toggle in game view
+    if (!features.proxyEnabled || !uiControls.showProxyToggle) {
+        const proxyToggle = document.getElementById('proxyToggleGame');
+        if (proxyToggle) proxyToggle.style.display = 'none';
+    }
+    
+    // Fullscreen button
+    if (!features.fullscreenEnabled || !uiControls.showFullscreenButton) {
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        if (fullscreenBtn) fullscreenBtn.style.display = 'none';
+    }
+    
+    // Favorite button
+    if (!features.favoritesEnabled || !uiControls.showFavoriteButton) {
+        const favoriteBtn = document.getElementById('favoriteBtn');
+        if (favoriteBtn) favoriteBtn.style.display = 'none';
+    }
+    
+    // Disable particles if admin disabled them
+    if (!features.particlesEnabled) {
+        settings.particlesEnabled = false;
+    }
+    
+    // Disable custom cursor if admin disabled it
+    if (!features.customCursorEnabled) {
+        settings.customCursorEnabled = false;
+    }
+    
+    // Mobile access check
+    if (!features.mobileAccessEnabled && isMobileDevice()) {
+        showMobileUnsupported();
+        return;
+    }
+    
+    console.log('✅ Feature toggles applied');
 }
 
 // Check for application updates
@@ -2627,25 +2757,33 @@ function importSiteData(file) {
 }
 
 function resetAllSettings() {
-    // Reset settings to defaults
-    settings = {
-        defaultProxy: false,
-        // Theme settings
-        accentColor: '#58a6ff',
-        // Particle settings
-        particlesEnabled: true,
-        particleSpeed: 0.5,
-        particleCount: 50,
-        particleColor: '#58a6ff',
-        particleLineDistance: 150,
-        particleMouseInteraction: true,
-        // Cursor settings
-        customCursorEnabled: true,
-        cursorSize: 8,
-        cursorColor: '#ffffff',
-        cursorType: 'circle',
-        customCursorImage: null
-    };
+    // Reset settings to admin-controlled defaults
+    if (adminConfig && adminConfig.defaultUserSettings) {
+        // Use admin-defined defaults
+        settings = { ...adminConfig.defaultUserSettings };
+        console.log('⚙️ Settings reset to admin defaults');
+    } else {
+        // Fallback to hardcoded defaults if admin config unavailable
+        settings = {
+            defaultProxy: false,
+            // Theme settings
+            accentColor: '#58a6ff',
+            // Particle settings
+            particlesEnabled: true,
+            particleSpeed: 0.5,
+            particleCount: 50,
+            particleColor: '#58a6ff',
+            particleLineDistance: 150,
+            particleMouseInteraction: true,
+            // Cursor settings
+            customCursorEnabled: true,
+            cursorSize: 8,
+            cursorColor: '#ffffff',
+            cursorType: 'circle',
+            customCursorImage: null
+        };
+        console.log('⚙️ Settings reset to fallback defaults');
+    }
     
     // Save to localStorage
     saveSettingsToCookies();
@@ -2656,7 +2794,7 @@ function resetAllSettings() {
     // Update the settings page UI
     updateSettingsPageValues();
     
-    showNotification('All settings have been reset to default values.', 'success');
+    showNotification('All settings have been reset to admin-defined default values.', 'success');
 }
 
 function clearAllGameData() {
@@ -2968,6 +3106,119 @@ function showUpdateModal(triggerBtn){
     note.textContent='Updating assets & refreshing...';
     document.body.appendChild(note);
     setTimeout(()=>{ note.remove(); if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='Check for Updates'; } }, 4000);
+}
+
+// ===== ADMIN CONFIGURATION SYSTEM =====
+
+// Apply comprehensive admin controls after page load
+function applyAdminControls() {
+    // Apply feature toggles again in case DOM changed
+    applyFeatureToggles();
+    
+    // Hide settings sections based on admin config
+    if (!features.particlesEnabled) {
+        const particleSection = document.querySelector('h3')?.parentElement?.parentElement;
+        if (particleSection && particleSection.textContent.includes('Background Particles')) {
+            particleSection.style.display = 'none';
+        }
+    }
+    
+    if (!features.customCursorEnabled) {
+        const cursorSection = document.querySelector('h3')?.parentElement?.parentElement;
+        if (cursorSection && cursorSection.textContent.includes('Cursor Settings')) {
+            cursorSection.style.display = 'none';
+        }
+    }
+    
+    if (!features.proxyEnabled) {
+        const proxySection = document.querySelector('h3')?.parentElement?.parentElement;
+        if (proxySection && proxySection.textContent.includes('Game Settings')) {
+            const proxyToggle = proxySection.querySelector('#proxyToggleSetting');
+            if (proxyToggle) {
+                proxyToggle.closest('.setting-item').style.display = 'none';
+            }
+        }
+    }
+    
+    // Apply UI controls
+    if (!uiControls.showUpdateNotifications && !features.updatingEnabled) {
+        const updateSection = document.querySelector('h3')?.parentElement?.parentElement;
+        if (updateSection && updateSection.textContent.includes('Updates')) {
+            updateSection.style.display = 'none';
+        }
+    }
+}
+
+// Initialize admin controls after DOM is ready
+function initializeAdminControls() {
+    // Apply controls immediately
+    applyAdminControls();
+    
+    // Apply controls after any dynamic content loads
+    setTimeout(applyAdminControls, 500);
+    setTimeout(applyAdminControls, 1000);
+    
+    // Watch for settings page creation
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                const addedNodes = Array.from(mutation.addedNodes);
+                const hasSettingsPage = addedNodes.some(node => 
+                    node.nodeType === 1 && (node.id === 'settingsPage' || node.querySelector('#settingsPage'))
+                );
+                if (hasSettingsPage) {
+                    setTimeout(applyAdminControls, 100);
+                }
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+// Admin API helper functions for external management
+window.WaterWallAdmin = {
+    // Get current configuration
+    getConfig: () => adminConfig,
+    getFeatures: () => features,
+    getUIControls: () => uiControls,
+    
+    // Apply new configuration from external source
+    applyConfig: (newConfig) => {
+        if (newConfig.features) {
+            features = { ...features, ...newConfig.features };
+        }
+        if (newConfig.uiControls) {
+            uiControls = { ...uiControls, ...newConfig.uiControls };
+        }
+        if (newConfig.defaultUserSettings) {
+            // Update existing user settings with any new defaults
+            Object.keys(newConfig.defaultUserSettings).forEach(key => {
+                if (settings[key] === undefined) {
+                    settings[key] = newConfig.defaultUserSettings[key];
+                }
+            });
+        }
+        applyAdminControls();
+        console.log('✅ Admin configuration applied');
+    },
+    
+    // Force refresh from backend
+    refreshConfig: async () => {
+        await loadBackendConfiguration();
+        applyAdminControls();
+        console.log('✅ Configuration refreshed from backend');
+    }
+};
+
+// Initialize admin controls when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAdminControls);
+} else {
+    initializeAdminControls();
 }
 
 
