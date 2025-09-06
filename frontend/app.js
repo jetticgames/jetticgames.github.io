@@ -1847,22 +1847,34 @@ function showNotification(message, type = 'info', duration = 5000) {
 
     // Create notification element
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
+    notification.className = 'notification';
     
-    const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+    // Define icons and type text
+    const typeInfo = {
+        error: { icon: '❌', text: 'Error' },
+        success: { icon: '✅', text: 'Success' },
+        warning: { icon: '⚠️', text: 'Warning' },
+        info: { icon: 'ℹ️', text: 'Info' }
+    };
+    
+    const { icon, text } = typeInfo[type] || typeInfo.info;
     
     notification.innerHTML = `
-        <div class="notification-content">
-            <span class="notification-icon">${icon}</span>
-            <span class="notification-message">${message}</span>
+        <div class="notification-header">
+            <div class="notification-header-left">
+                <span class="notification-icon">${icon}</span>
+                <span class="notification-type">${text}</span>
+            </div>
             <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
         </div>
+        <div class="notification-message">${message}</div>
     `;
     
     // Add animation class
     notification.style.transform = 'translateX(100%)';
     notification.style.opacity = '0';
     
+    // Add to bottom of container (will appear at bottom due to flex-direction: column-reverse)
     container.appendChild(notification);
     
     // Trigger entrance animation
@@ -2102,7 +2114,7 @@ function ensureSettingsPage(){
                                         <span class="setting-title">Enable Particles</span>
                                         <span class="setting-sub">Show animated background particles</span>
                                     </div>
-                                    <input type="checkbox" id="particlesEnabledSetting" class="ww-switch-input" ${settings.particlesEnabled?'checked':''} onchange="(function(el){settings.particlesEnabled=el.checked;saveSettingsToCookies();applyTheme();})(this)">
+                                    <input type="checkbox" id="particlesEnabledSetting" class="ww-switch-input" ${settings.particlesEnabled?'checked':''} onchange="(function(el){settings.particlesEnabled=el.checked;saveSettingsToCookies();applyParticleSettings();})(this)">
                                     <span class="ww-switch" aria-hidden="true"></span>
                                 </label>
                             </div>
@@ -2110,7 +2122,7 @@ function ensureSettingsPage(){
                                 <label class="range-setting">
                                     <span class="setting-title">Particle Speed</span>
                                     <span class="setting-sub">Control how fast particles move</span>
-                                    <input type="range" id="particleSpeedSetting" min="0.1" max="2" step="0.1" value="${settings.particleSpeed}" onchange="(function(el){settings.particleSpeed=parseFloat(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleSpeedValue').textContent=el.value;})(this)" class="range-input">
+                                    <input type="range" id="particleSpeedSetting" min="0.1" max="2" step="0.1" value="${settings.particleSpeed}" onchange="(function(el){settings.particleSpeed=parseFloat(el.value);saveSettingsToCookies();applyParticleSettings();document.getElementById('particleSpeedValue').textContent=el.value;})(this)" class="range-input">
                                     <span id="particleSpeedValue">${settings.particleSpeed}</span>
                                 </label>
                             </div>
@@ -2118,7 +2130,7 @@ function ensureSettingsPage(){
                                 <label class="range-setting">
                                     <span class="setting-title">Particle Count</span>
                                     <span class="setting-sub">Number of particles on screen</span>
-                                    <input type="range" id="particleCountSetting" min="10" max="200" value="${settings.particleCount}" onchange="(function(el){settings.particleCount=parseInt(el.value);saveSettingsToCookies();applyTheme();document.getElementById('particleCountValue').textContent=el.value;})(this)" class="range-input">
+                                    <input type="range" id="particleCountSetting" min="10" max="200" value="${settings.particleCount}" onchange="(function(el){settings.particleCount=parseInt(el.value);saveSettingsToCookies();applyParticleSettings();document.getElementById('particleCountValue').textContent=el.value;})(this)" class="range-input">
                                     <span id="particleCountValue">${settings.particleCount}</span>
                                 </label>
                             </div>
@@ -2126,7 +2138,7 @@ function ensureSettingsPage(){
                                 <label class="color-setting">
                                     <span class="setting-title">Particle Color</span>
                                     <span class="setting-sub">Choose particle and line color</span>
-                                    <input type="color" id="particleColorSetting" value="${settings.particleColor}" onchange="(function(el){settings.particleColor=el.value;saveSettingsToCookies();applyTheme();})(this)" class="color-input">
+                                    <input type="color" id="particleColorSetting" value="${settings.particleColor}" onchange="(function(el){settings.particleColor=el.value;saveSettingsToCookies();applyParticleSettings();})(this)" class="color-input">
                                 </label>
                             </div>
                             <div class="setting-item">
@@ -3172,63 +3184,6 @@ function closeCustomConfirmDialog() {
         }
         dialog.remove();
     }
-}
-
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 8px;
-        color: white;
-        font-weight: 500;
-        z-index: 10001;
-        max-width: 400px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        animation: slideInRight 0.3s ease-out;
-    `;
-    
-    // Set background color based on type
-    const colors = {
-        success: '#28a745',
-        error: '#dc3545',
-        info: '#17a2b8',
-        warning: '#ffc107'
-    };
-    notification.style.backgroundColor = colors[type] || colors.info;
-    
-    notification.textContent = message;
-    
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = `
-        background: none;
-        border: none;
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        margin-left: 10px;
-        cursor: pointer;
-        padding: 0;
-        line-height: 1;
-    `;
-    closeBtn.onclick = () => notification.remove();
-    notification.appendChild(closeBtn);
-    
-    document.body.appendChild(notification);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.style.animation = 'slideOutRight 0.3s ease-in';
-            setTimeout(() => notification.remove(), 300);
-        }
-    }, 5000);
 }
 
 function buildCategoryTabs(){
