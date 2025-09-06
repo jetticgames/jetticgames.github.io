@@ -123,6 +123,10 @@ const auth0Config = {
     useRefreshTokens: false,
     useCookiesForTransactions: true // ensure state/nonce survive same-site navigations
 };
+
+// Auth0 audience for API calls (use the backend URL as audience)
+const AUTH0_AUDIENCE = BACKEND_URL;
+
 console.log('[Auth0] Using redirect_uri:', auth0Config.authorizationParams.redirect_uri);
 
 // ===== Global Page Loader (initial page load experience) =====
@@ -3741,6 +3745,31 @@ async function socialFetchUser(){
         }
     } catch(e){ 
         console.error('[Social] User data fetch failed:', e);
+        
+        // Try without audience if it failed
+        try {
+            console.debug('[Social] Retrying token without audience');
+            const token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+            
+            if(token) {
+                const r = await fetch(`${BACKEND_URL}/api/user`, {
+                    headers:{Authorization:`Bearer ${token}`}
+                }); 
+                
+                if(r.ok){ 
+                    const data = await r.json(); 
+                    socialState.user=data.user; 
+                    socialState.loaded=true; 
+                    console.debug('[Social] User data loaded on retry:', data.user?.profile?.username || 'unnamed');
+                    syncFavoritesWithCloud(); 
+                    renderFriendsPage(); 
+                }
+            }
+        } catch(retryError) {
+            console.error('[Social] Retry also failed:', retryError);
+        }
     } 
 }
 
@@ -3761,7 +3790,41 @@ const __origToggleFavorite = window.toggleFavoriteFromGamePage;
 if(typeof __origToggleFavorite === 'function'){
     window.toggleFavoriteFromGamePage = async function(){ __origToggleFavorite.apply(this, arguments); if(await socialEnsureAuth()){ setTimeout(()=>socialUploadFavorites(),500); } };
 }
-async function socialUploadFavorites(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { await fetch(`${BACKEND_URL}/api/user/favorites`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(favorites)}); } catch(e){ console.warn('Fav upload fail', e);} }
+async function socialUploadFavorites(){ 
+    if(!(await socialEnsureAuth())) return; 
+    
+    let token;
+    try {
+        token = await auth0Client.getTokenSilently({
+            audience: AUTH0_AUDIENCE,
+            scope: 'openid profile email'
+        });
+    } catch(audienceError) {
+        try {
+            token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        } catch(tokenError) {
+            console.debug('[Favorites] Failed to get token for upload');
+            return;
+        }
+    }
+    
+    if(!token) return; 
+    
+    try { 
+        await fetch(`${BACKEND_URL}/api/user/favorites`, {
+            method:'PUT', 
+            headers:{
+                'Content-Type':'application/json', 
+                Authorization:`Bearer ${token}`
+            }, 
+            body:JSON.stringify(favorites)
+        }); 
+    } catch(e){ 
+        console.warn('[Favorites] Upload failed:', e);
+    }
+}
 
 // Friends Page logic
 function showFriendsPage(){
@@ -3909,8 +3972,26 @@ async function wireFriendsEvents(){ const page=document.getElementById('friendsP
 
 async function friendAction(action, body){ 
     if(!(await socialEnsureAuth())) return; 
-    const token = await auth0Client.getTokenSilently?.().catch(()=>null); 
-    if(!token) return; 
+    
+    let token;
+    try {
+        token = await auth0Client.getTokenSilently({
+            audience: AUTH0_AUDIENCE,
+            scope: 'openid profile email'
+        });
+    } catch(audienceError) {
+        console.debug('[Friends] Trying without audience due to error:', audienceError);
+        try {
+            token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        } catch(tokenError) {
+            console.error('[Friends] Failed to get token:', tokenError);
+            return {error: 'Authentication failed'};
+        }
+    }
+    
+    if(!token) return {error: 'No token available'}; 
     
     try { 
         const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {
@@ -3936,7 +4017,42 @@ async function friendAction(action, body){
 }
 
 // Presence
-async function presenceHeartbeat(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { const gameId = currentGame? currentGame.id : null; await fetch(`${BACKEND_URL}/api/presence`, {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({game:gameId})}); } catch(e){} }
+async function presenceHeartbeat(){ 
+    if(!(await socialEnsureAuth())) return; 
+    
+    let token;
+    try {
+        token = await auth0Client.getTokenSilently({
+            audience: AUTH0_AUDIENCE,
+            scope: 'openid profile email'
+        });
+    } catch(audienceError) {
+        try {
+            token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        } catch(tokenError) {
+            console.debug('[Presence] Failed to get token for heartbeat');
+            return;
+        }
+    }
+    
+    if(!token) return; 
+    
+    try { 
+        const gameId = currentGame? currentGame.id : null; 
+        await fetch(`${BACKEND_URL}/api/presence`, {
+            method:'POST', 
+            headers:{
+                'Content-Type':'application/json', 
+                Authorization:`Bearer ${token}`
+            }, 
+            body:JSON.stringify({game:gameId})
+        }); 
+    } catch(e){
+        console.debug('[Presence] Heartbeat failed:', e);
+    } 
+}
 async function updatePresence(){ 
     if(!socialState.user || !socialState.user.friends) return; 
     const ids = socialState.user.friends.list.join(','); 
@@ -3947,7 +4063,23 @@ async function updatePresence(){
         return;
     }
     
-    const token = await auth0Client.getTokenSilently?.().catch(()=>null); 
+    let token;
+    try {
+        token = await auth0Client.getTokenSilently({
+            audience: AUTH0_AUDIENCE,
+            scope: 'openid profile email'
+        });
+    } catch(audienceError) {
+        try {
+            token = await auth0Client.getTokenSilently({
+                scope: 'openid profile email'
+            });
+        } catch(tokenError) {
+            console.debug('[Presence] Failed to get token for update');
+            return;
+        }
+    }
+    
     if(!token) return; 
     
     try { 
@@ -4150,19 +4282,94 @@ function toggleProfileDropdown(force){
     
     console.debug('[ProfileDropdown] toggle complete - profileOpen:', profileOpen, 'element classes:', profileDropdownEl.className);
 }
-function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
+function showProfileSettingsPage(){ 
+    console.debug('[Profile] showProfileSettingsPage called');
+    
+    try {
+        hideAllPages(true);
+        const page=document.getElementById('profileSettingsPage'); 
+        
+        if(!page){ 
+            console.error('[Profile] profileSettingsPage element not found');
+            return; 
+        }
+        
+        page.style.display='block'; 
+        page.classList.add('active'); 
+        loadProfileForm(); 
+    } catch(error) {
+        console.error('[Profile] Error showing profile settings page:', error);
+    }
+}
 
 // Avatar & profile form logic
-function loadProfileForm(){ if(!socialState.user){ socialFetchUser().then(loadProfileForm); return; } const u=socialState.user; const prof=u?.profile||{}; const unameInput=document.getElementById('profileUsername'); if(unameInput){ unameInput.value = prof.username || ''; }
-    const colorInput=document.getElementById('profileColor'); if(colorInput){ colorInput.value = prof.color || settings.accentColor || '#58a6ff'; }
-    // avatar
-    const avatarPreview=document.getElementById('avatarPreview'); const placeholder=document.getElementById('avatarPlaceholder');
-    if(avatarPreview && prof.avatar){ avatarPreview.src=prof.avatar; avatarPreview.style.display='block'; if(placeholder) placeholder.style.display='none'; }
+function loadProfileForm(){ 
+    console.debug('[Profile] loadProfileForm called');
+    
+    try {
+        // Check if profile form exists
+        const profileForm = document.getElementById('profileForm');
+        if(!profileForm) {
+            console.error('[Profile] profileForm not found, profile settings page may not be loaded');
+            return;
+        }
+        
+        if(!socialState.user){ 
+            console.debug('[Profile] No user data, fetching...');
+            socialFetchUser().then(()=> {
+                console.debug('[Profile] User data fetched, retrying loadProfileForm');
+                loadProfileForm();
+            }).catch(error => {
+                console.error('[Profile] Error fetching user data:', error);
+            });
+            return; 
+        } 
+        
+        const u=socialState.user; 
+        const prof=u?.profile||{}; 
+        
+        const unameInput=document.getElementById('profileUsername'); 
+        if(unameInput){ 
+            unameInput.value = prof.username || ''; 
+            console.debug('[Profile] Set username:', prof.username || '(empty)');
+        } else {
+            console.warn('[Profile] profileUsername element not found');
+        }
+        
+        const colorInput=document.getElementById('profileColor'); 
+        if(colorInput){ 
+            colorInput.value = prof.color || settings.accentColor || '#58a6ff'; 
+            console.debug('[Profile] Set color:', prof.color || settings.accentColor || '#58a6ff');
+        } else {
+            console.warn('[Profile] profileColor element not found');
+        }
+        
+        // avatar
+        const avatarPreview=document.getElementById('avatarPreview'); 
+        const placeholder=document.getElementById('avatarPlaceholder');
+        
+        if(avatarPreview && prof.avatar){ 
+            avatarPreview.src=prof.avatar; 
+            avatarPreview.style.display='block'; 
+            if(placeholder) placeholder.style.display='none'; 
+            console.debug('[Profile] Set avatar preview');
+        } else if(placeholder) {
+            placeholder.style.display='block';
+            if(avatarPreview) avatarPreview.style.display='none';
+        }
+    } catch(error) {
+        console.error('[Profile] Error in loadProfileForm:', error);
+    }
 }
 
 function initProfileForm(){ 
+    console.debug('[Profile] initProfileForm called');
+    
     const form=document.getElementById('profileForm'); 
-    if(!form) return; 
+    if(!form) {
+        console.warn('[Profile] profileForm not found during initialization');
+        return; 
+    }
     
     const avatarInput=document.getElementById('avatarInput'); 
     const uploader=document.getElementById('avatarUploader'); 
@@ -4224,10 +4431,18 @@ function initProfileForm(){
         showProfileSaveIndicator('Saving...'); 
         
         try {
-            const token = await auth0Client.getTokenSilently({
-                audience: AUTH0_AUDIENCE,
-                scope: 'openid profile email'
-            });
+            let token;
+            try {
+                token = await auth0Client.getTokenSilently({
+                    audience: AUTH0_AUDIENCE,
+                    scope: 'openid profile email'
+                });
+            } catch(audienceError) {
+                console.debug('[Profile] Trying without audience due to error:', audienceError);
+                token = await auth0Client.getTokenSilently({
+                    scope: 'openid profile email'
+                });
+            }
             
             if(!token){ 
                 showProfileSaveIndicator('Failed to get auth token', true); 
