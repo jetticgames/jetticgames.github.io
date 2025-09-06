@@ -3717,20 +3717,34 @@ function toggleProfileDropdown(force){
     const sidebar = document.querySelector('.sidebar');
     const sidebarRect = sidebar ? sidebar.getBoundingClientRect() : null;
     
+    // Force dropdown to be visible first to get accurate height
+    profileDropdownEl.style.display = 'block';
+    profileDropdownEl.style.opacity = '0';
+    const dropdownHeight = profileDropdownEl.offsetHeight;
+    
     if(sidebarRect) {
         // Position dropdown to span sidebar width with small gaps
         profileDropdownEl.style.left = (sidebarRect.left + 12) + 'px'; // 12px gap from left
         profileDropdownEl.style.width = (sidebarRect.width - 24) + 'px'; // 12px gap on each side
-        profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
+        // Position ABOVE the profile button by subtracting dropdown height
+        profileDropdownEl.style.top = (rect.top - dropdownHeight - 12) + 'px';
         profileDropdownEl.style.transform = 'none'; // remove centering transform
     } else {
         // Fallback to original centering if sidebar not found
         profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px';
-        profileDropdownEl.style.top = (rect.top - profileDropdownEl.offsetHeight - 8) + 'px';
+        profileDropdownEl.style.top = (rect.top - dropdownHeight - 12) + 'px';
     }
     profileOpen = (force!==undefined? force : !profileOpen);
     profileDropdownEl.classList.toggle('open', profileOpen);
     profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true');
+    
+    // Reset opacity after positioning
+    if(profileOpen) {
+        profileDropdownEl.style.opacity = '1';
+    } else {
+        profileDropdownEl.style.display = 'none';
+    }
+    
     console.debug('[ProfileDropdown] toggle complete - profileOpen:', profileOpen, 'element classes:', profileDropdownEl.className);
 }
 function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
