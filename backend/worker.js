@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     
     // Maintenance Mode Control
     maintenanceMode: {
-        enabled: false,
+        enabled: true,
         message: "WaterWall is currently under maintenance. We'll be back online soon!",
         estimatedTime: "Please check back in a few hours.",
         blockProxy: true // Also disable proxy during maintenance
