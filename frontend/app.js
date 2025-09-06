@@ -1751,16 +1751,6 @@ function ensureSettingsPage(){
                                     <span class="ww-switch" aria-hidden="true"></span>
                                 </label>
                             </div>
-                            <div class="setting-item">
-                                <label class="switch-row" for="maintenanceToggleSetting">
-                                    <div class="switch-text">
-                                        <span class="setting-title">🚧 Maintenance Mode</span>
-                                        <span class="setting-sub">Hide all games and show maintenance notice (local setting)</span>
-                                    </div>
-                                    <input type="checkbox" id="maintenanceToggleSetting" class="ww-switch-input" ${maintenanceMode.enabled?'checked':''} onchange="toggleMaintenanceMode(this)">
-                                    <span class="ww-switch" aria-hidden="true"></span>
-                                </label>
-                            </div>
                         </div>
                     </div>
                     
@@ -2951,28 +2941,6 @@ function toggleGameProxy(){
     isProxyEnabled = gameProxyOverrides[currentGame.id];
     updateProxyVisuals();
     loadGame(currentGame);
-}
-
-function toggleMaintenanceMode(toggleElement) {
-    maintenanceMode.enabled = toggleElement.checked;
-    
-    if (maintenanceMode.enabled) {
-        console.log('🚧 Maintenance mode ENABLED');
-        // Show maintenance notice immediately
-        showMaintenanceNotice();
-    } else {
-        console.log('✅ Maintenance mode DISABLED');
-        // Re-render games
-        forceRenderGames();
-        renderFavoritesSection();
-    }
-    
-    // Save maintenance state to localStorage
-    try {
-        localStorage.setItem('ww_maintenance_mode', JSON.stringify(maintenanceMode));
-    } catch (e) {
-        console.warn('Failed to save maintenance mode:', e);
-    }
 }
 
 function updateProxyVisuals(){

@@ -11,7 +11,7 @@ const CONFIG_CACHE_TTL = 1800; // 30 minutes
 const DEFAULT_CONFIG = {
     version: APP_VERSION,
     maintenanceMode: {
-        enabled: true,
+        enabled: false,
         message: "WaterWall is currently under maintenance. We'll be back online soon!",
         estimatedTime: "Please check back in a few hours."
     },
