@@ -975,8 +975,17 @@ function handleAccountButton(){
     auth0Client.isAuthenticated().then(isAuth=>{
         if(!isAuth){ auth0Client.loginWithRedirect(); return; }
     let pdEl = document.getElementById('profileDropdown');
-    if(!pdEl){ const hdr=document.querySelector('.sidebar-header'); if(hdr){ hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`); pdEl=document.getElementById('profileDropdown'); } }
-    initProfileDropdown();
+    if(!pdEl){
+        const hdr=document.querySelector('.sidebar-header');
+        if(hdr){
+            hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`);
+            pdEl=document.getElementById('profileDropdown');
+            // Initialize only once right after creation
+            profileDropdownEl=null; // reset so init function proceeds
+            initProfileDropdown();
+        }
+    }
+    // If already initialized just toggle
     toggleProfileDropdown();
     }).catch(()=>{ markAuthUnavailable(); });
 }
@@ -3671,12 +3680,11 @@ function initProfileDropdown(){
     const accountNav = document.getElementById('accountNavItem');
     if(!profileDropdownEl || !accountNav) return;
     console.debug('[ProfileDropdown] initialized');
-    // Direct click handler (simplified)
-    accountNav.addEventListener('click', async (e)=>{
-        e.preventDefault();
-        if(!(await socialEnsureAuth())){ login(); return; }
-        toggleProfileDropdown();
-    });
+    // NOTE: We intentionally do NOT add another click handler here because
+    // the global navigation handler already calls handleAccountButton(),
+    // which (once authenticated) creates & toggles the dropdown exactly once.
+    // A second listener here caused a double toggle (open->closed instantly),
+    // making the menu appear to do nothing.
     document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
     document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
     document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
