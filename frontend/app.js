@@ -974,23 +974,10 @@ function handleAccountButton(){
     if(!auth0Client){ markAuthUnavailable(); return; }
     auth0Client.isAuthenticated().then(isAuth=>{
         if(!isAuth){ auth0Client.loginWithRedirect(); return; }
-        // Authenticated – prefer profile dropdown if available
-        let pdEl = document.getElementById('profileDropdown');
-        if(!pdEl){ console.warn('Profile dropdown missing in DOM, injecting fallback');
-            const hdr=document.querySelector('.sidebar-header');
-            if(hdr){ hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`); pdEl=document.getElementById('profileDropdown'); }
-        }
-        if(pdEl){
-            if(!profileDropdownEl){ try { initProfileDropdown(); } catch(e){ console.warn('initProfileDropdown failed', e); } }
-            if(profileDropdownEl){
-                // Position relative to account item (safer than absolute bottom if layout changes)
-                try { const acct=document.getElementById('accountNavItem'); if(acct){ const rect=acct.getBoundingClientRect(); profileDropdownEl.style.top = (rect.bottom + 8) + 'px'; profileDropdownEl.style.left = (rect.left + rect.width/2) + 'px'; profileDropdownEl.style.bottom='auto'; profileDropdownEl.style.transform='translateX(-50%)'; } } catch(_){}
-                toggleProfileDropdown();
-                return;
-            }
-        }
-        // Fallback (legacy) – show logout modal
-        openLogoutModal();
+    let pdEl = document.getElementById('profileDropdown');
+    if(!pdEl){ const hdr=document.querySelector('.sidebar-header'); if(hdr){ hdr.insertAdjacentHTML('beforeend', `<div id="profileDropdown" class="profile-dropdown" aria-hidden="true"><ul><li><button type="button" id="openProfileSettingsBtn"><span>Profile Settings</span></button></li><li><button type="button" id="logoutFromDropdownBtn" class="danger"><span>Log out</span></button></li></ul></div>`); pdEl=document.getElementById('profileDropdown'); } }
+    initProfileDropdown();
+    toggleProfileDropdown();
     }).catch(()=>{ markAuthUnavailable(); });
 }
 function openLogoutModal(){ if(logoutModalEl){ logoutModalEl.style.display='flex'; setTimeout(()=> logoutConfirmBtn?.focus(), 30);} }
@@ -1113,7 +1100,7 @@ function handleNavigation(e) {
         }
         
         // Show appropriate page or filter by category
-    if (navItem.id === 'accountNavItem') { handleAccountButton(); return; }
+    if (navItem.id === 'accountNavItem') { /* allow dedicated listener to handle; fallback if none */ if(typeof toggleProfileDropdown==='function'){ handleAccountButton(); } else { handleAccountButton(); } return; }
     if (page) {
             switch (page) {
                 case 'home':
@@ -3730,6 +3717,8 @@ function showLogoutConfirm(){ const modal=document.getElementById('logoutConfirm
 
 // Initialize after DOM ready
 document.addEventListener('DOMContentLoaded', ()=>{ initProfileDropdown(); initProfileForm(); });
+// Fallback: if for any reason dropdown not initialized after 2s (e.g., delayed DOM), attempt again
+setTimeout(()=>{ if(!profileDropdownEl){ console.debug('[ProfileDropdown] late init retry'); initProfileDropdown(); } },2000);
 // ========================================================================================
 
 
