@@ -8,12 +8,10 @@
     <!-- Simplified Asset Loading with Local Default -->
     <script>
         // Backend URL for API calls (not for asset loading)
-        const BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev';
+        // Set global variable for app.js to use
+        window.WATERWALL_BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev';
         
         console.log('🎮 WaterWall loading with local assets and backend APIs');
-        
-        // Make BACKEND_URL available globally for app.js
-        window.WATERWALL_BACKEND_URL = BACKEND_URL;
     </script>
     
     <!-- Load local CSS (reliable) -->
