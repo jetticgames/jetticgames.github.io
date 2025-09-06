@@ -79,6 +79,13 @@
                     </div>
                     <span class="logo-text">WaterWall</span>
                 </div>
+                <!-- Profile dropdown container inserted near header for layering -->
+                <div id="profileDropdown" class="profile-dropdown" aria-hidden="true">
+                    <ul>
+                        <li><button type="button" id="openProfileSettingsBtn"><i class="fas fa-id-card"></i><span>Profile Settings</span></button></li>
+                        <li><button type="button" id="logoutFromDropdownBtn" class="danger"><i class="fas fa-sign-out-alt"></i><span>Log out</span></button></li>
+                    </ul>
+                </div>
             </div>
             
             <nav class="sidebar-nav">
@@ -219,6 +226,34 @@
                             </div>
                         </div>
                     </section>
+                </div>
+                <!-- Profile Settings Page -->
+                <div id="profileSettingsPage" class="page" style="display:none;">
+                    <div class="profile-settings-wrapper">
+                        <div class="profile-card">
+                            <h2>Your Profile</h2>
+                            <div class="profile-row">
+                                <label class="avatar-uploader" id="avatarUploader" for="avatarInput">
+                                    <input type="file" id="avatarInput" accept="image/*" />
+                                    <img id="avatarPreview" alt="Avatar" style="display:none;" />
+                                    <span id="avatarPlaceholder" style="font-size:12px; color:#7d8590; text-align:center; padding:6px;">Click to upload<br>PNG/JPG/WebP</span>
+                                </label>
+                                <form class="profile-form" id="profileForm" autocomplete="off">
+                                    <label>Username
+                                        <input type="text" id="profileUsername" minlength="3" maxlength="24" placeholder="Choose a username" />
+                                    </label>
+                                    <label>Accent Color
+                                        <input type="color" id="profileColor" value="#58a6ff" />
+                                    </label>
+                                    <div class="profile-actions">
+                                        <button type="button" id="profileCancelBtn" class="secondary">Cancel</button>
+                                        <button type="submit" id="profileSaveBtn" class="primary">Save Changes</button>
+                                        <div class="save-indicator" id="profileSaveIndicator" style="display:none;"></div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- Inline auth status elements (minimal) -->
                 <div style="display:none;" aria-hidden="true">

@@ -1347,8 +1347,8 @@ function showCategoriesPage() {
 
 function showFavoritesPage(){
     ensureFavoritesPage();
-    hideAllPages();
-    const fav=document.getElementById('favoritesPage'); if(fav) fav.classList.add('active');
+    hideAllPages(true);
+    const fav=document.getElementById('favoritesPage'); if(fav){ fav.classList.add('active'); fav.style.display='block'; }
     renderFavoritesPage();
     
     // Show main content offline overlay if currently offline
@@ -1359,8 +1359,8 @@ function showFavoritesPage(){
 
 function showSettingsPage(){
     ensureSettingsPage();
-    hideAllPages();
-    const pg=document.getElementById('settingsPage'); if(pg) pg.classList.add('active');
+    hideAllPages(true);
+    const pg=document.getElementById('settingsPage'); if(pg){ pg.classList.add('active'); pg.style.display='block'; }
     const chk=document.getElementById('proxyToggleSetting'); if(chk) chk.checked=isProxyEnabled;
     const maintenanceChk=document.getElementById('maintenanceToggleSetting'); if(maintenanceChk) maintenanceChk.checked=maintenanceMode.enabled;
 }
@@ -1510,10 +1510,12 @@ function showSearchResults(query, results){
     if(grid) grid.innerHTML = results.length? results.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
 }
 
-function hideAllPages() {
+function hideAllPages(forceDisplayNone=false) {
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
+        if(forceDisplayNone || page.id!=='homePage') page.style.display='none';
     });
+    const home=document.getElementById('homePage'); if(home && !forceDisplayNone){ home.style.display='block'; }
 }
 
 // Game rendering functions
@@ -3606,7 +3608,14 @@ if(typeof __origToggleFavorite === 'function'){
 async function socialUploadFavorites(){ if(!(await socialEnsureAuth())) return; const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token) return; try { await fetch(`${BACKEND_URL}/api/user/favorites`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(favorites)}); } catch(e){ console.warn('Fav upload fail', e);} }
 
 // Friends Page logic
-function showFriendsPage(){ const page=document.getElementById('friendsPage'); if(!page) return; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); page.classList.add('active'); page.style.display='block'; renderFriendsPage(); }
+function showFriendsPage(){
+    hideAllPages(true);
+    const page=document.getElementById('friendsPage'); if(!page) return;
+    page.style.display='block';
+    page.classList.add('active');
+    void page.offsetHeight; // reflow
+    renderFriendsPage();
+}
 
 // Attach to nav switch
 (function hookNav(){ const navContainer=document.querySelector('.sidebar-nav'); if(!navContainer) return; const orig = updateNavigationStats; // not altering existing switch logic, add listener separately
@@ -3642,6 +3651,49 @@ window.WaterWallSocial = { refreshUser: socialFetchUser, pushFavorites: socialUp
 // MutationObserver to refresh when friends page inserted dynamically
 if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', ()=>{ if(location.hash==='#friends') showFriendsPage(); }); }
 // ============================================================================
+
+// ================= Profile UI / Dropdown & Settings =================
+let profileDropdownEl=null, profileOpen=false;
+function initProfileDropdown(){
+    profileDropdownEl = document.getElementById('profileDropdown');
+    const accountNav = document.getElementById('accountNavItem');
+    if(!profileDropdownEl || !accountNav) return;
+    accountNav.addEventListener('click', async (e)=>{
+        if(!(await socialEnsureAuth())){ login(); return; }
+        e.preventDefault(); toggleProfileDropdown();
+    });
+    document.getElementById('logoutFromDropdownBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showLogoutConfirm(); });
+    document.getElementById('openProfileSettingsBtn')?.addEventListener('click', ()=>{ toggleProfileDropdown(false); showProfileSettingsPage(); });
+    document.addEventListener('click', (ev)=>{ if(profileOpen && profileDropdownEl && !profileDropdownEl.contains(ev.target) && !accountNav.contains(ev.target)){ toggleProfileDropdown(false); } });
+}
+function toggleProfileDropdown(force){ if(profileDropdownEl){ profileOpen = (force!==undefined? force : !profileOpen); profileDropdownEl.classList.toggle('open', profileOpen); profileDropdownEl.setAttribute('aria-hidden', profileOpen? 'false':'true'); } }
+function showProfileSettingsPage(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const page=document.getElementById('profileSettingsPage'); if(page){ page.style.display='block'; page.classList.add('active'); loadProfileForm(); } }
+
+// Avatar & profile form logic
+function loadProfileForm(){ if(!socialState.user){ socialFetchUser().then(loadProfileForm); return; } const u=socialState.user; const prof=u?.profile||{}; const unameInput=document.getElementById('profileUsername'); if(unameInput){ unameInput.value = prof.username || ''; }
+    const colorInput=document.getElementById('profileColor'); if(colorInput){ colorInput.value = prof.color || settings.accentColor || '#58a6ff'; }
+    // avatar
+    const avatarPreview=document.getElementById('avatarPreview'); const placeholder=document.getElementById('avatarPlaceholder');
+    if(avatarPreview && prof.avatar){ avatarPreview.src=prof.avatar; avatarPreview.style.display='block'; if(placeholder) placeholder.style.display='none'; }
+}
+
+function initProfileForm(){ const form=document.getElementById('profileForm'); if(!form) return; const avatarInput=document.getElementById('avatarInput'); const uploader=document.getElementById('avatarUploader'); const avatarPreview=document.getElementById('avatarPreview'); const placeholder=document.getElementById('avatarPlaceholder');
+    if(avatarInput){ avatarInput.addEventListener('change', ()=>{ const file=avatarInput.files?.[0]; if(!file) return; if(file.size> 512*1024){ alert('Avatar max size 512KB'); avatarInput.value=''; return; } const reader=new FileReader(); reader.onload=()=>{ if(avatarPreview){ avatarPreview.src=reader.result; avatarPreview.style.display='block'; if(placeholder) placeholder.style.display='none'; } }; reader.readAsDataURL(file); }); }
+    if(uploader){ uploader.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); avatarInput?.click(); }}); }
+    form.addEventListener('submit', async (e)=>{ e.preventDefault(); if(!(await socialEnsureAuth())) { login(); return; } const uname=document.getElementById('profileUsername').value.trim(); if(uname && !/^[a-zA-Z0-9_]{3,24}$/.test(uname)){ showProfileSaveIndicator('Invalid username', true); return; } const color=document.getElementById('profileColor').value; let avatar=null; const file=avatarInput?.files?.[0]; if(file){ avatar = avatarPreview?.src; }
+        showProfileSaveIndicator('Saving...'); const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(!token){ showProfileSaveIndicator('Auth error', true); return; }
+        const body={}; if(uname) body.username=uname; if(color) body.color=color; if(avatar) body.avatar=avatar; try { const r= await fetch(`${BACKEND_URL}/api/user/profile`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(body)}); const data=await r.json(); if(r.ok){ showProfileSaveIndicator('Saved', false, true); await socialFetchUser(); if(color){ settings.accentColor=color; applyTheme(); } } else { showProfileSaveIndicator(data.error||'Save failed', true); } } catch(err){ showProfileSaveIndicator('Network error', true); }
+    });
+    document.getElementById('profileCancelBtn')?.addEventListener('click', ()=>{ loadProfileForm(); showProfileSaveIndicator('Reverted', false); setTimeout(()=>hideProfileSaveIndicator(), 1200); });
+}
+function showProfileSaveIndicator(msg, isError=false, success=false){ const el=document.getElementById('profileSaveIndicator'); if(!el) return; el.style.display='flex'; el.textContent=msg; el.classList.remove('error','success'); if(isError) el.classList.add('error'); else if(success) el.classList.add('success'); }
+function hideProfileSaveIndicator(){ const el=document.getElementById('profileSaveIndicator'); if(el){ el.style.display='none'; }}
+
+function showLogoutConfirm(){ const modal=document.getElementById('logoutConfirmModal'); if(modal){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); } }
+
+// Initialize after DOM ready
+document.addEventListener('DOMContentLoaded', ()=>{ initProfileDropdown(); initProfileForm(); });
+// ========================================================================================
 
 
 

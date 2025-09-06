@@ -2497,6 +2497,20 @@ async function requireAuth(request, env){
     if(env.AUTH0_AUDIENCE && payload.aud && !(Array.isArray(payload.aud)? payload.aud.includes(env.AUTH0_AUDIENCE): payload.aud===env.AUTH0_AUDIENCE)){
         return {error:forbidden('Bad audience')};
     }
+    // Issuer check
+    if(env.AUTH0_DOMAIN){
+        const expectedIss = `https://${env.AUTH0_DOMAIN}/`;
+        if(payload.iss && payload.iss !== expectedIss){
+            return {error:forbidden('Bad issuer')};
+        }
+    }
+    // Allowed client IDs (azp claim for SPA access tokens)
+    if(env.AUTH0_ALLOWED_CLIENT_IDS){
+        const allowed = env.AUTH0_ALLOWED_CLIENT_IDS.split(',').map(s=>s.trim()).filter(Boolean);
+        if(payload.azp && !allowed.includes(payload.azp)){
+            return {error:forbidden('Client not allowed')};
+        }
+    }
     return {payload, token};
 }
 
