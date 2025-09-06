@@ -2957,7 +2957,13 @@ function buildCategoryTabs(){
         sports: 'fa-futbol',             // free (soccer ball)
         new: 'fa-star',                  // fa-sparkles is Pro; use star
         popular: 'fa-fire',              // free
-        updated: 'fa-arrows-rotate'      // fa-rotate is a utility class, use arrows-rotate icon
+        updated: 'fa-arrows-rotate',     // fa-rotate is a utility class, use arrows-rotate icon
+        sandbox: 'fa-cube',              // free
+        racing: 'fa-flag-checkered',     // free
+        shooter: 'fa-crosshairs',        // free
+        horror: 'fa-ghost',              // free
+        simulation: 'fa-cogs',           // free
+        classic: 'fa-clock'              // free
     };
     const allList = ['all', ...cats];
     el.innerHTML = allList.map(c=>{
