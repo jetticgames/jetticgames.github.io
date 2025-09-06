@@ -966,7 +966,29 @@ function bindAuthButtons(){
     if(loginBtn){ loginBtn.onclick=()=> auth0Client.loginWithRedirect(); }
     const logoutBtn=document.getElementById('logoutBtn');
     if(logoutBtn){ logoutBtn.onclick=()=> openLogoutModal(); }
-    if(logoutConfirmBtn){ logoutConfirmBtn.onclick=()=> { if(auth0Client){ auth0Client.logout({ logoutParams:{ returnTo: window.location.origin }}); } }; }
+    if(logoutConfirmBtn){ logoutConfirmBtn.onclick=()=> { 
+        if(auth0Client){ 
+            try {
+                console.debug('[Logout] Starting logout process');
+                auth0Client.logout({ 
+                    logoutParams: { 
+                        returnTo: window.location.origin 
+                    } 
+                }); 
+            } catch(error) {
+                console.error('[Logout] Error during logout:', error);
+                // Fallback: manually clear and reload
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = window.location.origin;
+            }
+        } else {
+            console.warn('[Logout] auth0Client not available, manual cleanup');
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = window.location.origin;
+        }
+    }; }
     if(logoutCancelBtn){ logoutCancelBtn.onclick=()=> closeLogoutModal(); }
 }
 
@@ -3769,7 +3791,35 @@ function initProfileForm(){ const form=document.getElementById('profileForm'); i
 function showProfileSaveIndicator(msg, isError=false, success=false){ const el=document.getElementById('profileSaveIndicator'); if(!el) return; el.style.display='flex'; el.textContent=msg; el.classList.remove('error','success'); if(isError) el.classList.add('error'); else if(success) el.classList.add('success'); }
 function hideProfileSaveIndicator(){ const el=document.getElementById('profileSaveIndicator'); if(el){ el.style.display='none'; }}
 
-function showLogoutConfirm(){ const modal=document.getElementById('logoutConfirmModal'); if(modal){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); } }
+function showLogoutConfirm(){ 
+    try {
+        const modal=document.getElementById('logoutConfirmModal'); 
+        if(modal){ 
+            modal.style.display='flex'; 
+            modal.setAttribute('aria-hidden','false'); 
+            console.debug('[Logout] Logout confirmation modal shown');
+        } else {
+            console.warn('[Logout] Logout modal not found, using confirm dialog');
+            if(confirm('Are you sure you want to log out?')) {
+                if(auth0Client) {
+                    auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+                } else {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = window.location.origin;
+                }
+            }
+        }
+    } catch(error) {
+        console.error('[Logout] Error showing logout confirmation:', error);
+        // Fallback to simple confirm
+        if(confirm('Are you sure you want to log out?')) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = window.location.origin;
+        }
+    }
+}
 
 // Initialize after DOM ready
 document.addEventListener('DOMContentLoaded', ()=>{ initProfileDropdown(); initProfileForm(); });
