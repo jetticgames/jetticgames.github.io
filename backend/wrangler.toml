@@ -2,90 +2,34 @@ name = "waterwall-backend"
 main = "worker.js"
 compatibility_date = "2023-05-18"
 
-# KV Namespaces for backend functionality
-# Run these commands to create the namespaces:
-# wrangler kv:namespace create "CONFIG_KV"
-# wrangler kv:namespace create "RATE_LIMIT_KV"
-# wrangler kv:namespace create "USER_DATA_KV"
-# Then replace the id values below with the generated namespace IDs
-
-# Uncomment and update these once you have created the namespaces:
+# Production KV Namespaces
 [[kv_namespaces]]
 binding = "CONFIG_KV"
 id = "f10e4a7eaf374943b2d7a5e814b9255e"
-# preview_id = "paste-your-config-preview-kv-namespace-id-here"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "6ba4295285624f8381aa825b8e08a110"
-# preview_id = "paste-your-ratelimit-preview-kv-namespace-id-here"
 
 [[kv_namespaces]]
 binding = "USER_DATA_KV"
 id = "23dc5e749d29432bbeabb8452cf77d3c"
-# preview_id = "paste-your-userdata-preview-kv-namespace-id-here"
-
-# Production environment configuration
-# [env.production]
-# name = "waterwall-backend"
-# routes = [
-#   { pattern = "yourdomain.com/api/*", zone_name = "yourdomain.com" },
-#   { pattern = "yourdomain.com/proxy/*", zone_name = "yourdomain.com" }
-# ]
-
-# [[env.production.kv_namespaces]]
-# binding = "CONFIG_KV"
-# id = "your-production-config-kv-namespace-id"
-
-# [[env.production.kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "your-production-ratelimit-kv-namespace-id"
-
-[env.staging]
-name = "waterwall-backend-staging"
-
-[[env.staging.kv_namespaces]]
-binding = "CONFIG_KV"
-id = "your-staging-config-kv-namespace-id"
-
-[[env.staging.kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "your-staging-ratelimit-kv-namespace-id"
 
 # Environment variables
 [vars]
-ENVIRONMENT = "development"
-APP_VERSION = "2.0.0"
-# --- Auth0 Configuration (set via `wrangler secret put` for secrets) ---
-# Your Auth0 tenant domain (e.g. dev-xxxxxxx.us.auth0.com)
-AUTH0_DOMAIN = "dev-lciqwnyb52wdezeo.us.auth0.com"
-# Comma separated list of allowed SPA client IDs that can call this backend
-AUTH0_ALLOWED_CLIENT_IDS = "sbABJXSUTPmROG9WTrdB0LrUBtTwnWxO"
-# The following must be added as secrets (NOT committed):
-# AUTH0_MGMT_CLIENT_ID
-# AUTH0_MGMT_CLIENT_SECRET
+ENVIRONMENT = "production"
+APP_VERSION = "2.0.1"
 
-# --- Feature Flags for new social/profile layer ---
+# Auth0 Configuration
+AUTH0_DOMAIN = "dev-lciqwnyb52wdezeo.us.auth0.com"
+AUTH0_ALLOWED_CLIENT_IDS = "sbABJXSUTPmROG9WTrdB0LrUBtTwnWxO"
+
+# Social Features
 FRIENDS_FEATURE_ENABLED = "true"
 PROFILE_CUSTOMIZATION_ENABLED = "true"
 PRESENCE_ENABLED = "true"
-
-# Presence heartbeat interval (seconds) advised to clients
 PRESENCE_HEARTBEAT_INTERVAL = "30"
 
-# KV Namespace bindings (add actual ids under each environment) for username index & presence tracking
-# [[kv_namespaces]]
-# binding = "USER_INDEX_KV"
-# id = "paste-username-index-kv-id"
-# preview_id = "paste-username-index-kv-preview-id"
-
-# [[kv_namespaces]]
-# binding = "PRESENCE_KV"
-# id = "paste-presence-kv-id"
-# preview_id = "paste-presence-kv-preview-id"
-
-[env.production.vars]
-ENVIRONMENT = "production"
-
-[env.staging.vars]
-ENVIRONMENT = "staging"
+# The following must be added as secrets if using Auth0 Management API:
+# wrangler secret put AUTH0_MGMT_CLIENT_ID
+# wrangler secret put AUTH0_MGMT_CLIENT_SECRET
