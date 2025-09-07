@@ -295,7 +295,7 @@ const DataSyncManager = {
             if (document.visibilityState === 'visible') {
                 this.syncUserData();
             }
-        }, 5 * 60 * 1000); // 5 minutes
+        }, 30 * 60 * 1000); // 30 minutes (instead of 5 minutes)
     }
 };
 
@@ -505,6 +505,8 @@ const PresenceManager = {
     presenceCheckInterval: null,
     lastKnownPresence: {},
     isPageVisible: true,
+    lastPresenceUpdate: null,
+    lastPresenceData: null,
     
     init() {
         // Track page visibility for better presence detection
@@ -524,10 +526,10 @@ const PresenceManager = {
             this.updatePresence('offline');
         });
 
-        // Start checking friends presence every 30 seconds
+        // Start checking friends presence every 10 minutes (instead of 30 seconds)
         this.presenceCheckInterval = setInterval(() => {
             this.checkFriendsPresenceChanges();
-        }, 30000);
+        }, 10 * 60 * 1000); // 10 minutes
     },
     
     async updatePresence(status = 'online', currentGame = null) {
@@ -537,16 +539,39 @@ const PresenceManager = {
             
             const displayName = await getUserDisplayName();
             
+            // Smart caching - only update if data actually changed
+            const newPresenceData = {
+                userId: user.sub,
+                username: displayName,
+                status,
+                currentGame
+            };
+            
+            const dataChanged = !this.lastPresenceData || 
+                this.lastPresenceData.status !== status ||
+                this.lastPresenceData.currentGame !== currentGame ||
+                this.lastPresenceData.username !== displayName;
+            
+            // Rate limiting - don't update more than once per minute unless forced
+            const now = Date.now();
+            const timeSinceLastUpdate = now - (this.lastPresenceUpdate || 0);
+            const forceUpdate = status === 'offline' || !this.lastPresenceUpdate;
+            
+            if (!dataChanged && !forceUpdate && timeSinceLastUpdate < 60000) {
+                console.debug('⏰ Skipping presence update - no changes and rate limited');
+                return;
+            }
+            
             await fetch(`${BACKEND_URL}/api/presence`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    userId: user.sub,
-                    username: displayName,
-                    status,
-                    currentGame
-                })
+                body: JSON.stringify(newPresenceData)
             });
+            
+            this.lastPresenceUpdate = now;
+            this.lastPresenceData = newPresenceData;
+            console.debug('✅ Presence updated:', status, currentGame || 'no game');
+            
         } catch (error) {
             console.debug('Presence update failed:', error);
         }
@@ -645,13 +670,13 @@ const PresenceManager = {
         // Update presence immediately
         this.updatePresence();
         
-        // Then every 2 minutes, but only if page is visible
+        // Then every 10 minutes, but only if page is visible (instead of 2 minutes)
         this.heartbeatInterval = setInterval(() => {
             if (this.isPageVisible) {
                 const gameTitle = currentGame?.title || null;
                 this.updatePresence('online', gameTitle);
             }
-        }, 2 * 60 * 1000);
+        }, 10 * 60 * 1000); // 10 minutes
     },
     
     stopHeartbeat() {
@@ -4962,7 +4987,7 @@ initAuth0 = async function(){
                 setTimeout(() => PresenceManager.updateFriendsPresenceUI(), 2000);
                 
                 // 5. Set up periodic presence updates
-                setInterval(() => PresenceManager.updateFriendsPresenceUI(), 60000); // Every minute
+                setInterval(() => PresenceManager.updateFriendsPresenceUI(), 10 * 60 * 1000); // Every 10 minutes (instead of 1 minute)
                 
             } catch(initError) {
                 console.warn('[Social] Some social features failed to initialize:', initError);
