@@ -114,6 +114,58 @@ async function getUserDisplayName() {
     }
 }
 
+async function getUserProfilePicture() {
+    try {
+        const auth0User = await auth0Client?.getUser();
+        if (!auth0User) return null;
+        
+        // Check if user has a custom avatar in localStorage
+        const userDataKey = `waterwall_user_${auth0User.sub}`;
+        const userData = localStorage.getItem(userDataKey);
+        
+        if (userData) {
+            const parsed = JSON.parse(userData);
+            if (parsed?.profile?.avatar) {
+                return parsed.profile.avatar;
+            }
+        }
+        
+        // Fallback to Auth0 profile picture
+        return auth0User.picture || null;
+    } catch (error) {
+        console.warn('Failed to get profile picture:', error);
+        return null;
+    }
+}
+
+function getUserProfilePictureSync(friend) {
+    try {
+        if (!friend) return null;
+        
+        // For friend objects, check if they have stored avatar data
+        if (friend.avatar) return friend.avatar;
+        if (friend.picture) return friend.picture;
+        
+        // Try to get from their stored user data if we have their ID
+        if (friend.id) {
+            const userDataKey = `waterwall_user_${friend.id}`;
+            const userData = localStorage.getItem(userDataKey);
+            
+            if (userData) {
+                const parsed = JSON.parse(userData);
+                if (parsed?.profile?.avatar) {
+                    return parsed.profile.avatar;
+                }
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.warn('Failed to get friend profile picture:', error);
+        return null;
+    }
+}
+
 // Cross-Device Data Sync Manager
 const DataSyncManager = {
     lastSyncTime: 0,
@@ -463,12 +515,14 @@ const PresenceManager = {
             const user = await auth0Client?.getUser();
             if (!user) return;
             
+            const displayName = await getUserDisplayName();
+            
             await fetch(`${BACKEND_URL}/api/presence`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     userId: user.sub,
-                    username: getUserDisplayName(),
+                    username: displayName,
                     status,
                     currentGame
                 })
@@ -501,7 +555,9 @@ const PresenceManager = {
             if (!this.lastKnownPresence[friendId]) {
                 const friend = FriendsManager.friends.find(f => f.id === friendId);
                 if (friend) {
-                    this.showPresenceNotification(`${getUserDisplayName(friend)} is now online`, 'success');
+                    const friendName = await getUserDisplayName(friend);
+                    const profilePic = getUserProfilePictureSync(friend);
+                    this.showPresenceNotification(`${friendName} is now online`, 'success', profilePic);
                 }
             }
         }
@@ -511,7 +567,9 @@ const PresenceManager = {
             if (!currentPresence[friendId]) {
                 const friend = FriendsManager.friends.find(f => f.id === friendId);
                 if (friend) {
-                    this.showPresenceNotification(`${getUserDisplayName(friend)} went offline`, 'info');
+                    const friendName = await getUserDisplayName(friend);
+                    const profilePic = getUserProfilePictureSync(friend);
+                    this.showPresenceNotification(`${friendName} went offline`, 'info', profilePic);
                 }
             }
         }
@@ -520,13 +578,18 @@ const PresenceManager = {
         this.updateFriendsPresenceUI();
     },
 
-    showPresenceNotification(message, type = 'info') {
+    showPresenceNotification(message, type = 'info', profilePic = null) {
         // Create notification element matching existing notification system
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
+        
+        const avatarHtml = profilePic ? 
+            `<img src="${profilePic}" alt="Profile" class="notification-avatar">` : 
+            `<i class="fas fa-circle" style="color: ${type === 'success' ? '#4CAF50' : '#2196F3'}; margin-right: 8px;"></i>`;
+            
         notification.innerHTML = `
-            <i class="fas fa-circle" style="color: ${type === 'success' ? '#4CAF50' : '#2196F3'}; margin-right: 8px;"></i>
-            ${message}
+            ${avatarHtml}
+            <span class="notification-message">${message}</span>
         `;
         
         // Add to notification container or create one
@@ -536,7 +599,7 @@ const PresenceManager = {
             container.className = 'notifications-container';
             container.style.cssText = `
                 position: fixed;
-                top: 20px;
+                bottom: 20px;
                 right: 20px;
                 z-index: 10000;
                 max-width: 300px;
@@ -596,17 +659,25 @@ const PresenceManager = {
         const presenceList = document.getElementById('presenceList');
         if (presenceList) {
             if (onlineCount > 0) {
-                presenceList.innerHTML = Object.entries(presence)
-                    .map(([id, p]) => {
+                const presenceItems = await Promise.all(
+                    Object.entries(presence).map(async ([id, p]) => {
                         const friend = FriendsManager.friends.find(f => f.id === id);
-                        const displayName = friend ? getUserDisplayName(friend) : p.username;
+                        const displayName = friend ? await getUserDisplayName(friend) : p.username;
+                        const profilePic = friend ? getUserProfilePictureSync(friend) : null;
+                        const avatarHtml = profilePic ? 
+                            `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
+                            `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
+                        
                         return `
                             <li class="friend-item online">
+                                ${avatarHtml}
                                 <span>${displayName}</span>
                                 <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
                             </li>
                         `;
-                    }).join('');
+                    })
+                );
+                presenceList.innerHTML = presenceItems.join('');
             } else {
                 presenceList.innerHTML = '<li class="muted-hint">No friends online</li>';
             }
@@ -1651,15 +1722,39 @@ async function updateAuthUI(){
         if(isAuth){
             try {
                 const user = await auth0Client.getUser();
-                const label = user && (user.given_name || user.nickname || user.name || user.email);
-                if(accountLabelEl) accountLabelEl.textContent = label || 'Account';
-                console.debug('[Auth] Updated UI for authenticated user:', label);
+                const displayName = await getUserDisplayName();
+                const profilePic = await getUserProfilePicture();
+                
+                // Update account label with custom username
+                if(accountLabelEl) accountLabelEl.textContent = displayName || user?.given_name || user?.nickname || user?.name || user?.email || 'Account';
+                
+                // Update profile icon with profile picture
+                const accountNavItem = document.getElementById('accountNavItem');
+                const iconElement = accountNavItem?.querySelector('.nav-icon');
+                if (iconElement && profilePic) {
+                    // Replace icon with profile picture
+                    iconElement.innerHTML = `<img src="${profilePic}" alt="Profile" class="nav-profile-picture">`;
+                } else if (iconElement) {
+                    // Fallback to default icon
+                    iconElement.className = 'nav-icon fas fa-user-circle';
+                }
+                
+                console.debug('[Auth] Updated UI for authenticated user:', displayName);
             } catch(userError) {
                 console.error('[Auth] Error getting user info:', userError);
                 if(accountLabelEl) accountLabelEl.textContent = 'Account';
             }
         } else {
             if(accountLabelEl) accountLabelEl.textContent='Sign in';
+            
+            // Reset to default icon when signed out
+            const accountNavItem = document.getElementById('accountNavItem');
+            const iconElement = accountNavItem?.querySelector('.nav-icon');
+            if (iconElement) {
+                iconElement.className = 'nav-icon fas fa-user-circle';
+                iconElement.innerHTML = '';
+            }
+            
             console.debug('[Auth] Updated UI for unauthenticated user');
         }
     } catch(e){
@@ -4619,16 +4714,30 @@ async function renderFriendsPage(){
     // Render friends list
     const friendsList = document.getElementById('friendsList'); 
     if(friendsList){ 
-        friendsList.innerHTML = friends.length ? 
-            friends.map(friend => `
-                <li class="friend-item" data-id="${friend.id}">
-                    <span>${getUserDisplayName(friend)}</span>
-                    <div class="friend-actions">
-                        <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
-                    </div>
-                </li>
-            `).join('') : 
-            '<li class="muted-hint">No friends yet. Add some using the form below!</li>';
+        if (friends.length) {
+            const friendItems = await Promise.all(
+                friends.map(async friend => {
+                    const displayName = await getUserDisplayName(friend);
+                    const profilePic = getUserProfilePictureSync(friend);
+                    const avatarHtml = profilePic ? 
+                        `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
+                        `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
+                    
+                    return `
+                        <li class="friend-item" data-id="${friend.id}">
+                            ${avatarHtml}
+                            <span>${displayName}</span>
+                            <div class="friend-actions">
+                                <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
+                            </div>
+                        </li>
+                    `;
+                })
+            );
+            friendsList.innerHTML = friendItems.join('');
+        } else {
+            friendsList.innerHTML = '<li class="muted-hint">No friends yet. Add some using the form below!</li>';
+        }
     }
     
     // Render incoming requests
@@ -5277,6 +5386,9 @@ function initProfileForm(){
             
             showProfileSaveIndicator('Saved successfully!', false, true); 
             showSuccess('Profile updated successfully!');
+            
+            // Update the navigation display with new username/picture
+            await updateAuthUI();
             
             // Update theme if color changed
             if(color){ 

@@ -3209,7 +3209,7 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 /* Notification System */
 .notifications-container {
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
     z-index: 10000;
     max-width: 300px;
@@ -3272,4 +3272,62 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 @keyframes notificationProgress {
     from { width: 100%; }
     to { width: 0%; }
+}
+
+/* Friend Avatar Styles */
+.friend-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 12px;
+    border: 2px solid var(--border-primary);
+}
+
+.friend-avatar-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    margin-right: 12px;
+    border: 2px solid var(--border-primary);
+}
+
+.notification-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 8px;
+    border: 1px solid var(--border-primary);
+}
+
+.notification-message {
+    flex: 1;
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.friend-item span:not(.presence-pill):not(.notification-message) {
+    flex: 1;
+    margin-right: 8px;
+}
+
+/* Navigation Profile Picture */
+.nav-profile-picture {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-primary);
 }
