@@ -114,6 +114,22 @@ async function getUserDisplayName() {
     }
 }
 
+function getFriendDisplayName(friend) {
+    try {
+        if (!friend) return null;
+        
+        // For friend objects, use stored username or fallback to displayed name
+        if (friend.username) return friend.username;
+        if (friend.name) return friend.name;
+        if (friend.nickname) return friend.nickname;
+        
+        return 'Unknown User';
+    } catch (error) {
+        console.warn('Failed to get friend display name:', error);
+        return 'Unknown User';
+    }
+}
+
 async function getUserProfilePicture() {
     try {
         const auth0User = await auth0Client?.getUser();
@@ -367,12 +383,14 @@ const FriendsManager = {
             const user = await auth0Client?.getUser();
             if (!user) throw new Error('Not authenticated');
             
+            const currentUsername = await getUserDisplayName();
+            
             const response = await fetch(`${BACKEND_URL}/api/friends/accept`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     userId: user.sub,
-                    username: user.nickname || user.name,
+                    username: currentUsername,
                     requesterId,
                     requesterUsername
                 })
@@ -396,11 +414,13 @@ const FriendsManager = {
             const user = await auth0Client?.getUser();
             if (!user) throw new Error('Not authenticated');
             
+            const currentUsername = await getUserDisplayName();
+            
             const response = await fetch(`${BACKEND_URL}/api/friends/decline`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    username: user.nickname || user.name,
+                    username: currentUsername,
                     requesterId
                 })
             });
@@ -555,7 +575,7 @@ const PresenceManager = {
             if (!this.lastKnownPresence[friendId]) {
                 const friend = FriendsManager.friends.find(f => f.id === friendId);
                 if (friend) {
-                    const friendName = await getUserDisplayName(friend);
+                    const friendName = getFriendDisplayName(friend);
                     const profilePic = getUserProfilePictureSync(friend);
                     this.showPresenceNotification(`${friendName} is now online`, 'success', profilePic);
                 }
@@ -567,7 +587,7 @@ const PresenceManager = {
             if (!currentPresence[friendId]) {
                 const friend = FriendsManager.friends.find(f => f.id === friendId);
                 if (friend) {
-                    const friendName = await getUserDisplayName(friend);
+                    const friendName = getFriendDisplayName(friend);
                     const profilePic = getUserProfilePictureSync(friend);
                     this.showPresenceNotification(`${friendName} went offline`, 'info', profilePic);
                 }
@@ -659,24 +679,22 @@ const PresenceManager = {
         const presenceList = document.getElementById('presenceList');
         if (presenceList) {
             if (onlineCount > 0) {
-                const presenceItems = await Promise.all(
-                    Object.entries(presence).map(async ([id, p]) => {
-                        const friend = FriendsManager.friends.find(f => f.id === id);
-                        const displayName = friend ? await getUserDisplayName(friend) : p.username;
-                        const profilePic = friend ? getUserProfilePictureSync(friend) : null;
-                        const avatarHtml = profilePic ? 
-                            `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
-                            `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
-                        
-                        return `
-                            <li class="friend-item online">
-                                ${avatarHtml}
-                                <span>${displayName}</span>
-                                <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
-                            </li>
-                        `;
-                    })
-                );
+                const presenceItems = Object.entries(presence).map(([id, p]) => {
+                    const friend = FriendsManager.friends.find(f => f.id === id);
+                    const displayName = friend ? getFriendDisplayName(friend) : p.username;
+                    const profilePic = friend ? getUserProfilePictureSync(friend) : null;
+                    const avatarHtml = profilePic ? 
+                        `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
+                        `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
+                    
+                    return `
+                        <li class="friend-item online">
+                            ${avatarHtml}
+                            <span>${displayName}</span>
+                            <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
+                        </li>
+                    `;
+                });
                 presenceList.innerHTML = presenceItems.join('');
             } else {
                 presenceList.innerHTML = '<li class="muted-hint">No friends online</li>';
@@ -1732,11 +1750,13 @@ async function updateAuthUI(){
                 const accountNavItem = document.getElementById('accountNavItem');
                 const iconElement = accountNavItem?.querySelector('.nav-icon');
                 if (iconElement && profilePic) {
-                    // Replace icon with profile picture
+                    // Replace icon with profile picture - clear all classes and set innerHTML
+                    iconElement.className = 'nav-icon';
                     iconElement.innerHTML = `<img src="${profilePic}" alt="Profile" class="nav-profile-picture">`;
                 } else if (iconElement) {
-                    // Fallback to default icon
+                    // Fallback to default icon - clear innerHTML and set icon classes
                     iconElement.className = 'nav-icon fas fa-user-circle';
+                    iconElement.innerHTML = '';
                 }
                 
                 console.debug('[Auth] Updated UI for authenticated user:', displayName);
@@ -4715,25 +4735,23 @@ async function renderFriendsPage(){
     const friendsList = document.getElementById('friendsList'); 
     if(friendsList){ 
         if (friends.length) {
-            const friendItems = await Promise.all(
-                friends.map(async friend => {
-                    const displayName = await getUserDisplayName(friend);
-                    const profilePic = getUserProfilePictureSync(friend);
-                    const avatarHtml = profilePic ? 
-                        `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
-                        `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
-                    
-                    return `
-                        <li class="friend-item" data-id="${friend.id}">
-                            ${avatarHtml}
-                            <span>${displayName}</span>
-                            <div class="friend-actions">
-                                <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
-                            </div>
-                        </li>
-                    `;
-                })
-            );
+            const friendItems = friends.map(friend => {
+                const displayName = getFriendDisplayName(friend);
+                const profilePic = getUserProfilePictureSync(friend);
+                const avatarHtml = profilePic ? 
+                    `<img src="${profilePic}" alt="${displayName}" class="friend-avatar">` : 
+                    `<div class="friend-avatar-placeholder">${displayName?.charAt(0)?.toUpperCase() || '?'}</div>`;
+                
+                return `
+                    <li class="friend-item" data-id="${friend.id}">
+                        ${avatarHtml}
+                        <span>${displayName}</span>
+                        <div class="friend-actions">
+                            <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
+                        </div>
+                    </li>
+                `;
+            });
             friendsList.innerHTML = friendItems.join('');
         } else {
             friendsList.innerHTML = '<li class="muted-hint">No friends yet. Add some using the form below!</li>';
