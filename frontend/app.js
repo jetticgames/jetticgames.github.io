@@ -1,7 +1,7 @@
-// CACHE BUSTER VERSION: 20250907-SOCIAL-SYSTEMS
+// CACHE BUSTER VERSION: 20250907-DOM-FIXES
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: 20250907-SOCIAL-SYSTEMS - Full social features implemented');
+console.log('🔧 Version: 20250907-DOM-FIXES - Fixed DOM validation and backend errors');
 console.log('✅ Cross-device sync, friends system, and presence tracking enabled');
 console.log('🏪 Data stored in Cloudflare KV - no backend authentication required');
 
@@ -1207,11 +1207,12 @@ function initializeDOMElements() {
     
     console.log('🔧 DOM elements initialized');
     console.log('🔍 Key elements check:');
-    console.log('  - Featured games grid:', !!document.getElementById('featuredGames'));
+    console.log('  - Sidebar:', !!document.getElementById('sidebar'));
     console.log('  - All games grid:', !!document.getElementById('allGames'));
     console.log('  - Search input:', !!document.getElementById('searchInput'));
     console.log('  - Game frame:', !!document.getElementById('gameFrame'));
-    console.log('  - Suggested games:', !!document.getElementById('suggestedGames'));
+    console.log('  - Home page:', !!document.getElementById('homePage'));
+    console.log('  - Friends page:', !!document.getElementById('friendsPage'));
 }
 
 // ===== Auth0 Integration (SPA) =====
@@ -4673,8 +4674,8 @@ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded
 
 function validateCriticalDOM() {
     const critical = [
-        'searchInput', 'gamesGrid', 'sidebar', 'homePage', 
-        'gamesPage', 'settingsPage', 'friendsPage'
+        'searchInput', 'allGames', 'sidebar', 'homePage', 
+        'profileSettingsPage', 'friendsPage', 'gamePage'
     ];
     
     const missing = critical.filter(id => !document.getElementById(id));

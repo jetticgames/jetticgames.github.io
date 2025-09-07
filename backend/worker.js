@@ -2444,6 +2444,7 @@ async function checkRateLimit(request, env) {
 const __origHandleAPIRequest = handleAPIRequest;
 handleAPIRequest = async function(request, url, env, ctx){
     const path = url.pathname.replace('/api','');
+    const method = request.method;
     
     // Remove all authentication-dependent endpoints
     // Authentication is now handled purely on frontend with Auth0
