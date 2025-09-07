@@ -1,7 +1,7 @@
-// CACHE BUSTER VERSION: 20250907-FIXES-V2
+// CACHE BUSTER VERSION: 20250907-FRIEND-REQUESTS-FIXED
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: 20250907-FIXES-V2 - Fixed sidebar detection and username validation');
+console.log('🔧 Version: 20250907-FRIEND-REQUESTS-FIXED - Sent requests now tracked and displayed');
 console.log('✅ Cross-device sync, friends system, and presence tracking enabled');
 console.log('🏪 Data stored in Cloudflare KV - no backend authentication required');
 
@@ -209,6 +209,7 @@ const DataSyncManager = {
 const FriendsManager = {
     friends: [],
     pendingRequests: [],
+    sentRequests: [],
     
     async loadFriends() {
         try {
@@ -220,8 +221,9 @@ const FriendsManager = {
             
             this.friends = data.friends || [];
             this.pendingRequests = data.pendingRequests || [];
+            this.sentRequests = data.sentRequests || [];
             
-            console.log('👥 Loaded friends:', this.friends.length, 'requests:', this.pendingRequests.length);
+            console.log('👥 Loaded friends:', this.friends.length, 'requests:', this.pendingRequests.length, 'sent:', this.sentRequests.length);
             
         } catch (error) {
             console.warn('❌ Failed to load friends:', error);
@@ -315,6 +317,35 @@ const FriendsManager = {
             }
         } catch (error) {
             console.error('❌ Decline friend failed:', error);
+        }
+        return false;
+    },
+    
+    async cancelFriendRequest(targetUsername) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) throw new Error('Not authenticated');
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends/cancel`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    requesterId: user.sub,
+                    targetUsername: targetUsername
+                })
+            });
+            
+            if (response.ok) {
+                showSuccess('Friend request cancelled');
+                await this.loadFriends();
+                this.renderFriendsUI();
+                return true;
+            } else {
+                throw new Error('Failed to cancel request');
+            }
+        } catch (error) {
+            console.error('❌ Cancel friend request failed:', error);
+            showError('Failed to cancel friend request');
         }
         return false;
     },
@@ -4419,6 +4450,7 @@ async function renderFriendsPage(){
     
     const friends = FriendsManager.friends;
     const pendingRequests = FriendsManager.pendingRequests;
+    const sentRequests = FriendsManager.sentRequests;
     
     // Update stats
     const statsEl = document.getElementById('friendsStats');
@@ -4468,6 +4500,21 @@ async function renderFriendsPage(){
                 </li>
             `).join('') :
             '<li class="muted-hint">No pending friend requests</li>';
+    }
+    
+    // Render sent requests
+    const outgoingList = document.getElementById('outgoingList'); 
+    if(outgoingList){
+        outgoingList.innerHTML = sentRequests.length ?
+            sentRequests.map(req => `
+                <li class="friend-item outgoing">
+                    <span>Request sent to ${req.targetUsername}</span>
+                    <div class="friend-actions">
+                        <button onclick="FriendsManager.cancelFriendRequest('${req.targetUsername}')" class="mini-btn danger">Cancel</button>
+                    </div>
+                </li>
+            `).join('') :
+            '<li class="muted-hint">No sent requests</li>';
     }
     
     // Set up add friend form

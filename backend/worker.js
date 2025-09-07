@@ -2521,9 +2521,19 @@ handleAPIRequest = async function(request, url, env, ctx){
                     return jsonResponse({error: 'Missing required fields'}, 400);
                 }
                 
-                // Store friend request
+                // Store friend request for recipient
                 const requestKey = `friend_request:${targetUsername}:${requesterId}`;
                 await env.USER_DATA_KV.put(requestKey, JSON.stringify({
+                    requesterId,
+                    requesterUsername,
+                    targetUsername,
+                    timestamp: Date.now(),
+                    status: 'pending'
+                }), {expirationTtl: 86400 * 30}); // 30 days
+                
+                // Also store sent request for sender tracking
+                const sentKey = `sent_request:${requesterId}:${targetUsername}`;
+                await env.USER_DATA_KV.put(sentKey, JSON.stringify({
                     requesterId,
                     requesterUsername,
                     targetUsername,
@@ -2554,17 +2564,26 @@ handleAPIRequest = async function(request, url, env, ctx){
                 // Get friends list
                 const friendsList = await env.USER_DATA_KV.get(`friends:${userId}`, 'json') || [];
                 
-                // Get pending friend requests
+                // Get pending friend requests (incoming)
                 const requestsResult = await env.USER_DATA_KV.list({prefix: `friend_request:${username}:`});
-                const requests = [];
+                const incomingRequests = [];
                 for(const key of requestsResult?.keys || []){
                     const request = await env.USER_DATA_KV.get(key.name, 'json');
-                    if(request) requests.push(request);
+                    if(request) incomingRequests.push(request);
+                }
+                
+                // Get sent friend requests (outgoing)
+                const sentResult = await env.USER_DATA_KV.list({prefix: `sent_request:${userId}:`});
+                const outgoingRequests = [];
+                for(const key of sentResult?.keys || []){
+                    const request = await env.USER_DATA_KV.get(key.name, 'json');
+                    if(request) outgoingRequests.push(request);
                 }
                 
                 return jsonResponse({
                     friends: friendsList,
-                    pendingRequests: requests
+                    pendingRequests: incomingRequests,
+                    sentRequests: outgoingRequests
                 });
             } catch (error) {
                 console.error('Friends List Error:', error);
@@ -2577,8 +2596,9 @@ handleAPIRequest = async function(request, url, env, ctx){
         if(method === 'POST'){
             const {userId, username, requesterId, requesterUsername} = await request.json();
             
-            // Remove the friend request
+            // Remove the friend request and sent request
             await env.USER_DATA_KV?.delete(`friend_request:${username}:${requesterId}`);
+            await env.USER_DATA_KV?.delete(`sent_request:${requesterId}:${username}`);
             
             // Add to both users' friends lists
             const userFriends = await env.USER_DATA_KV?.get(`friends:${userId}`, 'json') || [];
@@ -2603,6 +2623,16 @@ handleAPIRequest = async function(request, url, env, ctx){
         if(method === 'POST'){
             const {username, requesterId} = await request.json();
             await env.USER_DATA_KV?.delete(`friend_request:${username}:${requesterId}`);
+            await env.USER_DATA_KV?.delete(`sent_request:${requesterId}:${username}`);
+            return jsonResponse({success: true});
+        }
+    }
+    
+    if(path === '/friends/cancel'){
+        if(method === 'POST'){
+            const {requesterId, targetUsername} = await request.json();
+            await env.USER_DATA_KV?.delete(`friend_request:${targetUsername}:${requesterId}`);
+            await env.USER_DATA_KV?.delete(`sent_request:${requesterId}:${targetUsername}`);
             return jsonResponse({success: true});
         }
     }
