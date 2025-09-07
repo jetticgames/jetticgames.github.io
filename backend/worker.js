@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     
     // Maintenance Mode Control
     maintenanceMode: {
-        enabled: true,
+        enabled: false,
         message: "WaterWall is currently under maintenance. We'll be back online soon!",
         estimatedTime: "Please check back in a few hours.",
         blockProxy: true // Also disable proxy during maintenance
@@ -2444,329 +2444,41 @@ async function checkRateLimit(request, env) {
 const __origHandleAPIRequest = handleAPIRequest;
 handleAPIRequest = async function(request, url, env, ctx){
     const path = url.pathname.replace('/api','');
-    // Social/user endpoints prefix
-    if(path.startsWith('/user')){
-        return handleUserRoot(request, url, env, ctx);
-    }
-    // TEMPORARY DEBUG ENDPOINT - bypasses auth
-    if(path === '/debug-auth'){
+    
+    // Remove all authentication-dependent endpoints
+    // Authentication is now handled purely on frontend with Auth0
+    
+    // Debug endpoint for testing
+    if(path === '/debug'){
         return jsonResponse({
-            message: 'Debug endpoint working',
-            headers: Object.fromEntries(request.headers.entries()),
-            url: url.toString(),
+            message: 'Backend working - no authentication required',
+            path: path,
             timestamp: new Date().toISOString()
         });
     }
-    if(path.startsWith('/friends')){
-        return handleFriendsRoot(request, url, env, ctx);
-    }
-    if(path.startsWith('/presence')){
-        return handlePresenceRoot(request, url, env, ctx);
-    }
+    
     return __origHandleAPIRequest(request, url, env, ctx);
 };
 
-// ---- Auth Helpers ----
-async function extractBearer(request){
-    const auth = request.headers.get('Authorization') || request.headers.get('authorization');
-    console.log('Auth: Authorization header:', auth ? 'Present (length ' + auth.length + ')' : 'Missing');
-    if(!auth) return null; 
-    const m = auth.match(/^Bearer (.+)$/i); 
-    console.log('Auth: Bearer token extracted:', m ? 'Yes' : 'No');
-    return m? m[1]:null;
-}
-function jsonResponse(obj, status=200, extra={}){ return new Response(JSON.stringify(obj), {status, headers:{'Content-Type':'application/json', ...getCORSHeaders(), ...extra}}); }
-function unauthorized(msg='Unauthorized'){ return jsonResponse({error:msg},401); }
-function forbidden(msg='Forbidden'){ return jsonResponse({error:msg},403); }
+// ================= AUTHENTICATION REMOVED =================
+// All authentication is now handled on the frontend with Auth0.
+// Backend serves data without requiring authentication.
+// User data, favorites, friends, etc. are managed client-side.
+// =========================================================
 
-// Simple JWKS cache (in-memory per worker instance)
-let __jwksCache = null, __jwksFetchedAt=0;
-async function getJWKS(env){
-    const now=Date.now();
-    if(__jwksCache && (now-__jwksFetchedAt)<3600_000) return __jwksCache;
-    const domain = env.AUTH0_DOMAIN || env.AUTH0_DOMAIN?.replace(/https?:\/\//,'');
-    if(!domain) throw new Error('AUTH0_DOMAIN not configured');
-    const res = await fetch(`https://${domain}/.well-known/jwks.json`);
-    if(!res.ok) throw new Error('Failed JWKS fetch');
-    __jwksCache = await res.json(); __jwksFetchedAt=now; return __jwksCache;
-}
-
-// Basic JWT verification (RS256) using WebCrypto
-async function verifyJWT(token, env){
-    try {
-        console.log('JWT: Starting verification process');
-        const [h,p,s] = token.split('.'); if(!s) throw new Error('Malformed');
-        const dec = str=>JSON.parse(atob(str.replace(/-/g,'+').replace(/_/g,'/')));
-        const header = dec(h); const payload = dec(p);
-        console.log('JWT: Header and payload decoded successfully');
-        console.log('JWT: Header alg:', header.alg, 'kid:', header.kid);
-        
-        if(header.alg!=='RS256') throw new Error('Unsupported alg');
-        const jwks = await getJWKS(env);
-        console.log('JWT: JWKS retrieved, keys available:', jwks.keys?.length);
-        
-        const key = jwks.keys.find(k=>k.kid===header.kid); 
-        if(!key) {
-            console.warn('JWT: No matching key found for kid:', header.kid, 'Available kids:', jwks.keys?.map(k=>k.kid));
-            throw new Error('No matching kid');
+// Keep only essential response helpers  
+function jsonResponse(obj, status=200, extra={}){ 
+    return new Response(JSON.stringify(obj), {
+        status, 
+        headers: {
+            'Content-Type': 'application/json', 
+            ...getCORSHeaders(), 
+            ...extra
         }
-        
-        const pem = jwkToCryptoKey(key);
-        const data = new TextEncoder().encode(`${h}.${p}`);
-        const sig = Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0));
-        const valid = await crypto.subtle.verify({name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, pem, sig, data);
-        console.log('JWT: Signature verification result:', valid);
-        
-        if(!valid) throw new Error('Invalid signature');
-        // exp check
-        if(payload.exp && (Date.now()/1000) > payload.exp) {
-            console.warn('JWT: Token expired. Current time:', Math.floor(Date.now()/1000), 'Token exp:', payload.exp);
-            throw new Error('Token expired');
-        }
-        
-        console.log('JWT: Verification successful');
-        return payload;
-    } catch(e){
-        console.warn('JWT verify failed', e.message); 
-        console.warn('JWT verify stack:', e.stack);
-        return null;
-    }
+    }); 
 }
+// All authentication functions removed - handled by frontend only
 
-const __jwkKeyCache = new Map();
-function jwkToCryptoKey(jwk){
-    const cacheKey = jwk.kid || `${jwk.n}.${jwk.e}`;
-    if(__jwkKeyCache.has(cacheKey)) return __jwkKeyCache.get(cacheKey);
-    const p = crypto.subtle.importKey('jwk', jwk, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, false, ['verify']);
-    __jwkKeyCache.set(cacheKey, p);
-    return p;
-}
-
-async function requireAuth(request, env){
-    try {
-        const token = await extractBearer(request); 
-        if(!token) {
-            console.warn('Auth: No bearer token found in request');
-            return {error:unauthorized()};
-        }
-        
-        console.log('Auth: Token found, length:', token.length);
-        console.log('Auth: Token prefix:', token.substring(0, 20) + '...');
-        
-        const payload = await verifyJWT(token, env); 
-        if(!payload) {
-            console.warn('Auth: JWT verification failed');
-            return {error:unauthorized('Invalid token')};
-        }
-        
-        // Log token claims for debugging
-        console.log('Auth: Token payload claims:', {
-            iss: payload.iss,
-            aud: payload.aud,
-            azp: payload.azp,
-            sub: payload.sub,
-            exp: payload.exp
-        });
-        
-        // TEMPORARILY DISABLED - Accept any valid Auth0 JWT for debugging
-        console.log('Auth: DEBUGGING MODE - Accepting any valid Auth0 JWT');
-        console.log('Auth: Token validation passed, allowing access');
-        
-        return {payload, token};
-    } catch (error) {
-        console.error('Auth error:', error);
-        return {error:unauthorized('Authentication failed')};
-    }
-}
-
-// ---- User Data (favorites, settings, profile) ----
-// Stored inside Auth0 app_metadata (NOT user_metadata so only backend can mutate). Structure:
-// app_metadata.waterwall = { favorites:[ids], settings:{...}, profile:{username,avatar,color}, friends:{list:[], incoming:[], outgoing:[]}, updated:number }
-
-async function handleUserRoot(request, url, env){
-    const {payload, error} = await requireAuth(request, env); if(error) return error;
-    const sub = payload.sub; // Auth0 user id
-    const method = request.method;
-    if(url.pathname.endsWith('/user') || url.pathname.endsWith('/user/')){
-        if(method==='GET') return getUserData(sub, env);
-        if(method==='PUT' || method==='PATCH') return updateUserData(sub, env, await request.json());
-    }
-    if(url.pathname.includes('/user/profile')){
-        if(method==='PUT' || method==='PATCH') return updateProfile(sub, env, await request.json());
-    }
-    if(url.pathname.includes('/user/favorites')){
-        if(method==='PUT') return replaceFavorites(sub, env, await request.json());
-        if(method==='PATCH') return patchFavorites(sub, env, await request.json());
-    }
-    if(url.pathname.includes('/user/settings')){
-        if(method==='PUT' || method==='PATCH') return updateSettings(sub, env, await request.json());
-    }
-    return jsonResponse({error:'Not found'},404);
-}
-
-// Caching layer for app_metadata (KV) to reduce Auth0 calls
-const USER_CACHE_TTL = 300; // 5 min
-async function getUserData(userId, env){
-    let cached=null; try { if(env.CONFIG_KV){ cached = await env.CONFIG_KV.get(`usercache:${userId}`, 'json'); } } catch(e){}
-    if(cached && (Date.now()-cached.__fetched) < USER_CACHE_TTL*1000){ return jsonResponse({user:cached.data, cached:true}); }
-    const data = await fetchAuth0User(userId, env); if(!data) return jsonResponse({error:'User not found'},404);
-    const waterwall = (data.app_metadata && data.app_metadata.waterwall) || initDefaultUserLayer();
-    try { if(env.CONFIG_KV) await env.CONFIG_KV.put(`usercache:${userId}`, JSON.stringify({__fetched:Date.now(), data:waterwall}), {expirationTtl:USER_CACHE_TTL}); } catch(e){}
-    return jsonResponse({user:waterwall, cached:false});
-}
-
-function initDefaultUserLayer(){
-    return { favorites:[], settings:DEFAULT_CONFIG.defaultUserSettings, profile:{username:null, avatar:null, color:'#58a6ff'}, friends:{list:[], incoming:[], outgoing:[]}, updated:Date.now() };
-}
-
-async function updateUserMetadata(userId, env, mutator){
-    const user = await fetchAuth0User(userId, env); if(!user) return null;
-    const current = (user.app_metadata && user.app_metadata.waterwall) || initDefaultUserLayer();
-    const updated = mutator(current) || current; updated.updated=Date.now();
-    await patchAuth0User(userId, env, { app_metadata: { waterwall: updated }});
-    try { if(env.CONFIG_KV) await env.CONFIG_KV.put(`usercache:${userId}`, JSON.stringify({__fetched:Date.now(), data:updated}), {expirationTtl:USER_CACHE_TTL}); } catch(e){}
-    return updated;
-}
-
-async function updateProfile(userId, env, body){
-    const allowed = ['username','avatar','color'];
-    const updated = await updateUserMetadata(userId, env, data=>{ data.profile = {...data.profile}; for(const k of allowed){ if(body[k]!==undefined) data.profile[k]=body[k]; } return data; });
-    if(!updated) return jsonResponse({error:'Failed to update'},500);
-    // Username index maintenance
-    if(body.username && env.USER_INDEX_KV){
-        const uname = body.username.toLowerCase();
-        // Basic collision prevention (not perfect without durable object lock)
-        const existing = await env.USER_INDEX_KV.get(`uname:${uname}`);
-        if(existing && existing!==userId){ return jsonResponse({error:'Username already taken'},409); }
-        await env.USER_INDEX_KV.put(`uname:${uname}`, userId);
-    }
-    return jsonResponse({profile:updated.profile});
-}
-
-async function replaceFavorites(userId, env, body){
-    if(!Array.isArray(body)) return jsonResponse({error:'Expected array'},400);
-    const set = [...new Set(body.filter(n=>Number.isInteger(n)))].slice(0,500);
-    const updated = await updateUserMetadata(userId, env, data=>{ data.favorites=set; return data; });
-    if(!updated) return jsonResponse({error:'Failed'},500); return jsonResponse({favorites:updated.favorites});
-}
-async function patchFavorites(userId, env, body){
-    const {add=[], remove=[]} = body || {};
-    const updated = await updateUserMetadata(userId, env, data=>{ let s=new Set(data.favorites); add.filter(n=>Number.isInteger(n)).forEach(n=>s.add(n)); remove.forEach(n=>s.delete(n)); data.favorites=Array.from(s).slice(0,500); return data; });
-    if(!updated) return jsonResponse({error:'Failed'},500); return jsonResponse({favorites:updated.favorites});
-}
-async function updateSettings(userId, env, body){
-    if(!body || typeof body!=='object') return jsonResponse({error:'Invalid settings'},400);
-    const updated = await updateUserMetadata(userId, env, data=>{ data.settings={...data.settings, ...body}; return data; });
-    if(!updated) return jsonResponse({error:'Failed'},500); return jsonResponse({settings:updated.settings});
-}
-async function updateUserData(userId, env, body){
-    if(!body || typeof body!=='object') return jsonResponse({error:'Invalid body'},400);
-    const updated = await updateUserMetadata(userId, env, data=>{ if(body.favorites) data.favorites=body.favorites; if(body.settings) data.settings={...data.settings, ...body.settings}; if(body.profile) data.profile={...data.profile, ...body.profile}; return data; });
-    if(!updated) return jsonResponse({error:'Failed'},500); return jsonResponse({user:updated});
-}
-
-// ---- Friends System ----
-async function handleFriendsRoot(request, url, env){
-    const {payload, error} = await requireAuth(request, env); if(error) return error;
-    const userId = payload.sub; const method=request.method; const parts=url.pathname.split('/').filter(Boolean); // ['api','friends', ...]
-    if(parts.length===2){ // /api/friends -> GET list
-        if(method==='GET') return getUserData(userId, env); // returns full user object; client filters friends
-    }
-    if(parts[2]==='request' && method==='POST'){
-        const body = await request.json(); const target = body?.username?.toLowerCase(); if(!target) return jsonResponse({error:'username required'},400);
-        if(env.USER_INDEX_KV){ const targetId = await env.USER_INDEX_KV.get(`uname:${target}`); if(!targetId) return jsonResponse({error:'User not found'},404); if(targetId===userId) return jsonResponse({error:'Cannot friend self'},400); return sendFriendRequest(userId,targetId,env); }
-        return jsonResponse({error:'Username index unavailable'},503);
-    }
-    if(parts[2]==='accept' && method==='POST'){
-        const body = await request.json(); const fromId = body?.from; if(!fromId) return jsonResponse({error:'from required'},400); return acceptFriend(userId, fromId, env);
-    }
-    if(parts[2]==='decline' && method==='POST'){
-        const body = await request.json(); const fromId = body?.from; if(!fromId) return jsonResponse({error:'from required'},400); return declineFriend(userId, fromId, env);
-    }
-    if(parts[2]==='remove' && method==='POST'){
-        const body = await request.json(); const other = body?.user; if(!other) return jsonResponse({error:'user required'},400); return removeFriend(userId, other, env);
-    }
-    return jsonResponse({error:'Not found'},404);
-}
-
-async function mutateTwoUsers(a,b,env, mut){
-    // naive sequential; could parallelize
-    const ra = await updateUserMetadata(a, env, d=>{return d;});
-    const rb = await updateUserMetadata(b, env, d=>{return d;});
-    if(!ra || !rb) return false;
-    const updated = mut(ra, rb);
-    // write back both
-    await patchAuth0User(a, env, { app_metadata:{ waterwall: ra }});
-    await patchAuth0User(b, env, { app_metadata:{ waterwall: rb }});
-    try { if(env.CONFIG_KV){ await env.CONFIG_KV.put(`usercache:${a}`, JSON.stringify({__fetched:Date.now(), data:ra}), {expirationTtl:USER_CACHE_TTL}); await env.CONFIG_KV.put(`usercache:${b}`, JSON.stringify({__fetched:Date.now(), data:rb}), {expirationTtl:USER_CACHE_TTL}); } } catch(e){}
-    return updated;
-}
-
-async function sendFriendRequest(fromId, toId, env){
-    const res = await mutateTwoUsers(fromId, toId, env, (a,b)=>{ a.friends = a.friends||initDefaultUserLayer().friends; b.friends=b.friends||initDefaultUserLayer().friends; if(a.friends.list.includes(toId)) return; if(b.friends.list.includes(fromId)) return; if(!a.friends.outgoing.includes(toId)) a.friends.outgoing.push(toId); if(!b.friends.incoming.includes(fromId)) b.friends.incoming.push(fromId); });
-    if(res===false) return jsonResponse({error:'Failed'},500); return jsonResponse({success:true});
-}
-async function acceptFriend(userId, fromId, env){
-    const res = await mutateTwoUsers(userId, fromId, env, (u,f)=>{ u.friends.incoming = u.friends.incoming.filter(id=>id!==fromId); f.friends.outgoing = f.friends.outgoing.filter(id=>id!==userId); if(!u.friends.list.includes(fromId)) u.friends.list.push(fromId); if(!f.friends.list.includes(userId)) f.friends.list.push(userId); });
-    if(res===false) return jsonResponse({error:'Failed'},500); return jsonResponse({success:true});
-}
-async function declineFriend(userId, fromId, env){
-    const res = await mutateTwoUsers(userId, fromId, env, (u,f)=>{ u.friends.incoming = u.friends.incoming.filter(id=>id!==fromId); f.friends.outgoing = f.friends.outgoing.filter(id=>id!==userId); });
-    if(res===false) return jsonResponse({error:'Failed'},500); return jsonResponse({success:true});
-}
-async function removeFriend(userId, other, env){
-    const res = await mutateTwoUsers(userId, other, env, (u,o)=>{ u.friends.list = u.friends.list.filter(id=>id!==other); o.friends.list = o.friends.list.filter(id=>id!==userId); });
-    if(res===false) return jsonResponse({error:'Failed'},500); return jsonResponse({success:true});
-}
-
-// ---- Presence System ----
-async function handlePresenceRoot(request, url, env){
-    const {payload, error} = await requireAuth(request, env); if(error) return error;
-    const userId = payload.sub; const method=request.method; const search=url.searchParams; if(method==='POST'){ // heartbeat
-        if(!env.PRESENCE_KV) return jsonResponse({error:'Presence not enabled'},503);
-        const body = await request.json().catch(()=>({}));
-        const state = { game: body.game||null, ts: Date.now() };
-        await env.PRESENCE_KV.put(`p:${userId}`, JSON.stringify(state), {expirationTtl:120});
-        return jsonResponse({ok:true, interval: Number(env.PRESENCE_HEARTBEAT_INTERVAL||30)});
-    }
-    if(method==='GET'){
-        if(!env.PRESENCE_KV) return jsonResponse({});
-        const ids = (search.get('ids')||'').split(',').filter(Boolean).slice(0,50);
-        const results={};
-        for(const id of ids){ const v = await env.PRESENCE_KV.get(`p:${id}`,'json'); if(v) results[id]=v; }
-        return jsonResponse({presence:results});
-    }
-    return jsonResponse({error:'Method not allowed'},405);
-}
-
-// ---- Auth0 Management API helpers ----
-let __mgmtTokenCache=null; let __mgmtTokenExp=0;
-async function getManagementToken(env){
-    const now=Date.now(); if(__mgmtTokenCache && now<__mgmtTokenExp) return __mgmtTokenCache;
-    const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,'');
-    const cid = env.AUTH0_MGMT_CLIENT_ID; const secret = env.AUTH0_MGMT_CLIENT_SECRET; if(!cid||!secret) throw new Error('Mgmt credentials missing');
-    const res = await fetch(`https://${domain}/oauth/token`, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({grant_type:'client_credentials', client_id:cid, client_secret:secret, audience:`https://${domain}/api/v2/`})});
-    if(!res.ok) throw new Error('Failed to obtain mgmt token');
-    const data = await res.json(); __mgmtTokenCache=data.access_token; __mgmtTokenExp= now + (data.expires_in*900); return __mgmtTokenCache;
-}
-async function fetchAuth0User(userId, env){
-    try { const token = await getManagementToken(env); const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,''); const r = await fetch(`https://${domain}/api/v2/users/${encodeURIComponent(userId)}`, {headers:{Authorization:`Bearer ${token}`}}); if(!r.ok){ console.warn('User fetch fail', r.status); return null;} return await r.json(); } catch(e){ console.error('fetchAuth0User error', e); return null; }
-}
-async function patchAuth0User(userId, env, body){
-    try { 
-        const token = await getManagementToken(env); 
-        const domain = env.AUTH0_DOMAIN?.replace(/https?:\/\//,''); 
-        const r = await fetch(`https://${domain}/api/v2/users/${encodeURIComponent(userId)}`, {
-            method:'PATCH', 
-            headers:{Authorization:`Bearer ${token}`,'content-type':'application/json'}, 
-            body: JSON.stringify(body)
-        }); 
-        if(!r.ok){ 
-            console.warn('User patch fail', r.status); 
-        } 
-    } catch(e){ 
-        console.error('patchAuth0User error', e); 
-    }
-}
+// All authentication functions removed - handled by frontend only
 
 // ================= END SOCIAL LAYER =================

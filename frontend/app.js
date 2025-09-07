@@ -1,8 +1,9 @@
-// CACHE BUSTER VERSION: 20250906-NOCACHE-AUTH-FIX
+// CACHE BUSTER VERSION: 20250907-FRONTEND-ONLY
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: 20250906-NOCACHE-AUTH-FIX - No audience validation');
-console.log('⚠️  If you see AUTH0_AUDIENCE errors, clear browser cache!');
+console.log('🔧 Version: 20250907-FRONTEND-ONLY - All authentication handled by frontend');
+console.log('✅ User data, favorites, and settings stored in localStorage');
+console.log('⚠️  Friends and presence features temporarily disabled');
 
 // Application configuration
 const APP_VERSION = '2.0.1';
@@ -3783,23 +3784,8 @@ async function getAuthToken() {
 }
 
 async function socialFetchUser(){ 
-    console.log('🚨 socialFetchUser called - VERSION 20250906-NOCACHE-AUTH-FIX');
-    console.log('🚨 If you see AUTH0_AUDIENCE errors after this, CLEAR YOUR BROWSER CACHE!');
-    console.log('⚠️  Note: Backend may need to be redeployed with authentication fixes');
-    
-    // Test backend connectivity first
-    try {
-        console.log('🔍 Testing backend connectivity...');
-        const testResponse = await fetch(`${BACKEND_URL}/api/debug-auth`);
-        if (testResponse.ok) {
-            const testData = await testResponse.json();
-            console.log('✅ Backend is reachable:', testData.message);
-        } else {
-            console.warn('⚠️  Backend test endpoint returned:', testResponse.status);
-        }
-    } catch (testError) {
-        console.warn('⚠️  Backend connectivity test failed:', testError.message);
-    }
+    console.log('🎮 socialFetchUser called - FRONTEND-ONLY VERSION');
+    console.log('✅ Authentication handled entirely on frontend with Auth0');
     
     if(!(await socialEnsureAuth())) {
         console.debug('[Social] Not authenticated, skipping user fetch');
@@ -3807,66 +3793,125 @@ async function socialFetchUser(){
     }
     
     try {
-        const token = await getAuthToken();
+        // Get user info from Auth0 directly
+        const auth0User = await auth0Client.getUser();
         
-        if(!token) {
-            console.warn('[Social] No token available for user fetch');
-            throw new Error('No authentication token available');
+        if (!auth0User) {
+            console.warn('[Social] No Auth0 user data available');
+            return false;
         }
         
-        const r = await fetch(`${BACKEND_URL}/api/user`, {
-            headers:{Authorization:`Bearer ${token}`}
-        }); 
+        console.debug('[Social] Auth0 user data:', auth0User);
         
-        if(r.ok){ 
-            const data = await r.json(); 
-            socialState.user=data.user; 
-            socialState.loaded=true; 
-            console.debug('[Social] User data loaded:', data.user?.profile?.username || 'unnamed');
-            
-            // These are non-critical, so catch their errors
+        // Load user data from localStorage, or create default
+        const userDataKey = `waterwall_user_${auth0User.sub}`;
+        let userData = localStorage.getItem(userDataKey);
+        
+        if (userData) {
             try {
-                syncFavoritesWithCloud(); 
-            } catch(syncError) {
-                console.debug('[Social] Favorites sync failed:', syncError);
-            }
-            
-            try {
-                renderFriendsPage(); 
-            } catch(renderError) {
-                console.debug('[Social] Friends page render failed:', renderError);
-            }
-            
-            return true; // Successfully fetched user data
-        } else {
-            console.warn('[Social] User fetch failed with status:', r.status);
-            
-            if(r.status === 401) {
-                console.warn('[Social] 401 Unauthorized - authentication token may be invalid or expired');
-                throw new Error('Authentication failed - token may be expired');
-            } else if(r.status === 403) {
-                console.warn('[Social] 403 Forbidden - insufficient permissions');
-                throw new Error('Access denied - insufficient permissions');
-            } else {
-                throw new Error(`User fetch failed with status ${r.status}`);
+                userData = JSON.parse(userData);
+            } catch (e) {
+                console.warn('[Social] Invalid stored user data, creating new');
+                userData = null;
             }
         }
-    } catch(e){ 
-        console.error('[Social] User data fetch failed:', e.message);
-        throw e; // Re-throw so calling functions know it failed
+        
+        // Create default user data if none exists
+        if (!userData) {
+            userData = {
+                favorites: [],
+                settings: {
+                    customCursor: true,
+                    backgroundParticles: true,
+                    theme: 'default'
+                },
+                profile: {
+                    username: auth0User.nickname || auth0User.name || null,
+                    avatar: auth0User.picture || null,
+                    color: '#58a6ff'
+                },
+                friends: {
+                    list: [],
+                    incoming: [],
+                    outgoing: []
+                },
+                updated: Date.now()
+            };
+            
+            // Save default data
+            localStorage.setItem(userDataKey, JSON.stringify(userData));
+            console.debug('[Social] Created default user data for:', auth0User.sub);
+        }
+        
+        // Update social state
+        socialState.user = userData;
+        socialState.loaded = true;
+        
+        console.debug('[Social] User data loaded:', userData.profile?.username || 'unnamed');
+        
+        // Sync favorites with the in-memory favorites array
+        try {
+            favorites = [...userData.favorites];
+            updateFavoritesDisplay();
+        } catch(syncError) {
+            console.debug('[Social] Favorites sync failed:', syncError);
+        }
+        
+        // Update friends page if needed
+        try {
+            renderFriendsPage(); 
+        } catch(renderError) {
+            console.debug('[Social] Friends page render failed:', renderError);
+        }
+        
+        return true; // Successfully fetched user data
+    } catch (error) {
+        console.error('[Social] Error loading user data:', error);
+        return false;
     } 
 }
 
-// Sync favorites/settings local->cloud & cloud->local minimal strategy
-async function syncFavoritesWithCloud(){ if(!socialState.user) return; // Merge
-    const cloudFav = Array.isArray(socialState.user.favorites)? socialState.user.favorites:[]; const localFav = favorites.slice();
-    // union
-    const merged = Array.from(new Set([...cloudFav, ...localFav]));
-    // If differs push to backend
-    if(JSON.stringify(merged)!==JSON.stringify(cloudFav)){
-        const token = await auth0Client.getTokenSilently?.().catch(()=>null); if(token){ try { await fetch(`${BACKEND_URL}/api/user/favorites`, {method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify(merged)}); } catch(e){} }
+// Sync favorites between memory and localStorage (frontend-only)
+async function syncFavoritesWithCloud(){ 
+    if(!socialState.user) return; 
+    
+    try {
+        // Get current Auth0 user
+        const auth0User = await auth0Client.getUser();
+        if (!auth0User) return;
+        
+        // Get stored user data
+        const userDataKey = `waterwall_user_${auth0User.sub}`;
+        let userData = localStorage.getItem(userDataKey);
+        
+        if (userData) {
+            userData = JSON.parse(userData);
+            
+            // Sync favorites: merge local with stored
+            const storedFav = Array.isArray(userData.favorites) ? userData.favorites : [];
+            const localFav = favorites.slice();
+            
+            // Create union of both
+            const merged = Array.from(new Set([...storedFav, ...localFav]));
+            
+            // Update both local and stored
+            favorites = merged;
+            userData.favorites = merged;
+            userData.updated = Date.now();
+            
+            // Save back to localStorage
+            localStorage.setItem(userDataKey, JSON.stringify(userData));
+            socialState.user = userData;
+            
+            // Update UI
+            saveFavoritesToCookies();
+            renderFavoritesSection();
+            
+            console.debug('[Social] Favorites synced:', merged.length, 'items');
+        }
+    } catch (error) {
+        console.warn('[Social] Favorites sync failed:', error);
     }
-    favorites = merged; saveFavoritesToCookies(); renderFavoritesSection();
 }
 
 // Override favorite toggle to initiate sync when authenticated
@@ -3877,18 +3922,25 @@ if(typeof __origToggleFavorite === 'function'){
 async function socialUploadFavorites(){ 
     if(!(await socialEnsureAuth())) return; 
     
-    const token = await getAuthToken();
-    if(!token) return; 
-    
-    try { 
-        await fetch(`${BACKEND_URL}/api/user/favorites`, {
-            method:'PUT', 
-            headers:{
-                'Content-Type':'application/json', 
-                Authorization:`Bearer ${token}`
-            }, 
-            body:JSON.stringify(favorites)
-        }); 
+    try {
+        // Get current Auth0 user
+        const auth0User = await auth0Client.getUser();
+        if (!auth0User) return;
+        
+        // Update localStorage with current favorites
+        const userDataKey = `waterwall_user_${auth0User.sub}`;
+        let userData = localStorage.getItem(userDataKey);
+        
+        if (userData) {
+            userData = JSON.parse(userData);
+            userData.favorites = favorites.slice(); // Copy current favorites
+            userData.updated = Date.now();
+            
+            localStorage.setItem(userDataKey, JSON.stringify(userData));
+            socialState.user = userData;
+            
+            console.debug('[Favorites] Uploaded to localStorage:', favorites.length, 'items');
+        }
     } catch(e){ 
         console.warn('[Favorites] Upload failed:', e);
     }
@@ -4082,99 +4134,28 @@ async function refreshFriendsPage() {
 async function wireFriendsEvents(){ const page=document.getElementById('friendsPage'); if(!page) return; page.querySelectorAll('button[data-remove]').forEach(b=> b.onclick=()=>friendAction('remove',{user:b.getAttribute('data-remove')})); page.querySelectorAll('button[data-accept]').forEach(b=> b.onclick=()=>friendAction('accept',{from:b.getAttribute('data-accept')})); page.querySelectorAll('button[data-decline]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-decline')})); page.querySelectorAll('button[data-cancel]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-cancel')})); const form=document.getElementById('addFriendForm'); if(form){ form.onsubmit= async e=>{ e.preventDefault(); const uname=document.getElementById('addFriendUsername').value.trim(); if(!uname) return; const res = await friendAction('request',{username:uname}); const fb=document.getElementById('addFriendFeedback'); if(fb) fb.textContent = res?.error? res.error : 'Request sent'; if(!res.error) form.reset(); }; }}
 
 async function friendAction(action, body){ 
-    if(!(await socialEnsureAuth())) return; 
-    
-    try {
-        const token = await getAuthToken();
-        
-        if(!token) return {error: 'No token available'}; 
-        
-        const r= await fetch(`${BACKEND_URL}/api/friends/${action}`, {
-            method:'POST', 
-            headers:{
-                'Content-Type':'application/json', 
-                Authorization:`Bearer ${token}`
-            }, 
-            body:JSON.stringify(body)
-        }); 
-        const data= await r.json(); 
-        
-        if(r.ok){ 
-            await socialFetchUser(); 
-            await refreshFriendsPage(); // Refresh the UI after successful action
-            showSuccess(`Friend action completed successfully`);
-        } else {
-            showError(data.error || 'Friend action failed');
-        }
-        
-        return data; 
-    } catch(e){ 
-        console.error('Friend action error:', e);
-        showError('Network error during friend action');
-        return {error:'Network error'}; 
-    } 
+    showError('Friends system requires backend authentication. This feature is temporarily disabled.');
+    console.debug('[Friends] Action attempted but backend authentication is disabled:', action, body);
+    return {error: 'Friends system temporarily unavailable'}; 
 }
 
-// Presence
+// Presence system disabled - requires backend authentication
 async function presenceHeartbeat(){ 
-    if(!(await socialEnsureAuth())) return; 
-    
-    const token = await getAuthToken();
-    if(!token) return; 
-    
-    try { 
-        const gameId = currentGame? currentGame.id : null; 
-        await fetch(`${BACKEND_URL}/api/presence`, {
-            method:'POST', 
-            headers:{
-                'Content-Type':'application/json', 
-                Authorization:`Bearer ${token}`
-            }, 
-            body:JSON.stringify({game:gameId})
-        }); 
-    } catch(e){
-        console.debug('[Presence] Heartbeat failed:', e);
-    } 
+    console.debug('[Presence] Heartbeat disabled - backend authentication removed');
+    return;
 }
 async function updatePresence(){ 
-    if(!socialState.user || !socialState.user.friends) return; 
-    const ids = socialState.user.friends.list.join(','); 
-    if(!ids) {
-        // Update online count to 0 if no friends
-        const onlineCount = document.getElementById('onlineFriendsCount');
-        if(onlineCount) onlineCount.textContent = '0';
-        return;
-    }
+    console.debug('[Presence] Updates disabled - backend authentication removed');
     
-    const token = await getAuthToken();
-    if(!token) return; 
+    // Set friends count to 0 since we can't track presence
+    const onlineCount = document.getElementById('onlineFriendsCount');
+    if(onlineCount) onlineCount.textContent = '0';
     
-    try { 
-        const r = await fetch(`${BACKEND_URL}/api/presence?ids=${encodeURIComponent(ids)}`, {
-            headers:{Authorization:`Bearer ${token}`}
-        }); 
-        if(!r.ok) return; 
-        const data = await r.json(); 
-        
-        const onlineCount = Object.keys(data.presence||{}).length;
-        
-        // Update online friends count in stats
-        const onlineCountEl = document.getElementById('onlineFriendsCount');
-        if(onlineCountEl) onlineCountEl.textContent = onlineCount;
-        
-        // Update presence list in overview tab
-        const presenceList=document.getElementById('presenceList'); 
-        if(presenceList){ 
-            presenceList.innerHTML = onlineCount? 
-                Object.entries(data.presence).map(([id,p])=>`<li class="friend-item online">
-                    <span>${shortUserId(id)}</span>
-                    <span class="presence-pill">${p.game? 'In game #'+p.game : 'Online'}</span>
-                </li>`).join('') : 
-                '<li class="muted-hint">No friends online</li>'; 
-        } 
-    } catch(e){
-        console.warn('Failed to update presence:', e);
-    } 
+    // Clear presence list
+    const presenceList = document.getElementById('presenceList'); 
+    if(presenceList) presenceList.innerHTML = '<li class="muted-hint">Presence tracking unavailable</li>';
+    
+    return;
 }
 
 async function refreshFriendsPage() {
@@ -4571,47 +4552,64 @@ function initProfileForm(){
         showProfileSaveIndicator('Saving...'); 
         
         try {
-            const token = await getAuthToken();
-            
-            if(!token){ 
-                showProfileSaveIndicator('Failed to get auth token', true); 
-                console.error('[Profile] No auth token available');
-                return; 
+            // Get current Auth0 user
+            const auth0User = await auth0Client.getUser();
+            if (!auth0User) {
+                showProfileSaveIndicator('Authentication required', true);
+                return;
             }
             
-            const body={}; 
-            if(uname) body.username=uname; 
-            if(color) body.color=color; 
-            if(avatar) body.avatar=avatar; 
+            // Get stored user data
+            const userDataKey = `waterwall_user_${auth0User.sub}`;
+            let userData = localStorage.getItem(userDataKey);
             
-            const r= await fetch(`${BACKEND_URL}/api/user/profile`, {
-                method:'PUT', 
-                headers:{
-                    'Content-Type':'application/json', 
-                    Authorization:`Bearer ${token}`
-                }, 
-                body:JSON.stringify(body)
-            }); 
+            if (userData) {
+                userData = JSON.parse(userData);
+            } else {
+                // Create default user data if none exists
+                userData = {
+                    favorites: [],
+                    settings: {
+                        customCursor: true,
+                        backgroundParticles: true,
+                        theme: 'default'
+                    },
+                    profile: {
+                        username: null,
+                        avatar: null,
+                        color: '#58a6ff'
+                    },
+                    friends: {
+                        list: [],
+                        incoming: [],
+                        outgoing: []
+                    },
+                    updated: Date.now()
+                };
+            }
             
-            const data=await r.json(); 
+            // Update profile data
+            if(uname) userData.profile.username = uname; 
+            if(color) userData.profile.color = color; 
+            if(avatar) userData.profile.avatar = avatar; 
             
-            if(r.ok){ 
-                showProfileSaveIndicator('Saved successfully!', false, true); 
-                showSuccess('Profile updated successfully!');
-                await socialFetchUser(); 
-                if(color){ 
-                    settings.accentColor=color; 
-                    applyTheme(); 
-                } 
-            } else { 
-                console.error('[Profile] Save failed:', data);
-                const errorMsg = data.error || 'Save failed';
-                showProfileSaveIndicator(errorMsg, true);
-                showError(`Profile save failed: ${errorMsg}`);
+            userData.updated = Date.now();
+            
+            // Save to localStorage
+            localStorage.setItem(userDataKey, JSON.stringify(userData));
+            socialState.user = userData;
+            
+            showProfileSaveIndicator('Saved successfully!', false, true); 
+            showSuccess('Profile updated successfully!');
+            
+            // Update theme if color changed
+            if(color){ 
+                settings.accentColor = color; 
+                applyTheme(); 
             } 
         } catch(err){ 
-            console.error('[Profile] Network/auth error:', err);
-            const errorMsg = 'Network or authentication error';
+            console.error('[Profile] Save error:', err);
+            const errorMsg = 'Failed to save profile';
             showProfileSaveIndicator(errorMsg, true);
             showError(`Profile save error: ${err.message}`);
         }
