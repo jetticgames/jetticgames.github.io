@@ -2457,6 +2457,213 @@ handleAPIRequest = async function(request, url, env, ctx){
         });
     }
     
+    // ========== DATA STORAGE ENDPOINTS (NO AUTH) ==========
+    
+    // Cross-Device Sync Endpoints
+    if(path.startsWith('/sync/')){
+        const userId = path.split('/')[2];
+        if(!userId) return jsonResponse({error: 'User ID required'}, 400);
+        
+        if(method === 'GET'){
+            // Get user data
+            const userData = await env.USER_DATA_KV?.get(`user:${userId}`, 'json');
+            return jsonResponse({
+                data: userData || null,
+                cached: userData ? true : false
+            });
+        }
+        
+        if(method === 'PUT'){
+            // Save user data
+            const data = await request.json();
+            data.lastModified = Date.now();
+            await env.USER_DATA_KV?.put(`user:${userId}`, JSON.stringify(data));
+            return jsonResponse({success: true, lastModified: data.lastModified});
+        }
+    }
+    
+    // Friends System Endpoints
+    if(path === '/friends'){
+        if(method === 'POST'){
+            // Add friend request
+            const {requesterId, targetUsername, requesterUsername} = await request.json();
+            if(!requesterId || !targetUsername || !requesterUsername) {
+                return jsonResponse({error: 'Missing required fields'}, 400);
+            }
+            
+            // Store friend request
+            const requestKey = `friend_request:${targetUsername}:${requesterId}`;
+            await env.USER_DATA_KV?.put(requestKey, JSON.stringify({
+                requesterId,
+                requesterUsername,
+                targetUsername,
+                timestamp: Date.now(),
+                status: 'pending'
+            }), {expirationTtl: 86400 * 30}); // 30 days
+            
+            return jsonResponse({success: true});
+        }
+        
+        if(method === 'GET'){
+            // Get friend requests and friends list
+            const {userId, username} = url.searchParams;
+            if(!userId || !username) return jsonResponse({error: 'Missing parameters'}, 400);
+            
+            // Get friends list
+            const friendsList = await env.USER_DATA_KV?.get(`friends:${userId}`, 'json') || [];
+            
+            // Get pending friend requests
+            const requestsResult = await env.USER_DATA_KV?.list({prefix: `friend_request:${username}:`});
+            const requests = [];
+            for(const key of requestsResult?.keys || []){
+                const request = await env.USER_DATA_KV?.get(key.name, 'json');
+                if(request) requests.push(request);
+            }
+            
+            return jsonResponse({
+                friends: friendsList,
+                pendingRequests: requests
+            });
+        }
+    }
+    
+    if(path === '/friends/accept'){
+        if(method === 'POST'){
+            const {userId, username, requesterId, requesterUsername} = await request.json();
+            
+            // Remove the friend request
+            await env.USER_DATA_KV?.delete(`friend_request:${username}:${requesterId}`);
+            
+            // Add to both users' friends lists
+            const userFriends = await env.USER_DATA_KV?.get(`friends:${userId}`, 'json') || [];
+            const requesterFriends = await env.USER_DATA_KV?.get(`friends:${requesterId}`, 'json') || [];
+            
+            // Add each other to friends lists
+            if(!userFriends.find(f => f.id === requesterId)){
+                userFriends.push({id: requesterId, username: requesterUsername, addedAt: Date.now()});
+            }
+            if(!requesterFriends.find(f => f.id === userId)){
+                requesterFriends.push({id: userId, username: username, addedAt: Date.now()});
+            }
+            
+            await env.USER_DATA_KV?.put(`friends:${userId}`, JSON.stringify(userFriends));
+            await env.USER_DATA_KV?.put(`friends:${requesterId}`, JSON.stringify(requesterFriends));
+            
+            return jsonResponse({success: true});
+        }
+    }
+    
+    if(path === '/friends/decline'){
+        if(method === 'POST'){
+            const {username, requesterId} = await request.json();
+            await env.USER_DATA_KV?.delete(`friend_request:${username}:${requesterId}`);
+            return jsonResponse({success: true});
+        }
+    }
+    
+    if(path === '/friends/remove'){
+        if(method === 'POST'){
+            const {userId, friendId} = await request.json();
+            
+            // Remove from both friends lists
+            const userFriends = await env.USER_DATA_KV?.get(`friends:${userId}`, 'json') || [];
+            const friendFriends = await env.USER_DATA_KV?.get(`friends:${friendId}`, 'json') || [];
+            
+            const updatedUserFriends = userFriends.filter(f => f.id !== friendId);
+            const updatedFriendFriends = friendFriends.filter(f => f.id !== userId);
+            
+            await env.USER_DATA_KV?.put(`friends:${userId}`, JSON.stringify(updatedUserFriends));
+            await env.USER_DATA_KV?.put(`friends:${friendId}`, JSON.stringify(updatedFriendFriends));
+            
+            return jsonResponse({success: true});
+        }
+    }
+    
+    // Presence Tracking Endpoints
+    if(path === '/presence'){
+        if(method === 'POST'){
+            // Update user presence
+            const {userId, username, status, currentGame} = await request.json();
+            if(!userId || !username) return jsonResponse({error: 'Missing required fields'}, 400);
+            
+            const presenceData = {
+                userId,
+                username,
+                status: status || 'online',
+                currentGame: currentGame || null,
+                lastSeen: Date.now()
+            };
+            
+            // Store with 5 minute TTL
+            await env.USER_DATA_KV?.put(`presence:${userId}`, JSON.stringify(presenceData), {expirationTtl: 300});
+            
+            return jsonResponse({success: true});
+        }
+        
+        if(method === 'GET'){
+            // Get presence for multiple users
+            const friendIds = url.searchParams.get('ids')?.split(',') || [];
+            const presenceData = {};
+            
+            for(const friendId of friendIds.slice(0, 50)){ // Limit to 50 friends
+                const presence = await env.USER_DATA_KV?.get(`presence:${friendId}`, 'json');
+                if(presence) presenceData[friendId] = presence;
+            }
+            
+            return jsonResponse({presence: presenceData});
+        }
+    }
+    
+    // Username lookup for friend discovery
+    if(path === '/users/search'){
+        if(method === 'GET'){
+            const query = url.searchParams.get('q')?.toLowerCase();
+            if(!query || query.length < 2) return jsonResponse({users: []});
+            
+            // This is a simple implementation - in production you'd want a proper search index
+            const result = await env.USER_DATA_KV?.list({prefix: 'username:'});
+            const users = [];
+            
+            for(const key of result?.keys || []){
+                const username = key.name.replace('username:', '');
+                if(username.toLowerCase().includes(query) && users.length < 20){
+                    const userData = await env.USER_DATA_KV?.get(key.name, 'json');
+                    if(userData) users.push({username, id: userData.userId});
+                }
+            }
+            
+            return jsonResponse({users});
+        }
+    }
+    
+    // Username registration
+    if(path === '/users/register'){
+        if(method === 'POST'){
+            const {userId, username} = await request.json();
+            if(!userId || !username) return jsonResponse({error: 'Missing required fields'}, 400);
+            
+            // Validate username
+            if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+                return jsonResponse({error: 'Username must be 3-20 characters, letters/numbers/underscore only'}, 400);
+            }
+            
+            const normalizedUsername = username.toLowerCase();
+            
+            // Check if username is taken
+            const existing = await env.USER_DATA_KV?.get(`username:${normalizedUsername}`, 'json');
+            if(existing && existing.userId !== userId) {
+                return jsonResponse({error: 'Username already taken'}, 409);
+            }
+            
+            // Register username
+            await env.USER_DATA_KV?.put(`username:${normalizedUsername}`, JSON.stringify({userId, registeredAt: Date.now()}));
+            
+            return jsonResponse({success: true, username});
+        }
+    }
+    
+    // ======================================================
+    
     return __origHandleAPIRequest(request, url, env, ctx);
 };
 

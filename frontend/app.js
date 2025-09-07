@@ -1,9 +1,9 @@
-// CACHE BUSTER VERSION: 20250907-FRONTEND-ONLY
+// CACHE BUSTER VERSION: 20250907-SOCIAL-SYSTEMS
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: 20250907-FRONTEND-ONLY - All authentication handled by frontend');
-console.log('✅ User data, favorites, and settings stored in localStorage');
-console.log('⚠️  Friends and presence features temporarily disabled');
+console.log('🔧 Version: 20250907-SOCIAL-SYSTEMS - Full social features implemented');
+console.log('✅ Cross-device sync, friends system, and presence tracking enabled');
+console.log('🏪 Data stored in Cloudflare KV - no backend authentication required');
 
 // Application configuration
 const APP_VERSION = '2.0.1';
@@ -86,6 +86,330 @@ let currentGameTabTimeout = null;
 let serverConfig = null;
 // Per-game proxy overrides (true = enabled, false = disabled); undefined -> use settings.defaultProxy
 const gameProxyOverrides = {};
+
+// ========== DATA SYNC & SOCIAL MANAGERS ==========
+// Cross-Device Data Sync Manager
+const DataSyncManager = {
+    lastSyncTime: 0,
+    syncInProgress: false,
+    
+    async syncUserData() {
+        if (this.syncInProgress) return;
+        this.syncInProgress = true;
+        
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) return;
+            
+            console.log('🔄 Starting data sync for user:', user.sub);
+            
+            // Prepare local data
+            const localData = {
+                favorites: favorites.slice(),
+                settings: {...settings},
+                profile: {
+                    username: user.nickname || user.name,
+                    avatar: user.picture,
+                    email: user.email
+                },
+                lastModified: Date.now()
+            };
+            
+            // Get server data first
+            const serverResponse = await fetch(`${BACKEND_URL}/api/sync/${user.sub}`);
+            const serverResult = await serverResponse.json();
+            const serverData = serverResult.data;
+            
+            if (serverData && serverData.lastModified > (this.lastSyncTime || 0)) {
+                // Server has newer data, merge it
+                console.log('📥 Merging server data (newer than local)');
+                
+                // Smart merge strategy
+                const mergedData = this.mergeData(serverData, localData);
+                
+                // Apply merged data locally
+                favorites.length = 0;
+                favorites.push(...mergedData.favorites);
+                Object.assign(settings, mergedData.settings);
+                
+                // Update UI
+                saveFavoritesToCookies();
+                renderFavoritesSection();
+                applyTheme();
+                
+                this.lastSyncTime = mergedData.lastModified;
+            } else {
+                // Local data is newer or same, upload to server
+                console.log('📤 Uploading local data to server');
+                
+                await fetch(`${BACKEND_URL}/api/sync/${user.sub}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(localData)
+                });
+                
+                this.lastSyncTime = localData.lastModified;
+            }
+            
+            console.log('✅ Data sync completed successfully');
+            
+        } catch (error) {
+            console.warn('❌ Data sync failed:', error);
+        } finally {
+            this.syncInProgress = false;
+        }
+    },
+    
+    mergeData(serverData, localData) {
+        return {
+            // Favorites: union of both (no duplicates)
+            favorites: [...new Set([...(serverData.favorites || []), ...localData.favorites])],
+            
+            // Settings: local takes precedence
+            settings: {...(serverData.settings || {}), ...localData.settings},
+            
+            // Profile: use local Auth0 data
+            profile: localData.profile,
+            
+            // Use latest timestamp
+            lastModified: Math.max(serverData.lastModified || 0, localData.lastModified)
+        };
+    },
+    
+    // Auto-sync every 5 minutes if user is active
+    startAutoSync() {
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                this.syncUserData();
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+    }
+};
+
+// Friends System Manager
+const FriendsManager = {
+    friends: [],
+    pendingRequests: [],
+    
+    async loadFriends() {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) return;
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends?userId=${user.sub}&username=${encodeURIComponent(user.nickname || user.name)}`);
+            const data = await response.json();
+            
+            this.friends = data.friends || [];
+            this.pendingRequests = data.pendingRequests || [];
+            
+            console.log('👥 Loaded friends:', this.friends.length, 'requests:', this.pendingRequests.length);
+            
+        } catch (error) {
+            console.warn('❌ Failed to load friends:', error);
+        }
+    },
+    
+    async sendFriendRequest(username) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) throw new Error('Not authenticated');
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    requesterId: user.sub,
+                    requesterUsername: user.nickname || user.name,
+                    targetUsername: username
+                })
+            });
+            
+            if (response.ok) {
+                showSuccess(`Friend request sent to ${username}`);
+                return true;
+            } else {
+                throw new Error('Failed to send request');
+            }
+        } catch (error) {
+            console.error('❌ Friend request failed:', error);
+            showError(`Failed to send friend request: ${error.message}`);
+            return false;
+        }
+    },
+    
+    async acceptFriendRequest(requesterId, requesterUsername) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) throw new Error('Not authenticated');
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends/accept`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: user.sub,
+                    username: user.nickname || user.name,
+                    requesterId,
+                    requesterUsername
+                })
+            });
+            
+            if (response.ok) {
+                showSuccess(`You are now friends with ${requesterUsername}`);
+                await this.loadFriends();
+                this.renderFriendsUI();
+                return true;
+            }
+        } catch (error) {
+            console.error('❌ Accept friend failed:', error);
+            showError('Failed to accept friend request');
+        }
+        return false;
+    },
+    
+    async declineFriendRequest(requesterId) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) throw new Error('Not authenticated');
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends/decline`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: user.nickname || user.name,
+                    requesterId
+                })
+            });
+            
+            if (response.ok) {
+                await this.loadFriends();
+                this.renderFriendsUI();
+                return true;
+            }
+        } catch (error) {
+            console.error('❌ Decline friend failed:', error);
+        }
+        return false;
+    },
+    
+    async removeFriend(friendId) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) throw new Error('Not authenticated');
+            
+            const response = await fetch(`${BACKEND_URL}/api/friends/remove`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: user.sub,
+                    friendId
+                })
+            });
+            
+            if (response.ok) {
+                showSuccess('Friend removed');
+                await this.loadFriends();
+                this.renderFriendsUI();
+                return true;
+            }
+        } catch (error) {
+            console.error('❌ Remove friend failed:', error);
+            showError('Failed to remove friend');
+        }
+        return false;
+    },
+    
+    renderFriendsUI() {
+        // This will be called to update the friends page UI
+        renderFriendsPage();
+    }
+};
+
+// Presence Tracking Manager
+const PresenceManager = {
+    friends: [],
+    heartbeatInterval: null,
+    
+    async updatePresence(status = 'online', currentGame = null) {
+        try {
+            const user = await auth0Client?.getUser();
+            if (!user) return;
+            
+            await fetch(`${BACKEND_URL}/api/presence`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: user.sub,
+                    username: user.nickname || user.name,
+                    status,
+                    currentGame
+                })
+            });
+        } catch (error) {
+            console.debug('Presence update failed:', error);
+        }
+    },
+    
+    async getFriendsPresence() {
+        try {
+            if (FriendsManager.friends.length === 0) return {};
+            
+            const friendIds = FriendsManager.friends.map(f => f.id).join(',');
+            const response = await fetch(`${BACKEND_URL}/api/presence?ids=${friendIds}`);
+            const data = await response.json();
+            
+            return data.presence || {};
+        } catch (error) {
+            console.debug('Failed to get friends presence:', error);
+            return {};
+        }
+    },
+    
+    startHeartbeat() {
+        if (this.heartbeatInterval) return;
+        
+        // Update presence immediately
+        this.updatePresence();
+        
+        // Then every 2 minutes
+        this.heartbeatInterval = setInterval(() => {
+            const gameTitle = currentGame?.title || null;
+            this.updatePresence('online', gameTitle);
+        }, 2 * 60 * 1000);
+    },
+    
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    },
+    
+    async updateFriendsPresenceUI() {
+        const presence = await this.getFriendsPresence();
+        
+        // Update online friends count
+        const onlineCount = Object.keys(presence).length;
+        const onlineCountEl = document.getElementById('onlineFriendsCount');
+        if (onlineCountEl) onlineCountEl.textContent = onlineCount;
+        
+        // Update presence list
+        const presenceList = document.getElementById('presenceList');
+        if (presenceList) {
+            if (onlineCount > 0) {
+                presenceList.innerHTML = Object.entries(presence)
+                    .map(([id, p]) => `
+                        <li class="friend-item online">
+                            <span>${p.username}</span>
+                            <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
+                        </li>
+                    `).join('');
+            } else {
+                presenceList.innerHTML = '<li class="muted-hint">No friends online</li>';
+            }
+        }
+    }
+};
+// ================================================
 
 // DOM elements (will be initialized after DOM loads)
 let gamesGrid;
@@ -978,6 +1302,16 @@ function bindAuthButtons(){
         if(auth0Client){ 
             try {
                 console.debug('[Logout] Starting logout process');
+                
+                // Cleanup social systems
+                PresenceManager.stopHeartbeat();
+                DataSyncManager.syncInProgress = false;
+                FriendsManager.friends = [];
+                FriendsManager.pendingRequests = [];
+                
+                // Clear current game presence
+                PresenceManager.updatePresence('offline', null);
+                
                 auth0Client.logout({ 
                     logoutParams: { 
                         returnTo: window.location.origin 
@@ -1389,6 +1723,10 @@ function showHomePage(){
     ensureHomePage();
     hideAllPages();
     currentGame=null;
+    
+    // Update presence to show online/browsing
+    PresenceManager.updatePresence('online', null);
+    
     const gf=document.getElementById('gameFrame'); if(gf) gf.src='about:blank';
     const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
@@ -1475,6 +1813,10 @@ function showSettingsPage(){
 function showGamePage(game) {
     console.log('Showing game page for:', game.title);
     currentGame = game;
+    
+    // Update presence to show current game
+    PresenceManager.updatePresence('playing', game.title);
+    
     hideAllPages(true); // hide everything fully
     
     // Clear the previous game iframe
@@ -3971,90 +4313,118 @@ function showFriendsPage(){
 })();
 
 async function renderFriendsPage(){ 
-    const page=document.getElementById('friendsPage'); 
+    const page = document.getElementById('friendsPage'); 
     if(!page) return; 
     
     console.debug('[Friends] renderFriendsPage called');
     
-    const authNotice=document.getElementById('friendsAuthNotice'); 
-    const content=document.getElementById('friendsContent'); 
+    const authNotice = document.getElementById('friendsAuthNotice'); 
+    const content = document.getElementById('friendsContent'); 
     
     // Always start by hiding both sections
-    if(authNotice) authNotice.style.display='none';
-    if(content) content.style.display='none';
+    if(authNotice) authNotice.style.display = 'none';
+    if(content) content.style.display = 'none';
     
     const loggedIn = await socialEnsureAuth(); 
     console.debug('[Friends] Authentication check result:', loggedIn);
     
     if(!loggedIn){ 
         console.debug('[Friends] User not authenticated, showing auth notice');
-        if(authNotice) authNotice.style.display='block'; 
-        const btn=document.getElementById('friendsLoginBtn'); 
-        if(btn) btn.onclick=()=>login(); 
+        if(authNotice) authNotice.style.display = 'block'; 
+        const btn = document.getElementById('friendsLoginBtn'); 
+        if(btn) btn.onclick = () => login(); 
         return; 
     } 
     
     console.debug('[Friends] User authenticated, showing friends content');
-    if(content) content.style.display='block';
+    if(content) content.style.display = 'block';
     
-    if(!socialState.user) { 
-        console.debug('[Friends] No user data, fetching...');
-        await socialFetchUser(); 
-    }
+    // Reload friends data
+    await FriendsManager.loadFriends();
     
-    const u = socialState.user; 
-    if(!u) {
-        console.warn('[Friends] Failed to get user data after fetch');
-        return;
-    }
-    
-    const friends = u.friends||{list:[], incoming:[], outgoing:[]};
+    const friends = FriendsManager.friends;
+    const pendingRequests = FriendsManager.pendingRequests;
     
     // Update stats
-    updateFriendsStats(friends);
+    const statsEl = document.getElementById('friendsStats');
+    if(statsEl) {
+        statsEl.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-value">${friends.length}</span>
+                <span class="stat-label">Friends</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="onlineFriendsCount">0</span>
+                <span class="stat-label">Online</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">${pendingRequests.length}</span>
+                <span class="stat-label">Requests</span>
+            </div>
+        `;
+    }
     
-    // Render friends lists
+    // Render friends list
     const friendsList = document.getElementById('friendsList'); 
-    const incomingList=document.getElementById('incomingList'); 
-    const outgoingList=document.getElementById('outgoingList');
-    
     if(friendsList){ 
-        friendsList.innerHTML = friends.list.length? 
-            friends.list.map(id=>`<li class="friend-item" data-id="${id}">
-                <span>${shortUserId(id)}</span>
-                <div class="friend-actions">
-                    <button data-remove="${id}" class="mini-btn danger">Remove</button>
-                </div>
-            </li>`).join('') : 
-            '<li class="muted-hint">No friends yet</li>'; 
+        friendsList.innerHTML = friends.length ? 
+            friends.map(friend => `
+                <li class="friend-item" data-id="${friend.id}">
+                    <span>${friend.username}</span>
+                    <div class="friend-actions">
+                        <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
+                    </div>
+                </li>
+            `).join('') : 
+            '<li class="muted-hint">No friends yet. Add some using the form below!</li>';
     }
     
-    if(incomingList){ 
-        incomingList.innerHTML = friends.incoming.length? 
-            friends.incoming.map(id=>`<li class="friend-item" data-id="${id}">
-                <span>${shortUserId(id)}</span>
-                <div class="friend-actions">
-                    <button data-accept="${id}" class="mini-btn">Accept</button>
-                    <button data-decline="${id}" class="mini-btn danger">Decline</button>
-                </div>
-            </li>`).join('') : 
-            '<li class="muted-hint">No requests</li>'; 
+    // Render incoming requests
+    const incomingList = document.getElementById('incomingList'); 
+    if(incomingList){
+        incomingList.innerHTML = pendingRequests.length ?
+            pendingRequests.map(req => `
+                <li class="friend-item incoming">
+                    <span>${req.requesterUsername} wants to be friends</span>
+                    <div class="friend-actions">
+                        <button onclick="FriendsManager.acceptFriendRequest('${req.requesterId}', '${req.requesterUsername}')" class="mini-btn success">Accept</button>
+                        <button onclick="FriendsManager.declineFriendRequest('${req.requesterId}')" class="mini-btn danger">Decline</button>
+                    </div>
+                </li>
+            `).join('') :
+            '<li class="muted-hint">No pending friend requests</li>';
     }
     
-    if(outgoingList){ 
-        outgoingList.innerHTML = friends.outgoing.length? 
-            friends.outgoing.map(id=>`<li class="friend-item" data-id="${id}">
-                <span>${shortUserId(id)}</span>
-                <div class="friend-actions">
-                    <button data-cancel="${id}" class="mini-btn danger">Cancel</button>
-                </div>
-            </li>`).join('') : 
-            '<li class="muted-hint">No sent requests</li>'; 
+    // Set up add friend form
+    const form = document.getElementById('addFriendForm');
+    if(form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const usernameInput = document.getElementById('addFriendUsername');
+            const feedback = document.getElementById('addFriendFeedback');
+            
+            if(!usernameInput || !usernameInput.value.trim()) {
+                if(feedback) feedback.textContent = 'Please enter a username';
+                return;
+            }
+            
+            const username = usernameInput.value.trim();
+            const success = await FriendsManager.sendFriendRequest(username);
+            
+            if(success) {
+                usernameInput.value = '';
+                if(feedback) feedback.textContent = 'Request sent!';
+                setTimeout(() => {
+                    if(feedback) feedback.textContent = '';
+                }, 3000);
+            } else {
+                if(feedback) feedback.textContent = 'Failed to send request';
+            }
+        };
     }
     
-    // Wire up events
-    wireFriendsEvents(); 
-    updatePresence(); 
+    // Update presence for friends
+    setTimeout(() => PresenceManager.updateFriendsPresenceUI(), 1000);
 }
 
 function updateFriendsStats(friends) {
@@ -4176,28 +4546,38 @@ initAuth0 = async function(){
         
         // Initialize social features if authenticated
         if(await socialEnsureAuth()){ 
-            console.debug('[Social] User authenticated, initializing social features');
+            console.log('🎮 User authenticated, initializing new social systems...');
             
-            // Try to fetch user data, but don't fail initialization if it doesn't work
+            // Initialize all systems
             try {
-                await socialFetchUser(); 
-                console.debug('[Social] User data fetched successfully during initialization');
-            } catch(userFetchError) {
-                console.warn('[Social] Failed to fetch user data during initialization:', userFetchError.message);
-                console.debug('[Social] This is not critical - user data will be fetched when needed');
+                // 1. Start data sync
+                await DataSyncManager.syncUserData();
+                DataSyncManager.startAutoSync();
+                console.log('✅ Data sync system initialized');
+                
+                // 2. Load friends
+                await FriendsManager.loadFriends();
+                console.log('✅ Friends system initialized');
+                
+                // 3. Start presence tracking
+                PresenceManager.startHeartbeat();
+                console.log('✅ Presence tracking initialized');
+                
+                // 4. Update friends presence UI
+                setTimeout(() => PresenceManager.updateFriendsPresenceUI(), 2000);
+                
+                // 5. Set up periodic presence updates
+                setInterval(() => PresenceManager.updateFriendsPresenceUI(), 60000); // Every minute
+                
+            } catch(initError) {
+                console.warn('[Social] Some social features failed to initialize:', initError);
             }
             
-            // Start presence system (this should be more robust)
+            // Legacy social fetch for compatibility
             try {
-                presenceHeartbeat(); 
-                if(!socialState.presenceInterval) {
-                    socialState.presenceInterval = setInterval(()=>{ 
-                        presenceHeartbeat(); 
-                        updatePresence(); 
-                    }, 30000); 
-                }
-            } catch(presenceError) {
-                console.debug('[Social] Presence system failed to start:', presenceError);
+                await socialFetchUser(); 
+            } catch(legacyError) {
+                console.debug('[Social] Legacy fetch failed (expected):', legacyError.message);
             }
         } else {
             console.debug('[Social] User not authenticated, skipping social features');
@@ -4589,7 +4969,24 @@ function initProfileForm(){
             }
             
             // Update profile data
-            if(uname) userData.profile.username = uname; 
+            if(uname) {
+                userData.profile.username = uname;
+                
+                // Register username on backend for friend discovery
+                try {
+                    await fetch(`${BACKEND_URL}/api/users/register`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            userId: auth0User.sub,
+                            username: uname
+                        })
+                    });
+                    console.log('✅ Username registered for friend discovery');
+                } catch (regError) {
+                    console.warn('Username registration failed (friend discovery unavailable):', regError);
+                }
+            } 
             if(color) userData.profile.color = color; 
             if(avatar) userData.profile.avatar = avatar; 
             
