@@ -2541,8 +2541,15 @@ handleAPIRequest = async function(request, url, env, ctx){
         if(method === 'GET'){
             // Get friend requests and friends list
             try {
-                const {userId, username} = url.searchParams;
-                if(!userId || !username) return jsonResponse({error: 'Missing parameters'}, 400);
+                const userId = url.searchParams.get('userId');
+                const username = url.searchParams.get('username');
+                
+                console.log('Friends GET request:', {userId, username});
+                
+                if(!userId || !username) {
+                    console.log('Missing parameters in friends GET:', {userId: !!userId, username: !!username});
+                    return jsonResponse({error: 'Missing parameters'}, 400);
+                }
                 
                 // Get friends list
                 const friendsList = await env.USER_DATA_KV.get(`friends:${userId}`, 'json') || [];
@@ -2681,9 +2688,9 @@ handleAPIRequest = async function(request, url, env, ctx){
             const {userId, username} = await request.json();
             if(!userId || !username) return jsonResponse({error: 'Missing required fields'}, 400);
             
-            // Validate username
-            if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-                return jsonResponse({error: 'Username must be 3-20 characters, letters/numbers/underscore only'}, 400);
+            // Validate username - be more permissive for Auth0 usernames
+            if(!/^[a-zA-Z0-9._-]{2,50}$/.test(username)) {
+                return jsonResponse({error: 'Username must be 2-50 characters, letters/numbers/periods/underscores/hyphens only'}, 400);
             }
             
             const normalizedUsername = username.toLowerCase();

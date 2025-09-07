@@ -1,7 +1,7 @@
-// CACHE BUSTER VERSION: 20250907-DOM-FIXES
+// CACHE BUSTER VERSION: 20250907-FIXES-V2
 // Global variables
 console.log('🎮 WaterWall app.js is loading...');
-console.log('🔧 Version: 20250907-DOM-FIXES - Fixed DOM validation and backend errors');
+console.log('🔧 Version: 20250907-FIXES-V2 - Fixed sidebar detection and username validation');
 console.log('✅ Cross-device sync, friends system, and presence tracking enabled');
 console.log('🏪 Data stored in Cloudflare KV - no backend authentication required');
 
@@ -1207,7 +1207,7 @@ function initializeDOMElements() {
     
     console.log('🔧 DOM elements initialized');
     console.log('🔍 Key elements check:');
-    console.log('  - Sidebar:', !!document.getElementById('sidebar'));
+    console.log('  - Sidebar:', !!document.querySelector('.sidebar'));
     console.log('  - All games grid:', !!document.getElementById('allGames'));
     console.log('  - Search input:', !!document.getElementById('searchInput'));
     console.log('  - Game frame:', !!document.getElementById('gameFrame'));
@@ -4674,11 +4674,22 @@ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded
 
 function validateCriticalDOM() {
     const critical = [
-        'searchInput', 'allGames', 'sidebar', 'homePage', 
-        'profileSettingsPage', 'friendsPage', 'gamePage'
+        {id: 'searchInput', type: 'id'},
+        {id: 'allGames', type: 'id'},
+        {id: '.sidebar', type: 'class'},
+        {id: 'homePage', type: 'id'},
+        {id: 'profileSettingsPage', type: 'id'},
+        {id: 'friendsPage', type: 'id'},
+        {id: 'gamePage', type: 'id'}
     ];
     
-    const missing = critical.filter(id => !document.getElementById(id));
+    const missing = critical.filter(item => {
+        if(item.type === 'class') {
+            return !document.querySelector(item.id);
+        } else {
+            return !document.getElementById(item.id);
+        }
+    }).map(item => item.id);
     
     if(missing.length > 0) {
         console.error('❌ Critical DOM elements missing:', missing);
