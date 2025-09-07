@@ -10,19 +10,19 @@ compatibility_date = "2023-05-18"
 # Then replace the id values below with the generated namespace IDs
 
 # Uncomment and update these once you have created the namespaces:
-# [[kv_namespaces]]
-# binding = "CONFIG_KV"
-# id = "paste-your-config-kv-namespace-id-here"
+[[kv_namespaces]]
+binding = "CONFIG_KV"
+id = "f10e4a7eaf374943b2d7a5e814b9255e"
 # preview_id = "paste-your-config-preview-kv-namespace-id-here"
 
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "paste-your-ratelimit-kv-namespace-id-here"
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "6ba4295285624f8381aa825b8e08a110"
 # preview_id = "paste-your-ratelimit-preview-kv-namespace-id-here"
 
-# [[kv_namespaces]]
-# binding = "USER_DATA_KV"
-# id = "paste-your-userdata-kv-namespace-id-here"
+[[kv_namespaces]]
+binding = "USER_DATA_KV"
+id = "23dc5e749d29432bbeabb8452cf77d3c"
 # preview_id = "paste-your-userdata-preview-kv-namespace-id-here"
 
 # Production environment configuration
