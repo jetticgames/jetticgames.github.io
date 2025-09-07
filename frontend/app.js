@@ -88,6 +88,32 @@ let serverConfig = null;
 const gameProxyOverrides = {};
 
 // ========== DATA SYNC & SOCIAL MANAGERS ==========
+
+// Helper function to get user's display username (custom or Auth0)
+async function getUserDisplayName() {
+    try {
+        const auth0User = await auth0Client?.getUser();
+        if (!auth0User) return null;
+        
+        // Check if user has a custom username in localStorage
+        const userDataKey = `waterwall_user_${auth0User.sub}`;
+        const userData = localStorage.getItem(userDataKey);
+        
+        if (userData) {
+            const parsed = JSON.parse(userData);
+            if (parsed?.profile?.username) {
+                return parsed.profile.username;
+            }
+        }
+        
+        // Fallback to Auth0 username
+        return auth0User.nickname || auth0User.name;
+    } catch (error) {
+        console.warn('Failed to get display username:', error);
+        return null;
+    }
+}
+
 // Cross-Device Data Sync Manager
 const DataSyncManager = {
     lastSyncTime: 0,
@@ -214,9 +240,10 @@ const FriendsManager = {
     async loadFriends() {
         try {
             const user = await auth0Client?.getUser();
-            if (!user) return;
+            const displayName = await getUserDisplayName();
+            if (!user || !displayName) return;
             
-            const response = await fetch(`${BACKEND_URL}/api/friends?userId=${user.sub}&username=${encodeURIComponent(user.nickname || user.name)}`);
+            const response = await fetch(`${BACKEND_URL}/api/friends?userId=${user.sub}&username=${encodeURIComponent(displayName)}`);
             const data = await response.json();
             
             this.friends = data.friends || [];
@@ -233,22 +260,38 @@ const FriendsManager = {
     async sendFriendRequest(username) {
         try {
             const user = await auth0Client?.getUser();
-            if (!user) throw new Error('Not authenticated');
+            const displayName = await getUserDisplayName();
+            if (!user || !displayName) throw new Error('Not authenticated');
             
             console.log('🤝 Sending friend request to:', username);
+            
+            // First, check if the target user exists
+            const searchResponse = await fetch(`${BACKEND_URL}/api/users/search?q=${encodeURIComponent(username)}`);
+            const searchData = await searchResponse.json();
+            
+            if (!searchData.users || searchData.users.length === 0) {
+                throw new Error('User not found. Please check the username and try again.');
+            }
+            
+            const targetUser = searchData.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+            if (!targetUser) {
+                throw new Error('User not found. Please check the username and try again.');
+            }
             
             const response = await fetch(`${BACKEND_URL}/api/friends`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     requesterId: user.sub,
-                    requesterUsername: user.nickname || user.name,
+                    requesterUsername: displayName,
                     targetUsername: username
                 })
             });
             
             if (response.ok) {
                 showSuccess(`Friend request sent to ${username}`);
+                await this.loadFriends();
+                this.renderFriendsUI();
                 return true;
             } else {
                 const errorData = await response.json();
@@ -387,6 +430,33 @@ const FriendsManager = {
 const PresenceManager = {
     friends: [],
     heartbeatInterval: null,
+    presenceCheckInterval: null,
+    lastKnownPresence: {},
+    isPageVisible: true,
+    
+    init() {
+        // Track page visibility for better presence detection
+        document.addEventListener('visibilitychange', () => {
+            this.isPageVisible = !document.hidden;
+            if (this.isPageVisible) {
+                // Page became visible - user is back
+                this.updatePresence('online');
+            } else {
+                // Page hidden - user might be away
+                this.updatePresence('away');
+            }
+        });
+
+        // Handle page unload to mark user offline
+        window.addEventListener('beforeunload', () => {
+            this.updatePresence('offline');
+        });
+
+        // Start checking friends presence every 30 seconds
+        this.presenceCheckInterval = setInterval(() => {
+            this.checkFriendsPresenceChanges();
+        }, 30000);
+    },
     
     async updatePresence(status = 'online', currentGame = null) {
         try {
@@ -398,7 +468,7 @@ const PresenceManager = {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     userId: user.sub,
-                    username: user.nickname || user.name,
+                    username: getUserDisplayName(),
                     status,
                     currentGame
                 })
@@ -422,6 +492,69 @@ const PresenceManager = {
             return {};
         }
     },
+
+    async checkFriendsPresenceChanges() {
+        const currentPresence = await this.getFriendsPresence();
+        
+        // Check for friends who came online
+        for (const [friendId, presence] of Object.entries(currentPresence)) {
+            if (!this.lastKnownPresence[friendId]) {
+                const friend = FriendsManager.friends.find(f => f.id === friendId);
+                if (friend) {
+                    this.showPresenceNotification(`${getUserDisplayName(friend)} is now online`, 'success');
+                }
+            }
+        }
+
+        // Check for friends who went offline
+        for (const [friendId, oldPresence] of Object.entries(this.lastKnownPresence)) {
+            if (!currentPresence[friendId]) {
+                const friend = FriendsManager.friends.find(f => f.id === friendId);
+                if (friend) {
+                    this.showPresenceNotification(`${getUserDisplayName(friend)} went offline`, 'info');
+                }
+            }
+        }
+
+        this.lastKnownPresence = currentPresence;
+        this.updateFriendsPresenceUI();
+    },
+
+    showPresenceNotification(message, type = 'info') {
+        // Create notification element matching existing notification system
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-circle" style="color: ${type === 'success' ? '#4CAF50' : '#2196F3'}; margin-right: 8px;"></i>
+            ${message}
+        `;
+        
+        // Add to notification container or create one
+        let container = document.querySelector('.notifications-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'notifications-container';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                max-width: 300px;
+            `;
+            document.body.appendChild(container);
+        }
+        
+        container.appendChild(notification);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 4000);
+    },
     
     startHeartbeat() {
         if (this.heartbeatInterval) return;
@@ -429,10 +562,12 @@ const PresenceManager = {
         // Update presence immediately
         this.updatePresence();
         
-        // Then every 2 minutes
+        // Then every 2 minutes, but only if page is visible
         this.heartbeatInterval = setInterval(() => {
-            const gameTitle = currentGame?.title || null;
-            this.updatePresence('online', gameTitle);
+            if (this.isPageVisible) {
+                const gameTitle = currentGame?.title || null;
+                this.updatePresence('online', gameTitle);
+            }
         }, 2 * 60 * 1000);
     },
     
@@ -441,6 +576,12 @@ const PresenceManager = {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
         }
+        if (this.presenceCheckInterval) {
+            clearInterval(this.presenceCheckInterval);
+            this.presenceCheckInterval = null;
+        }
+        // Mark user offline when stopping heartbeat
+        this.updatePresence('offline');
     },
     
     async updateFriendsPresenceUI() {
@@ -456,12 +597,16 @@ const PresenceManager = {
         if (presenceList) {
             if (onlineCount > 0) {
                 presenceList.innerHTML = Object.entries(presence)
-                    .map(([id, p]) => `
-                        <li class="friend-item online">
-                            <span>${p.username}</span>
-                            <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
-                        </li>
-                    `).join('');
+                    .map(([id, p]) => {
+                        const friend = FriendsManager.friends.find(f => f.id === id);
+                        const displayName = friend ? getUserDisplayName(friend) : p.username;
+                        return `
+                            <li class="friend-item online">
+                                <span>${displayName}</span>
+                                <span class="presence-pill">${p.currentGame ? `Playing ${p.currentGame}` : 'Online'}</span>
+                            </li>
+                        `;
+                    }).join('');
             } else {
                 presenceList.innerHTML = '<li class="muted-hint">No friends online</li>';
             }
@@ -4477,7 +4622,7 @@ async function renderFriendsPage(){
         friendsList.innerHTML = friends.length ? 
             friends.map(friend => `
                 <li class="friend-item" data-id="${friend.id}">
-                    <span>${friend.username}</span>
+                    <span>${getUserDisplayName(friend)}</span>
                     <div class="friend-actions">
                         <button onclick="FriendsManager.removeFriend('${friend.id}')" class="mini-btn danger">Remove</button>
                     </div>
@@ -4681,7 +4826,8 @@ initAuth0 = async function(){
                 await FriendsManager.loadFriends();
                 console.log('✅ Friends system initialized');
                 
-                // 3. Start presence tracking
+                // 3. Initialize and start presence tracking
+                PresenceManager.init();
                 PresenceManager.startHeartbeat();
                 console.log('✅ Presence tracking initialized');
                 
