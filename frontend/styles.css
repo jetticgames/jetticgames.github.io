@@ -2663,6 +2663,16 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     margin: 0;
 }
 
+.empty-state-icon {
+    font-size: 48px;
+    margin-top: 16px;
+    opacity: 0.7;
+}
+
+.empty-state-icon i {
+    font-size: 48px;
+}
+
 /* Settings */
 .settings-content {
     max-width: 600px;

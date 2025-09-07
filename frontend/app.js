@@ -312,6 +312,16 @@ const FriendsManager = {
             if (!user || !displayName) return;
             
             const response = await fetch(`${BACKEND_URL}/api/friends?userId=${user.sub}&username=${encodeURIComponent(displayName)}`);
+            
+            if (!response.ok) {
+                if (response.status === 503) {
+                    // Service unavailable - update backend config
+                    window.backendConfig = { features: { friendsSystem: false } };
+                    throw new Error('Friends system temporarily unavailable');
+                }
+                throw new Error(`Failed to load friends: ${response.status}`);
+            }
+            
             const data = await response.json();
             
             this.friends = data.friends || [];
@@ -322,6 +332,10 @@ const FriendsManager = {
             
         } catch (error) {
             console.warn('❌ Failed to load friends:', error);
+            // Clear friends data on error
+            this.friends = [];
+            this.pendingRequests = [];
+            this.sentRequests = [];
         }
     },
     
@@ -330,6 +344,12 @@ const FriendsManager = {
             const user = await auth0Client?.getUser();
             const displayName = await getUserDisplayName();
             if (!user || !displayName) throw new Error('Not authenticated');
+            
+            // Check if friends system is available
+            if (!isFriendsSystemAvailable()) {
+                showError('Friends system is currently unavailable. Please try again later.');
+                return false;
+            }
             
             console.log('🤝 Sending friend request to:', username);
             
@@ -362,6 +382,10 @@ const FriendsManager = {
                 this.renderFriendsUI();
                 return true;
             } else {
+                if (response.status === 503) {
+                    showError('Friends system is currently unavailable. Please try again later.');
+                    return false;
+                }
                 const errorData = await response.json();
                 console.error('❌ Friend request failed:', response.status, errorData);
                 
@@ -373,7 +397,7 @@ const FriendsManager = {
             }
         } catch (error) {
             console.error('❌ Friend request failed:', error);
-            showError(`Failed to send friend request: ${error.message}`);
+            showError('Failed to send friend request. Please try again later.');
             return false;
         }
     },
@@ -751,11 +775,22 @@ async function checkBackendConfiguration() {
             
             // Store config for later use
             window.backendConfig = config;
+            return true;
         } else {
             console.warn('⚠️  Backend not responding:', response.status);
+            return false;
         }
     } catch (error) {
         console.warn('⚠️  Backend connectivity check failed:', error.message);
+        return false;
+    }
+}
+
+function isFriendsSystemAvailable() {
+    try {
+        return window.backendConfig?.features?.friendsSystem === true;
+    } catch (error) {
+        return false;
     }
 }
 
@@ -2660,20 +2695,18 @@ function initConsoleErrorCapture() {
         }
     };
 
-    // Capture unhandled promise rejections
+    // Capture unhandled promise rejections (log only, don't show to users)
     window.addEventListener('unhandledrejection', (event) => {
         const message = event.reason?.message || event.reason || 'Unhandled promise rejection';
-        if (!message.includes('Auth0') && !message.includes('404')) {
-            showNotification(`Unhandled Error: ${message}`, 'error', 8000);
-        }
+        console.error('❌ Unhandled promise rejection:', message, event.reason);
+        // Don't show technical errors to users
     });
 
-    // Capture JavaScript errors
+    // Capture JavaScript errors (log only, don't show to users)
     window.addEventListener('error', (event) => {
         const message = event.message || 'JavaScript error occurred';
-        if (!message.includes('Auth0') && !message.includes('404')) {
-            showNotification(`Script Error: ${message}`, 'error', 8000);
-        }
+        console.error('❌ JavaScript error:', message, event.error);
+        // Don't show technical errors to users
     });
 }
 
@@ -3685,7 +3718,7 @@ function exportSiteData() {
         showNotification(`Data exported successfully! Size: ${size}KB`, 'success');
     } catch (error) {
         console.error('Export failed:', error);
-        showNotification('Export failed: ' + error.message, 'error');
+        showNotification('Export failed. Please try again later.', 'error');
     }
 }
 
@@ -3777,7 +3810,7 @@ function importSiteData(file) {
             
         } catch (error) {
             console.error('Import failed:', error);
-            showNotification('Import failed: ' + error.message, 'error');
+            showNotification('Import failed. Please try again later.', 'error');
         }
     };
     
@@ -3852,7 +3885,7 @@ function clearAllGameData() {
         
     } catch (error) {
         console.error('Failed to clear game data:', error);
-        showNotification('Failed to clear game data: ' + error.message, 'error');
+        showNotification('Failed to clear game data. Please try again later.', 'error');
     }
 }
 
@@ -4710,11 +4743,20 @@ async function renderFriendsPage(){
     console.debug('[Friends] renderFriendsPage called');
     
     const authNotice = document.getElementById('friendsAuthNotice'); 
+    const unavailableNotice = document.getElementById('friendsUnavailableNotice'); 
     const content = document.getElementById('friendsContent'); 
     
-    // Always start by hiding both sections
+    // Always start by hiding all sections
     if(authNotice) authNotice.style.display = 'none';
+    if(unavailableNotice) unavailableNotice.style.display = 'none';
     if(content) content.style.display = 'none';
+    
+    // Check if friends system is available
+    if (!isFriendsSystemAvailable()) {
+        console.debug('[Friends] Friends system unavailable, showing unavailable notice');
+        if(unavailableNotice) unavailableNotice.style.display = 'block';
+        return;
+    }
     
     const loggedIn = await socialEnsureAuth(); 
     console.debug('[Friends] Authentication check result:', loggedIn);
@@ -4727,7 +4769,7 @@ async function renderFriendsPage(){
         return; 
     } 
     
-    console.debug('[Friends] User authenticated, showing friends content');
+    console.debug('[Friends] User authenticated and friends system available, showing friends content');
     if(content) content.style.display = 'block';
     
     // Reload friends data
@@ -4966,6 +5008,13 @@ initAuth0 = async function(){
         // Initialize social features if authenticated
         if(await socialEnsureAuth()){ 
             console.log('🎮 User authenticated, initializing new social systems...');
+            
+            // Check backend configuration first
+            const backendAvailable = await checkBackendConfiguration();
+            if (!backendAvailable || !isFriendsSystemAvailable()) {
+                console.warn('[Social] Backend unavailable or friends system disabled, skipping social features');
+                return;
+            }
             
             // Initialize all systems
             try {
@@ -5442,7 +5491,7 @@ function initProfileForm(){
             console.error('[Profile] Save error:', err);
             const errorMsg = 'Failed to save profile';
             showProfileSaveIndicator(errorMsg, true);
-            showError(`Profile save error: ${err.message}`);
+            showError('Failed to save profile. Please try again.');
         }
     });
     
