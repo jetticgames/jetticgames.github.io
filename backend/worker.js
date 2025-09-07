@@ -2453,7 +2453,17 @@ handleAPIRequest = async function(request, url, env, ctx){
         return jsonResponse({
             message: 'Backend working - no authentication required',
             path: path,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            configuration: {
+                USER_DATA_KV: !!env.USER_DATA_KV,
+                CONFIG_KV: !!env.CONFIG_KV,
+                RATE_LIMIT_KV: !!env.RATE_LIMIT_KV
+            },
+            features: {
+                crossDeviceSync: !!env.USER_DATA_KV,
+                friendsSystem: !!env.USER_DATA_KV,
+                presenceTracking: !!env.USER_DATA_KV
+            }
         });
     }
     
@@ -2464,66 +2474,94 @@ handleAPIRequest = async function(request, url, env, ctx){
         const userId = path.split('/')[2];
         if(!userId) return jsonResponse({error: 'User ID required'}, 400);
         
+        if(!env.USER_DATA_KV) {
+            return jsonResponse({error: 'User data storage not configured. Please set up USER_DATA_KV namespace.'}, 503);
+        }
+        
         if(method === 'GET'){
             // Get user data
-            const userData = await env.USER_DATA_KV?.get(`user:${userId}`, 'json');
-            return jsonResponse({
-                data: userData || null,
-                cached: userData ? true : false
-            });
+            try {
+                const userData = await env.USER_DATA_KV.get(`user:${userId}`, 'json');
+                return jsonResponse({
+                    data: userData || null,
+                    cached: userData ? true : false
+                });
+            } catch (error) {
+                console.error('KV Get Error:', error);
+                return jsonResponse({error: 'Failed to retrieve user data'}, 500);
+            }
         }
         
         if(method === 'PUT'){
             // Save user data
-            const data = await request.json();
-            data.lastModified = Date.now();
-            await env.USER_DATA_KV?.put(`user:${userId}`, JSON.stringify(data));
-            return jsonResponse({success: true, lastModified: data.lastModified});
+            try {
+                const data = await request.json();
+                data.lastModified = Date.now();
+                await env.USER_DATA_KV.put(`user:${userId}`, JSON.stringify(data));
+                return jsonResponse({success: true, lastModified: data.lastModified});
+            } catch (error) {
+                console.error('KV Put Error:', error);
+                return jsonResponse({error: 'Failed to save user data'}, 500);
+            }
         }
     }
     
     // Friends System Endpoints
     if(path === '/friends'){
+        if(!env.USER_DATA_KV) {
+            return jsonResponse({error: 'User data storage not configured. Please set up USER_DATA_KV namespace.'}, 503);
+        }
+        
         if(method === 'POST'){
             // Add friend request
-            const {requesterId, targetUsername, requesterUsername} = await request.json();
-            if(!requesterId || !targetUsername || !requesterUsername) {
-                return jsonResponse({error: 'Missing required fields'}, 400);
+            try {
+                const {requesterId, targetUsername, requesterUsername} = await request.json();
+                if(!requesterId || !targetUsername || !requesterUsername) {
+                    return jsonResponse({error: 'Missing required fields'}, 400);
+                }
+                
+                // Store friend request
+                const requestKey = `friend_request:${targetUsername}:${requesterId}`;
+                await env.USER_DATA_KV.put(requestKey, JSON.stringify({
+                    requesterId,
+                    requesterUsername,
+                    targetUsername,
+                    timestamp: Date.now(),
+                    status: 'pending'
+                }), {expirationTtl: 86400 * 30}); // 30 days
+                
+                return jsonResponse({success: true});
+            } catch (error) {
+                console.error('Friend Request Error:', error);
+                return jsonResponse({error: 'Failed to send friend request'}, 500);
             }
-            
-            // Store friend request
-            const requestKey = `friend_request:${targetUsername}:${requesterId}`;
-            await env.USER_DATA_KV?.put(requestKey, JSON.stringify({
-                requesterId,
-                requesterUsername,
-                targetUsername,
-                timestamp: Date.now(),
-                status: 'pending'
-            }), {expirationTtl: 86400 * 30}); // 30 days
-            
-            return jsonResponse({success: true});
         }
         
         if(method === 'GET'){
             // Get friend requests and friends list
-            const {userId, username} = url.searchParams;
-            if(!userId || !username) return jsonResponse({error: 'Missing parameters'}, 400);
-            
-            // Get friends list
-            const friendsList = await env.USER_DATA_KV?.get(`friends:${userId}`, 'json') || [];
-            
-            // Get pending friend requests
-            const requestsResult = await env.USER_DATA_KV?.list({prefix: `friend_request:${username}:`});
-            const requests = [];
-            for(const key of requestsResult?.keys || []){
-                const request = await env.USER_DATA_KV?.get(key.name, 'json');
-                if(request) requests.push(request);
+            try {
+                const {userId, username} = url.searchParams;
+                if(!userId || !username) return jsonResponse({error: 'Missing parameters'}, 400);
+                
+                // Get friends list
+                const friendsList = await env.USER_DATA_KV.get(`friends:${userId}`, 'json') || [];
+                
+                // Get pending friend requests
+                const requestsResult = await env.USER_DATA_KV.list({prefix: `friend_request:${username}:`});
+                const requests = [];
+                for(const key of requestsResult?.keys || []){
+                    const request = await env.USER_DATA_KV.get(key.name, 'json');
+                    if(request) requests.push(request);
+                }
+                
+                return jsonResponse({
+                    friends: friendsList,
+                    pendingRequests: requests
+                });
+            } catch (error) {
+                console.error('Friends List Error:', error);
+                return jsonResponse({error: 'Failed to load friends'}, 500);
             }
-            
-            return jsonResponse({
-                friends: friendsList,
-                pendingRequests: requests
-            });
         }
     }
     

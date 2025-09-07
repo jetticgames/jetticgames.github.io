@@ -6,6 +6,7 @@ compatibility_date = "2023-05-18"
 # Run these commands to create the namespaces:
 # wrangler kv:namespace create "CONFIG_KV"
 # wrangler kv:namespace create "RATE_LIMIT_KV"
+# wrangler kv:namespace create "USER_DATA_KV"
 # Then replace the id values below with the generated namespace IDs
 
 # Uncomment and update these once you have created the namespaces:
@@ -18,6 +19,11 @@ compatibility_date = "2023-05-18"
 # binding = "RATE_LIMIT_KV"
 # id = "paste-your-ratelimit-kv-namespace-id-here"
 # preview_id = "paste-your-ratelimit-preview-kv-namespace-id-here"
+
+# [[kv_namespaces]]
+# binding = "USER_DATA_KV"
+# id = "paste-your-userdata-kv-namespace-id-here"
+# preview_id = "paste-your-userdata-preview-kv-namespace-id-here"
 
 # Production environment configuration
 # [env.production]

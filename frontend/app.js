@@ -117,6 +117,17 @@ const DataSyncManager = {
             
             // Get server data first
             const serverResponse = await fetch(`${BACKEND_URL}/api/sync/${user.sub}`);
+            
+            if (!serverResponse.ok) {
+                if (serverResponse.status === 503) {
+                    console.warn('📦 Data sync not available - USER_DATA_KV not configured');
+                    showError('Cross-device sync is not configured on the server');
+                    return;
+                } else {
+                    throw new Error(`Sync failed: ${serverResponse.status}`);
+                }
+            }
+            
             const serverResult = await serverResponse.json();
             const serverData = serverResult.data;
             
@@ -142,11 +153,15 @@ const DataSyncManager = {
                 // Local data is newer or same, upload to server
                 console.log('📤 Uploading local data to server');
                 
-                await fetch(`${BACKEND_URL}/api/sync/${user.sub}`, {
+                const uploadResponse = await fetch(`${BACKEND_URL}/api/sync/${user.sub}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(localData)
                 });
+                
+                if (!uploadResponse.ok) {
+                    throw new Error(`Upload failed: ${uploadResponse.status}`);
+                }
                 
                 this.lastSyncTime = localData.lastModified;
             }
@@ -155,6 +170,10 @@ const DataSyncManager = {
             
         } catch (error) {
             console.warn('❌ Data sync failed:', error);
+            // Don't show error notifications for sync failures unless it's a configuration issue
+            if (error.message.includes('503') || error.message.includes('not configured')) {
+                showError('Cross-device sync is temporarily unavailable');
+            }
         } finally {
             this.syncInProgress = false;
         }
@@ -214,6 +233,8 @@ const FriendsManager = {
             const user = await auth0Client?.getUser();
             if (!user) throw new Error('Not authenticated');
             
+            console.log('🤝 Sending friend request to:', username);
+            
             const response = await fetch(`${BACKEND_URL}/api/friends`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -228,7 +249,14 @@ const FriendsManager = {
                 showSuccess(`Friend request sent to ${username}`);
                 return true;
             } else {
-                throw new Error('Failed to send request');
+                const errorData = await response.json();
+                console.error('❌ Friend request failed:', response.status, errorData);
+                
+                if (response.status === 503) {
+                    throw new Error('Friend system is not configured on the server');
+                } else {
+                    throw new Error(errorData.error || `Server error (${response.status})`);
+                }
             }
         } catch (error) {
             console.error('❌ Friend request failed:', error);
@@ -411,6 +439,36 @@ const PresenceManager = {
 };
 // ================================================
 
+// Backend Configuration Check
+async function checkBackendConfiguration() {
+    try {
+        console.log('🔍 Checking backend configuration...');
+        const response = await fetch(`${BACKEND_URL}/api/debug`);
+        
+        if (response.ok) {
+            const config = await response.json();
+            console.log('✅ Backend configuration:', config);
+            
+            if (!config.features.crossDeviceSync) {
+                console.warn('⚠️  Cross-device sync disabled: USER_DATA_KV not configured');
+            }
+            if (!config.features.friendsSystem) {
+                console.warn('⚠️  Friends system disabled: USER_DATA_KV not configured');
+            }
+            if (!config.features.presenceTracking) {
+                console.warn('⚠️  Presence tracking disabled: USER_DATA_KV not configured');
+            }
+            
+            // Store config for later use
+            window.backendConfig = config;
+        } else {
+            console.warn('⚠️  Backend not responding:', response.status);
+        }
+    } catch (error) {
+        console.warn('⚠️  Backend connectivity check failed:', error.message);
+    }
+}
+
 // DOM elements (will be initialized after DOM loads)
 let gamesGrid;
 let searchInput;
@@ -543,6 +601,10 @@ function showOfflineError() {
 // Single unified initialization (removed duplicates & destructive fallbacks)
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 DOM loaded, init start');
+    
+    // Check backend configuration
+    checkBackendConfiguration();
+    
     // Initialize global page loader first
     initPageLoader();
     // Block mobile devices
@@ -3656,6 +3718,18 @@ function toggleFavorite(game){
     if(!game) return;
     if(favorites.includes(game.id)) favorites = favorites.filter(id=> id!==game.id); else favorites.push(game.id);
     saveFavoritesToCookies();
+    
+    // Sync data to backend if user is authenticated
+    setTimeout(async () => {
+        try {
+            if (await socialEnsureAuth()) {
+                await DataSyncManager.syncUserData();
+                console.log('✅ Favorites synced to backend after toggle');
+            }
+        } catch (error) {
+            console.warn('❌ Failed to sync favorites after toggle:', error);
+        }
+    }, 500);
 }
 
 function updateFavoriteButtonState(){

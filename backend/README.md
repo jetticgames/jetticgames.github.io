@@ -6,6 +6,46 @@
 1. Install Wrangler CLI: `npm install -g wrangler`
 2. Login to Cloudflare: `wrangler login`
 
+### Social Features Setup (REQUIRED)
+
+To enable the friends system, cross-device sync, and presence tracking, you must create a KV namespace:
+
+1. **Create the USER_DATA_KV namespace:**
+   ```bash
+   wrangler kv:namespace create "USER_DATA_KV"
+   wrangler kv:namespace create "USER_DATA_KV" --preview
+   ```
+
+2. **Update wrangler.toml:**
+   - Copy the namespace IDs from the command output
+   - Uncomment and update the USER_DATA_KV section in wrangler.toml:
+   ```toml
+   [[kv_namespaces]]
+   binding = "USER_DATA_KV"
+   id = "your-namespace-id-here"
+   preview_id = "your-preview-namespace-id-here"
+   ```
+
+3. **Deploy with KV:**
+   ```bash
+   wrangler publish
+   ```
+
+**Note:** Without USER_DATA_KV configured, social features will return "503 Service Unavailable" errors.
+
+### Optional KV Namespaces
+
+For advanced features, you can also create:
+```bash
+# For admin configuration
+wrangler kv:namespace create "CONFIG_KV"
+wrangler kv:namespace create "CONFIG_KV" --preview
+
+# For rate limiting
+wrangler kv:namespace create "RATE_LIMIT_KV"
+wrangler kv:namespace create "RATE_LIMIT_KV" --preview
+```
+
 ### Deployment Steps
 
 1. **Configure wrangler.toml**
