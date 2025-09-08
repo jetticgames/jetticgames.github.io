@@ -2,6 +2,14 @@ name = "waterwall-backend"
 main = "worker.js"
 compatibility_date = "2023-05-18"
 
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[migrations]
+tag = "v1"
+new_classes = ["RateLimiter"]
+
 # Production KV Namespaces
 [[kv_namespaces]]
 binding = "CONFIG_KV"

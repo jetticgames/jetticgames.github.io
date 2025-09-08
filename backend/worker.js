@@ -45,12 +45,60 @@ function requireAdmin(request, env){
 }
 
 // Basic user auth stub: expects X-User-Id header (placeholder until Auth0 restored)
-function requireUser(request){
+let __JWKS_CACHE = { keys: null, fetched: 0 };
+async function fetchJWKS(env){
+    const now = Date.now();
+    if(__JWKS_CACHE.keys && now-__JWKS_CACHE.fetched < 10*60*1000) return __JWKS_CACHE.keys;
+    const domain = env.AUTH0_DOMAIN;
+    if(!domain) return null;
+    const res = await fetch(`https://${domain}/.well-known/jwks.json`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    __JWKS_CACHE = { keys: data.keys || [], fetched: now };
+    return __JWKS_CACHE.keys;
+}
+
+async function verifyJWT(token, env){
+    try {
+        const [h,p,s] = token.split('.'); if(!h||!p||!s) return null;
+        const headerJson = JSON.parse(atob(h.replace(/-/g,'+').replace(/_/g,'/')));
+        if(headerJson.alg !== 'RS256') return null;
+        const payloadJson = JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')));
+        if(payloadJson.exp && Date.now()/1000 > payloadJson.exp) return null;
+        if(env.AUTH0_DOMAIN && !payloadJson.iss?.includes(env.AUTH0_DOMAIN)) return null;
+        const jwks = await fetchJWKS(env); if(!jwks) return null;
+        const key = jwks.find(k=>k.kid === headerJson.kid && k.kty==='RSA'); if(!key) return null;
+        // Convert JWK to CryptoKey
+        const cryptoKey = await crypto.subtle.importKey('jwk', key, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'}, false, ['verify']);
+        const signature = Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0));
+        const data = new TextEncoder().encode(`${h}.${p}`);
+        const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, signature, data);
+        if(!valid) return null;
+        return payloadJson;
+    } catch (e){
+        console.warn('verifyJWT failed', e);
+        return null;
+    }
+}
+
+async function requireUser(request, env){
+    const auth = request.headers.get('Authorization');
+    if(auth?.startsWith('Bearer ')){
+        const token = auth.slice(7);
+        const payload = await verifyJWT(token, env);
+        if(payload) return { userId: payload.sub || payload.user_id || 'unknown', claims: payload };
+        return {error: new Response(JSON.stringify({error:'Invalid token'}), {status:401, headers:{'Content-Type':'application/json', ...getCORSHeaders()}})};
+    }
+    // Fallback header stub
     const uid = request.headers.get('x-user-id');
     if(!uid || uid.length < 3){
         return {error: new Response(JSON.stringify({error:'User authentication required'}), {status:401, headers:{'Content-Type':'application/json', ...getCORSHeaders()}})};
     }
-    return {userId: uid};
+    return {userId: uid, claims: { sub: uid, stub: true }};
+}
+
+function errorResponse(code, message, details=null, status=400){
+    return new Response(JSON.stringify({error:{code, message, details}}), {status, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
 }
 
 // Minimal schema validator (shallow) – replace with robust lib later.
@@ -70,6 +118,22 @@ function validateObject(obj, shape){
         }
         if(rule.maxLength && typeof val === 'string' && val.length > rule.maxLength){
             errors.push(`${key} length > ${rule.maxLength}`); continue;
+        }
+    }
+    return errors;
+}
+
+// Lightweight JSON schema (subset) validator
+function validateSchema(data, schema){
+    const errors = [];
+    if(schema.type && typeof data !== schema.type) errors.push('root type mismatch');
+    if(schema.properties){
+        for(const [k, spec] of Object.entries(schema.properties)){
+            const val = data[k];
+            if(val === undefined){ if(spec.required) errors.push(`${k} required`); continue; }
+            if(spec.type && typeof val !== spec.type) errors.push(`${k} must be ${spec.type}`);
+            if(spec.maxLength && typeof val === 'string' && val.length > spec.maxLength) errors.push(`${k} > maxLength ${spec.maxLength}`);
+            if(spec.enum && !spec.enum.includes(val)) errors.push(`${k} not in enum`);
         }
     }
     return errors;
@@ -708,18 +772,33 @@ export default {
         const cid = (crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
         const started = Date.now();
         const log = (level, msg, extra={}) => console.log(JSON.stringify({ts:new Date().toISOString(), cid, level, msg, path:url.pathname, ...extra}));
+            env.__METRICS = env.__METRICS || {total:0, api:0, proxy:0, errors:0, started: Date.now()};
         try {
+            // Enforce max JSON body size (256KB) for mutating requests
+            if(['POST','PUT','PATCH'].includes(request.method)){
+                const contentLength = request.headers.get('content-length');
+                if(contentLength && parseInt(contentLength,10) > 256*1024){
+                    return errorResponse('BODY_TOO_LARGE','Request body too large', {limit: '256KB'}, 413);
+                }
+            }
             if (request.method === 'OPTIONS') {
                 log('info','cors_preflight');
                 return handleCORS();
             }
             const rateLimitResponse = await checkRateLimit(request, env);
             if (rateLimitResponse) { log('warn','rate_limited'); return rateLimitResponse; }
-            if (url.pathname.startsWith('/api/')) { const r = await routeAPIRequest(request, url, env, ctx); log('info','api', {status:r.status}); return r; }
-            if (url.pathname.startsWith('/proxy')) { const r = await handleProxy(request, url); log('info','proxy', {status:r.status}); return r; }
+            if (url.pathname.startsWith('/api/')) { env.__METRICS.total++; env.__METRICS.api++; const r = await routeAPIRequest(request, url, env, ctx); log('info','api', {status:r.status}); addSecurityHeaders(r.headers, cid); return r; }
+            if (url.pathname.startsWith('/proxy')) { env.__METRICS.total++; env.__METRICS.proxy++; const r = await handleProxy(request, url); log('info','proxy', {status:r.status}); addSecurityHeaders(r.headers, cid); return r; }
             if (url.pathname === '/health') {
                 const r = new Response(JSON.stringify({ status:'OK', version:APP_VERSION, cid, now:Date.now() }), {status:200, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
                 log('info','health');
+                return r;
+            }
+            if (url.pathname === '/api/metrics') {
+                const uptime = Date.now() - env.__METRICS.started;
+                const body = JSON.stringify({...env.__METRICS, uptimeMs:uptime});
+                const r = new Response(body, {status:200, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+                addSecurityHeaders(r.headers, cid);
                 return r;
             }
             const r = new Response(JSON.stringify({
@@ -731,15 +810,31 @@ export default {
                 ]
             }), {status:200, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
             log('info','default', {status:r.status});
+            addSecurityHeaders(r.headers, cid);
             return r;
         } catch (e) {
+            env.__METRICS && (env.__METRICS.errors++);
             log('error','unhandled',{error:e.message});
-            return new Response(JSON.stringify({error:'Unhandled server error', cid}), {status:500, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+            const r = new Response(JSON.stringify({error:'Unhandled server error', cid}), {status:500, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+            addSecurityHeaders(r.headers, cid);
+            return r;
         } finally {
             log('info','done',{ms:Date.now()-started});
         }
     }
 };
+
+function addSecurityHeaders(h, cid){
+    if(!h) return;
+    h.set('X-Request-Id', cid);
+    h.set('Referrer-Policy','no-referrer');
+    h.set('X-Content-Type-Options','nosniff');
+    h.set('X-Frame-Options','SAMEORIGIN');
+    h.set('Permissions-Policy','geolocation=(), microphone=(), camera=()');
+    h.set('Cross-Origin-Opener-Policy','same-origin');
+    h.set('Cross-Origin-Resource-Policy','same-origin');
+    h.set('Cross-Origin-Embedder-Policy','require-corp');
+}
 
 // Wrapper to ensure the monkey patched handleAPIRequest (extended social layer) is invoked safely
 async function routeAPIRequest(request, url, env, ctx) {
@@ -2385,67 +2480,43 @@ function compareVersions(v1, v2) {
 
 // Enhanced rate limiting with KV storage
 async function checkRateLimit(request, env) {
-    const clientIP = request.headers.get('CF-Connecting-IP') || 
-                    request.headers.get('X-Forwarded-For') || 
-                    'unknown';
-    
-    // Skip rate limiting for unknown IPs in development
-    if (clientIP === 'unknown') {
-        return null;
-    }
-    
-    try {
-        if (env.RATE_LIMIT_KV) {
-            const key = `rate_limit:${clientIP}`;
-            const now = Date.now();
-            const windowMs = 60000; // 1 minute
-            const maxRequests = 100;
-            
-            const rateLimitData = await env.RATE_LIMIT_KV.get(key, 'json');
-            
-            if (rateLimitData) {
-                const { count, windowStart } = rateLimitData;
-                
-                if (now - windowStart < windowMs) {
-                    if (count >= maxRequests) {
-                        return new Response(JSON.stringify({
-                            error: 'Rate limit exceeded',
-                            retryAfter: Math.ceil((windowMs - (now - windowStart)) / 1000)
-                        }), {
-                            status: 429,
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Retry-After': Math.ceil((windowMs - (now - windowStart)) / 1000).toString(),
-                                ...getCORSHeaders()
-                            }
-                        });
-                    }
-                    
-                    // Increment counter
-                    await env.RATE_LIMIT_KV.put(key, JSON.stringify({
-                        count: count + 1,
-                        windowStart
-                    }), { expirationTtl: Math.ceil(windowMs / 1000) });
-                } else {
-                    // Reset window
-                    await env.RATE_LIMIT_KV.put(key, JSON.stringify({
-                        count: 1,
-                        windowStart: now
-                    }), { expirationTtl: Math.ceil(windowMs / 1000) });
-                }
-            } else {
-                // First request in window
-                await env.RATE_LIMIT_KV.put(key, JSON.stringify({
-                    count: 1,
-                    windowStart: now
-                }), { expirationTtl: Math.ceil(windowMs / 1000) });
+    const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+    if(clientIP === 'unknown') return null;
+    // Attempt Durable Object rate limiting first
+    if(env.RATE_LIMITER){
+        try {
+            const id = env.RATE_LIMITER.idFromName(clientIP);
+            const stub = env.RATE_LIMITER.get(id);
+            const resp = await stub.fetch('https://limiter/check', { headers:{'CF-Connecting-IP': clientIP}});
+            if(resp.status === 429){
+                const data = await resp.json();
+                return new Response(JSON.stringify({ error:'Rate limit exceeded', retryAfter:data.retryAfter }), {status:429, headers:{'Content-Type':'application/json','Retry-After':String(data.retryAfter), ...getCORSHeaders()}});
             }
+            return null;
+        } catch(e){
+            console.warn('Durable Object rate limiter failed, falling back', e);
         }
-    } catch (error) {
-        console.error('Rate limiting error:', error);
-        // Don't block requests if rate limiting fails
     }
-    
+    // Fallback simplistic KV sliding window
+    try {
+        if(!env.RATE_LIMIT_KV) return null;
+        const key = `rl:${clientIP}`;
+        const windowMs = 60000; const max = 100; const now = Date.now();
+        const data = await env.RATE_LIMIT_KV.get(key, 'json');
+        if(!data){
+            await env.RATE_LIMIT_KV.put(key, JSON.stringify({c:1, s:now}), {expirationTtl:60});
+            return null;
+        }
+        if(now - data.s < windowMs){
+            if(data.c >= max){
+                return new Response(JSON.stringify({error:'Rate limit exceeded', retryAfter: Math.ceil((windowMs-(now-data.s))/1000)}), {status:429, headers:{'Content-Type':'application/json','Retry-After':String(Math.ceil((windowMs-(now-data.s))/1000)), ...getCORSHeaders()}});
+            }
+            data.c += 1;
+            await env.RATE_LIMIT_KV.put(key, JSON.stringify(data), {expirationTtl:60});
+            return null;
+        }
+        await env.RATE_LIMIT_KV.put(key, JSON.stringify({c:1, s:now}), {expirationTtl:60});
+    } catch(err){ console.error('Rate limit fallback error', err); }
     return null;
 }
 
@@ -2502,16 +2573,11 @@ handleAPIRequest = async function(request, url, env, ctx){
         }
         
         if(method === 'GET'){
-            // Get user data
             try {
                 const userData = await env.USER_DATA_KV.get(`user:${userId}`, 'json');
-                return jsonResponse({
-                    data: userData || null,
-                    cached: userData ? true : false
-                });
-            } catch (error) {
-                console.error('KV Get Error:', error);
-                return jsonResponse({error: 'Failed to retrieve user data'}, 500);
+                return jsonResponse({ data: userData || null, cached: !!userData });
+            } catch (e){
+                return jsonResponse({error:'Failed to retrieve user data'}, 500);
             }
         }
         
@@ -2537,41 +2603,28 @@ handleAPIRequest = async function(request, url, env, ctx){
         }
         
         if(method === 'POST'){
-            // Add friend request
             try {
-                const {requesterId, targetUsername, requesterUsername} = await request.json();
-                if(!requesterId || !targetUsername || !requesterUsername) {
-                    return jsonResponse({error: 'Missing required fields'}, 400);
-                }
-                const errs = [];
-                if(targetUsername.length > 40) errs.push('targetUsername too long');
-                if(requesterUsername.length > 40) errs.push('requesterUsername too long');
-                if(errs.length) return jsonResponse({error:'Validation failed', details:errs}, 400);
-                
-                // Store friend request for recipient
+                const body = await request.json();
+                const frSchema = { type:'object', properties:{
+                    requesterId:{type:'string', required:true, maxLength:80},
+                    targetUsername:{type:'string', required:true, maxLength:40},
+                    requesterUsername:{type:'string', required:true, maxLength:40}
+                }};
+                const errs = validateSchema(body, frSchema);
+                if(errs.length) return errorResponse('INVALID_FRIEND_REQUEST','Validation failed', errs, 400);
+                const {requesterId, targetUsername, requesterUsername} = body;
                 const requestKey = `friend_request:${targetUsername}:${requesterId}`;
                 await env.USER_DATA_KV.put(requestKey, JSON.stringify({
-                    requesterId,
-                    requesterUsername,
-                    targetUsername,
-                    timestamp: Date.now(),
-                    status: 'pending'
-                }), {expirationTtl: 86400 * 30}); // 30 days
-                
-                // Also store sent request for sender tracking
+                    requesterId, requesterUsername, targetUsername, timestamp: Date.now(), status:'pending'
+                }), {expirationTtl: 86400 * 30});
                 const sentKey = `sent_request:${requesterId}:${targetUsername}`;
                 await env.USER_DATA_KV.put(sentKey, JSON.stringify({
-                    requesterId,
-                    requesterUsername,
-                    targetUsername,
-                    timestamp: Date.now(),
-                    status: 'pending'
-                }), {expirationTtl: 86400 * 30}); // 30 days
-                
-                return jsonResponse({success: true});
-            } catch (error) {
-                console.error('Friend Request Error:', error);
-                return jsonResponse({error: 'Failed to send friend request'}, 500);
+                    requesterId, requesterUsername, targetUsername, timestamp: Date.now(), status:'pending'
+                }), {expirationTtl: 86400 * 30});
+                return jsonResponse({success:true});
+            } catch(e){
+                console.error('Friend Request Error:', e);
+                return jsonResponse({error:'Failed to send friend request'}, 500);
             }
         }
         
@@ -2797,7 +2850,7 @@ function jsonResponse(obj, status=200, extra={}){
             ...getCORSHeaders(), 
             ...extra
         }
-    }); 
+    });
 }
 // All authentication functions removed - handled by frontend only
 
