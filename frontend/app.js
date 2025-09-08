@@ -1051,16 +1051,55 @@ function showMobileUnsupported(){
 
 async function loadGamesWithFallback() {
     try {
+        // Try loading from backend first
         await loadGames();
         if (!Array.isArray(games) || games.length === 0) {
-            console.warn('⚠️ Games data empty or invalid');
-            games = [];
-            showGamesLoadFailure();
+            console.warn('⚠️ Backend games data empty, trying local fallback...');
+            await loadGamesFromLocal();
         }
     } catch (e) {
-        console.error('❌ Games load failed', e);
-        games = [];
+        console.error('❌ Backend games load failed, trying local fallback...', e);
+        await loadGamesFromLocal();
+    }
+    
+    // Final check
+    if (!Array.isArray(games) || games.length === 0) {
+        console.error('❌ All games loading methods failed');
         showGamesLoadFailure();
+    } else {
+        console.log(`✅ Successfully loaded ${games.length} games`);
+    }
+}
+
+// Load games from local games.json file
+async function loadGamesFromLocal() {
+    try {
+        console.log('🔄 Loading games from local games.json...');
+        const response = await fetch('./games.json');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Raw JSON data from local file:', data);
+        
+        if (!Array.isArray(data) || data.length === 0) {
+            throw new Error('Invalid or empty games data in local file');
+        }
+        
+        // Use local games data directly
+        games = data.map(game => ({
+            ...game,
+            thumbnail: game.image || game.thumbnail || 'logo.png' // Use image field as thumbnail fallback
+        }));
+        
+        console.log(`✅ Successfully loaded ${games.length} games from local file`);
+        return games;
+    } catch (error) {
+        console.error('❌ Error loading games from local file:', error);
+        games = [];
+        return games;
     }
 }
 
@@ -2593,8 +2632,22 @@ function isValidUrl(string) {
     }
 }
 
+// Track recent error messages to prevent spam
+const recentErrors = new Set();
+const ERROR_COOLDOWN = 5000; // 5 seconds cooldown for duplicate errors
+
 function showError(message) {
     console.error('App Error:', message);
+    
+    // Prevent duplicate error notifications
+    if (recentErrors.has(message)) {
+        console.warn('Duplicate error notification suppressed:', message);
+        return;
+    }
+    
+    recentErrors.add(message);
+    setTimeout(() => recentErrors.delete(message), ERROR_COOLDOWN);
+    
     showNotification(message, 'error');
 }
 
@@ -2606,6 +2659,13 @@ function showNotification(message, type = 'info', duration = 5000) {
         container.id = 'notification-container';
         container.className = 'notification-container';
         document.body.appendChild(container);
+    }
+
+    // Limit total number of notifications to prevent UI clutter
+    const existingNotifications = container.children;
+    if (existingNotifications.length >= 3) {
+        // Remove oldest notification
+        existingNotifications[0].remove();
     }
 
     // Create notification element
@@ -2710,7 +2770,7 @@ function initConsoleErrorCapture() {
     });
 }
 
-// Popup error function for critical errors
+// Popup error function for critical errors (unified with showError)
 function showPopupError(message) {
     showError(message);
 }
@@ -4116,10 +4176,6 @@ function updateProxyVisuals(){
     }
 }
 
-function showPopupError(msg){
-    // Alias to existing toast error system for now
-    showError(msg);
-}
 
 function showUpdateModal(triggerBtn){
     // Minimal ephemeral notice (no blocking modal implemented yet)
@@ -5109,10 +5165,15 @@ function setupGlobalErrorHandler() {
 
 // Monitor authentication state changes
 let lastAuthState = false;
+let authMonitorInterval = null;
+
 async function monitorAuthState() {
     if(!auth0Client) return;
     
     try {
+        // Only check if the page is visible to avoid unnecessary checks
+        if (document.visibilityState !== 'visible') return;
+        
         const currentAuthState = await socialEnsureAuth();
         if(currentAuthState !== lastAuthState) {
             console.debug('[Auth] Authentication state changed:', lastAuthState, '->', currentAuthState);
@@ -5124,8 +5185,23 @@ async function monitorAuthState() {
     }
 }
 
-// Start monitoring authentication state
-setInterval(monitorAuthState, 2000); // Check every 2 seconds
+// Start monitoring authentication state (reduced frequency)
+authMonitorInterval = setInterval(monitorAuthState, 30000); // Check every 30 seconds instead of 2
+
+// Pause monitoring when page is not visible
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        if (authMonitorInterval) {
+            clearInterval(authMonitorInterval);
+            authMonitorInterval = null;
+        }
+    } else {
+        // Resume monitoring when page becomes visible
+        if (!authMonitorInterval) {
+            authMonitorInterval = setInterval(monitorAuthState, 30000);
+        }
+    }
+});
 
 // Initialize error handling
 setupGlobalErrorHandler();
