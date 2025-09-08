@@ -7,6 +7,74 @@ const VERSION_ENDPOINT_CACHE_TTL = 300; // 5 minutes
 const GAMES_CACHE_TTL = 3600; // 1 hour
 const CONFIG_CACHE_TTL = 1800; // 30 minutes
 
+// ==== Security Hardening Additions (Phase 0) ====
+// Allowlisted proxy hostnames (exact match or suffix). Adjust as needed.
+const ALLOWED_PROXY_HOSTS = [
+    // Core game/CDN domains currently observed in GAMES_DATABASE embeds
+    'eaglercraftgame.github.io',
+    'astraclientorg.github.io',
+    'minecraftunblocked.gitlab.io',
+    'theslope.github.io',
+    'slope-2.gitlab.io',
+    'education76.github.io',
+    'drive-madgame.github.io',
+    'motox3m.gitlab.io',
+    'motox3munblocked.github.io',
+    'parking-fury.gitlab.io',
+    'gnhustgames.github.io',
+    'parkingfury3.github.io',
+    'webglmath.github.io',
+    'smashkartsunblocked.github.io',
+    // GitHub raw/image fallbacks
+    'raw.githubusercontent.com',
+    'githubusercontent.com'
+];
+
+function isHostAllowed(host){
+    return ALLOWED_PROXY_HOSTS.some(allowed => host === allowed || host.endsWith('.'+allowed));
+}
+
+// Simple admin token enforcement (replace later with JWT verification)
+function requireAdmin(request, env){
+    const token = request.headers.get('x-admin-token');
+    const expected = env.ADMIN_TOKEN; // set via wrangler secret put ADMIN_TOKEN
+    if(!expected || token !== expected){
+        return new Response(JSON.stringify({error:'Admin authorization required'}), {status:403, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+    }
+    return null; // authorized
+}
+
+// Basic user auth stub: expects X-User-Id header (placeholder until Auth0 restored)
+function requireUser(request){
+    const uid = request.headers.get('x-user-id');
+    if(!uid || uid.length < 3){
+        return {error: new Response(JSON.stringify({error:'User authentication required'}), {status:401, headers:{'Content-Type':'application/json', ...getCORSHeaders()}})};
+    }
+    return {userId: uid};
+}
+
+// Minimal schema validator (shallow) – replace with robust lib later.
+function validateObject(obj, shape){
+    const errors = [];
+    for(const [key, rule] of Object.entries(shape)){
+        const val = obj[key];
+        if(rule.required && (val === undefined || val === null || val === '')){
+            errors.push(`${key} required`); continue;
+        }
+        if(val === undefined || val === null) continue;
+        if(rule.type && typeof val !== rule.type){
+            errors.push(`${key} must be ${rule.type}`); continue;
+        }
+        if(rule.enum && !rule.enum.includes(val)){
+            errors.push(`${key} must be one of ${rule.enum.join(',')}`); continue;
+        }
+        if(rule.maxLength && typeof val === 'string' && val.length > rule.maxLength){
+            errors.push(`${key} length > ${rule.maxLength}`); continue;
+        }
+    }
+    return errors;
+}
+
 // Comprehensive Admin-Controlled Configuration
 // This configuration can be overridden via backend API and controls ALL aspects of WaterWall
 const DEFAULT_CONFIG = {
@@ -15,50 +83,13 @@ const DEFAULT_CONFIG = {
     // Maintenance Mode Control
     maintenanceMode: {
         enabled: false,
-        message: "WaterWall is currently under maintenance. We'll be back online soon!",
-        estimatedTime: "Please check back in a few hours.",
-        blockProxy: true // Also disable proxy during maintenance
+        estimatedTime: "Please check back in a few hours."
     },
     
-    // Feature Toggles - Admin can enable/disable any feature globally
+    // Feature & Behavior Toggles
     features: {
-        // Core Features
-        accountSystemEnabled: true,        // Enable/disable Auth0 login system
-        favoritesEnabled: true,           // Enable/disable favorites functionality
-        searchEnabled: true,              // Enable/disable game search
-        fullscreenEnabled: true,          // Enable/disable fullscreen mode
-        categoriesEnabled: true,          // Enable/disable category filtering
-        settingsMenuEnabled: true,        // Enable/disable entire settings menu
-        updatingEnabled: true,            // Enable/disable update checks and notifications
-        
-        // Visual Features
-        particlesEnabled: true,           // Enable/disable background particles system
-        customCursorEnabled: true,        // Enable/disable custom cursor functionality
-        
-        // Advanced Features
-        proxyEnabled: true,               // Enable/disable proxy functionality globally
-        gameEmbedEnabled: true,           // Enable/disable game embedding
-        themeCustomizationEnabled: true,  // Enable/disable theme customization
-        keyboardShortcutsEnabled: true,   // Enable/disable keyboard shortcuts
-        
-        // Content Controls
-        adVerificationEnabled: true,     // Enable/disable ad verification page
-        mobileAccessEnabled: false,       // Enable/disable mobile device access
-        
-        // Admin Controls
-        debugModeEnabled: false,          // Enable/disable debug logging
-        analyticsEnabled: false,          // Enable/disable analytics tracking
-        errorReportingEnabled: true       // Enable/disable error reporting
-    },
-    
-    // Default Settings for New Users and Reset Function
-    defaultUserSettings: {
-        // Proxy Settings
-        defaultProxy: false,
-        
-        // Theme & Visual Settings
-        accentColor: '#58a6ff',
-        
+        // Update / notification system
+        updatingEnabled: true,
         // Particle Settings
         particlesEnabled: true,
         particleSpeed: 0.5,
@@ -67,8 +98,8 @@ const DEFAULT_CONFIG = {
         particleLineDistance: 150,
         particleMouseInteraction: true,
         
-        // Cursor Settings
-        customCursorEnabled: true,
+    // Cursor Settings
+    customCursorEnabled: true,
         cursorSize: 8,
         cursorColor: '#ffffff',
         cursorType: 'circle',
@@ -674,87 +705,39 @@ const THUMBNAIL_MAPPINGS = {
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
-        
-        // Log all incoming requests for debugging
-        console.log(`🔍 Request: ${request.method} ${url.pathname}`);
-        console.log(`🔍 Headers: Authorization=${request.headers.get('Authorization') ? 'Present' : 'Missing'}`);
-        
-        // Handle CORS preflight requests
-        if (request.method === 'OPTIONS') {
-            return handleCORS();
-        }
-        
-        // Check rate limits
-        const rateLimitResponse = await checkRateLimit(request, env);
-        if (rateLimitResponse) {
-            return rateLimitResponse;
-        }
-        
-        // API Routes
-        if (url.pathname.startsWith('/api/')) {
-            // Use routing wrapper that includes social/profile extensions (see social layer section)
-            return routeAPIRequest(request, url, env, ctx);
-        }
-        
-        // Handle proxy requests
-        if (url.pathname.startsWith('/proxy')) {
-            return handleProxy(request, url);
-        }
-        
-        // Handle health check
-        if (url.pathname === '/health') {
-            return new Response(JSON.stringify({
-                status: 'OK',
-                version: APP_VERSION,
-                timestamp: new Date().toISOString(),
-                uptime: 'N/A' // Cloudflare Workers don't have persistent uptime
-            }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...getCORSHeaders()
-                }
-            });
-        }
-        
-        // Default response for unknown routes
-        return new Response(JSON.stringify({
-            message: 'WaterWall Backend API',
-            version: APP_VERSION,
-            endpoints: [
-                'GET /api/health - Health check endpoint',
-                'GET /api/games - Get all games',
-                'GET /api/config - Get application configuration',
-                'GET /api/version - Get version info and check for updates',
-                'GET /api/maintenance - Get maintenance status',
-                'PUT /api/maintenance - Update maintenance status (admin)',
-                'GET /api/admin/config - Get full admin configuration (admin)',
-                'PUT /api/admin/config - Update full admin configuration (admin)',
-                'GET /api/admin/features - Get feature toggles (admin)',
-                'PUT /api/admin/features - Update feature toggles (admin)',
-                'GET /api/admin/defaults - Get default user settings (admin)',
-                'PUT /api/admin/defaults - Update default user settings (admin)',
-                'GET /api/admin/ui - Get UI controls (admin)',
-                'PUT /api/admin/ui - Update UI controls (admin)',
-                'GET /api/thumbnails/{filename} - Get game thumbnails (legacy)',
-                'GET /api/assets/{path} - Get any frontend asset (JS, CSS, images, JSON)',
-                'GET /proxy?url= - Proxy requests',
-                'GET /health - Health check'
-            ],
-            assetEndpoints: [
-                'GET /api/assets/app.js - Main application JavaScript (auto-configured)',
-                'GET /api/assets/styles.css - Application styles',
-                'GET /api/assets/games.json - Games database',
-                'GET /api/assets/logo.png - Site logo',
-                'GET /api/thumbnails/cookieclicker.jpg - Game thumbnails'
-            ]
-        }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                ...getCORSHeaders()
+        const cid = (crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+        const started = Date.now();
+        const log = (level, msg, extra={}) => console.log(JSON.stringify({ts:new Date().toISOString(), cid, level, msg, path:url.pathname, ...extra}));
+        try {
+            if (request.method === 'OPTIONS') {
+                log('info','cors_preflight');
+                return handleCORS();
             }
-        });
+            const rateLimitResponse = await checkRateLimit(request, env);
+            if (rateLimitResponse) { log('warn','rate_limited'); return rateLimitResponse; }
+            if (url.pathname.startsWith('/api/')) { const r = await routeAPIRequest(request, url, env, ctx); log('info','api', {status:r.status}); return r; }
+            if (url.pathname.startsWith('/proxy')) { const r = await handleProxy(request, url); log('info','proxy', {status:r.status}); return r; }
+            if (url.pathname === '/health') {
+                const r = new Response(JSON.stringify({ status:'OK', version:APP_VERSION, cid, now:Date.now() }), {status:200, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+                log('info','health');
+                return r;
+            }
+            const r = new Response(JSON.stringify({
+                message: 'WaterWall Backend API',
+                version: APP_VERSION,
+                cid,
+                endpoints: [
+                    'GET /api/health','GET /api/games','GET /api/config','GET /api/version','GET /api/maintenance','PUT /api/maintenance','GET /api/admin/config','PUT /api/admin/config','GET /api/admin/features','PUT /api/admin/features','GET /api/admin/defaults','PUT /api/admin/defaults','GET /api/admin/ui','PUT /api/admin/ui','GET /api/thumbnails/{filename}','GET /api/assets/{path}','GET /proxy?url=','GET /health'
+                ]
+            }), {status:200, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+            log('info','default', {status:r.status});
+            return r;
+        } catch (e) {
+            log('error','unhandled',{error:e.message});
+            return new Response(JSON.stringify({error:'Unhandled server error', cid}), {status:500, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+        } finally {
+            log('info','done',{ms:Date.now()-started});
+        }
     }
 };
 
@@ -801,18 +784,22 @@ async function handleAPIRequest(request, url, env, ctx) {
         
         // Admin Configuration Management Endpoints
         if (path === '/admin/config') {
+            const denied = requireAdmin(request, env); if(denied) return denied;
             return handleAdminConfigAPI(request, env);
         }
         
         if (path === '/admin/features') {
+            const denied = requireAdmin(request, env); if(denied) return denied;
             return handleAdminFeaturesAPI(request, env);
         }
         
         if (path === '/admin/defaults') {
+            const denied = requireAdmin(request, env); if(denied) return denied;
             return handleAdminDefaultsAPI(request, env);
         }
         
         if (path === '/admin/ui') {
+            const denied = requireAdmin(request, env); if(denied) return denied;
             return handleAdminUIAPI(request, env);
         }
         
@@ -858,6 +845,52 @@ async function handleAPIRequest(request, url, env, ctx) {
     }
 }
 
+// Public configuration endpoint - exposes only safe, non-admin settings
+function scrubPublicConfig(full){
+    const {maintenanceMode, features, uiControls, contentControls, messaging, version} = full;
+    return {maintenanceMode, features:{
+        updatingEnabled: features.updatingEnabled,
+        particlesEnabled: features.particlesEnabled,
+        particleSpeed: features.particleSpeed,
+        particleCount: features.particleCount,
+        particleColor: features.particleColor,
+        particleLineDistance: features.particleLineDistance,
+        particleMouseInteraction: features.particleMouseInteraction,
+        customCursorEnabled: features.customCursorEnabled,
+        cursorSize: features.cursorSize,
+        cursorColor: features.cursorColor,
+        cursorType: features.cursorType,
+        customCursorImage: features.customCursorImage,
+        autoFullscreen: features.autoFullscreen,
+        soundEnabled: features.soundEnabled,
+        animationsEnabled: features.animationsEnabled,
+        autoSaveEnabled: features.autoSaveEnabled,
+        analyticsOptIn: features.analyticsOptIn,
+        errorReportingOptIn: features.errorReportingOptIn
+    }, uiControls, contentControls, messaging, version};
+}
+
+async function handleConfigAPI(request, env){
+    if(request.method !== 'GET'){
+        return new Response(JSON.stringify({error:'Method not allowed'}), {status:405, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+    }
+    try {
+        let config = DEFAULT_CONFIG;
+        if(env.WATERWALL_KV){
+            const stored = await env.WATERWALL_KV.get('admin_config');
+            if(stored){
+                const parsed = JSON.parse(stored);
+                config = { ...config, ...parsed };
+            }
+        }
+        const publicConfig = scrubPublicConfig(config);
+        return new Response(JSON.stringify(publicConfig), {status:200, headers:{'Content-Type':'application/json','Cache-Control':`public, max-age=${CONFIG_CACHE_TTL}`,...getCORSHeaders()}});
+    } catch(e){
+        console.error('handleConfigAPI error', e);
+        return new Response(JSON.stringify({error:'Failed to load config'}), {status:500, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
+    }
+}
+
 // Handle proxy requests
 async function handleProxy(request, url) {
     try {
@@ -871,7 +904,7 @@ async function handleProxy(request, url) {
             });
         }
         
-        // Validate the target URL
+        // Validate the target URL structure
         if (!isValidUrl(targetUrl)) {
             return new Response('Invalid URL', {
                 status: 400,
@@ -881,6 +914,14 @@ async function handleProxy(request, url) {
         
         // Parse the target URL to get base information
         const targetUrlObj = new URL(targetUrl);
+        if(!isHostAllowed(targetUrlObj.hostname)){
+            return new Response('Host not allowed', {status: 403, headers: getCORSHeaders()});
+        }
+        // Block private / local addresses (best-effort)
+        const hostLower = targetUrlObj.hostname.toLowerCase();
+        if(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(hostLower)){
+            return new Response('Private network access denied', {status:403, headers:getCORSHeaders()});
+        }
         const baseUrl = `${targetUrlObj.protocol}//${targetUrlObj.host}`;
         
         // Create a new request to the target URL
@@ -892,7 +933,12 @@ async function handleProxy(request, url) {
         });
         
         // Fetch the target resource
-        const response = await fetch(targetRequest);
+        const controller = new AbortController();
+        const timeout = setTimeout(()=>controller.abort(), 8000); // 8s timeout
+        let response;
+        try {
+            response = await fetch(targetRequest, {signal: controller.signal});
+        } finally { clearTimeout(timeout); }
         
         // Log the request
         logRequest(request, targetUrl, response.status);
@@ -901,15 +947,21 @@ async function handleProxy(request, url) {
         const contentType = response.headers.get('content-type') || '';
         
         // Process the response based on content type
-        let processedBody = response.body;
+    let processedBody = response.body;
+    const maxBytes = 2 * 1024 * 1024; // 2MB safeguard
+    let rawBuffer;
         
         if (contentType.includes('text/html') || contentType.includes('application/xhtml+xml')) {
             // Process HTML content
-            const htmlContent = await response.text();
+            rawBuffer = rawBuffer || await response.clone().arrayBuffer();
+            if(rawBuffer.byteLength > maxBytes) return new Response('Content too large', {status:413, headers:getCORSHeaders()});
+            const htmlContent = new TextDecoder().decode(rawBuffer);
             processedBody = rewriteHTML(htmlContent, baseUrl, request.url.split('/proxy')[0]);
         } else if (contentType.includes('text/css')) {
             // Process CSS content
-            const cssContent = await response.text();
+            rawBuffer = rawBuffer || await response.clone().arrayBuffer();
+            if(rawBuffer.byteLength > maxBytes) return new Response('Content too large', {status:413, headers:getCORSHeaders()});
+            const cssContent = new TextDecoder().decode(rawBuffer);
             processedBody = rewriteCSS(cssContent, baseUrl, request.url.split('/proxy')[0]);
         } else if (contentType.includes('application/javascript') || 
                    contentType.includes('text/javascript') || 
@@ -917,11 +969,15 @@ async function handleProxy(request, url) {
                    contentType.includes('text/ecmascript') ||
                    contentType.includes('application/ecmascript')) {
             // Process JavaScript content
-            const jsContent = await response.text();
+            rawBuffer = rawBuffer || await response.clone().arrayBuffer();
+            if(rawBuffer.byteLength > maxBytes) return new Response('Content too large', {status:413, headers:getCORSHeaders()});
+            const jsContent = new TextDecoder().decode(rawBuffer);
             processedBody = rewriteJavaScript(jsContent, baseUrl, request.url.split('/proxy')[0]);
         } else if (contentType.includes('text/') && !contentType.includes('text/plain')) {
             // Process other text content that might contain URLs
-            const textContent = await response.text();
+            rawBuffer = rawBuffer || await response.clone().arrayBuffer();
+            if(rawBuffer.byteLength > maxBytes) return new Response('Content too large', {status:413, headers:getCORSHeaders()});
+            const textContent = new TextDecoder().decode(rawBuffer);
             // Basic URL replacement for other text formats
             processedBody = textContent.replace(/(https?:\/\/[^\s"'<>]+)/gi, (match) => {
                 try {
@@ -938,7 +994,9 @@ async function handleProxy(request, url) {
         } else if (contentType.includes('application/json') || contentType.includes('application/manifest+json')) {
             // Process JSON content that might contain URLs (like web app manifests)
             try {
-                const jsonContent = await response.text();
+                rawBuffer = rawBuffer || await response.clone().arrayBuffer();
+                if(rawBuffer.byteLength > maxBytes) return new Response('Content too large', {status:413, headers:getCORSHeaders()});
+                const jsonContent = new TextDecoder().decode(rawBuffer);
                 const jsonData = JSON.parse(jsonContent);
                 const rewrittenJson = rewriteJsonUrls(jsonData, baseUrl, request.url.split('/proxy')[0]);
                 processedBody = JSON.stringify(rewrittenJson);
@@ -1063,32 +1121,12 @@ function getResponseHeaders(response, proxyBase) {
         headers.set(key, value);
     });
     
-    // Remove security headers that might block iframe embedding or loading
-    headers.delete('x-frame-options');
-    headers.delete('content-security-policy');
-    headers.delete('x-content-type-options');
-    headers.delete('strict-transport-security');
-    headers.delete('x-xss-protection');
-    headers.delete('referrer-policy');
-    
-    // Modify content security policy if present
-    const csp = response.headers.get('content-security-policy');
-    if (csp) {
-        // Remove restrictive CSP directives
-        let modifiedCSP = csp
-            .replace(/frame-ancestors[^;]*;?/gi, '')
-            .replace(/frame-src[^;]*;?/gi, '')
-            .replace(/child-src[^;]*;?/gi, '')
-            .replace(/connect-src[^;]*;?/gi, '')
-            .replace(/script-src[^;]*;?/gi, '')
-            .replace(/style-src[^;]*;?/gi, '');
-        
-        if (modifiedCSP.trim() && modifiedCSP !== csp) {
-            headers.set('content-security-policy', modifiedCSP);
-        } else if (modifiedCSP.trim()) {
-            headers.delete('content-security-policy');
-        }
+    // Preserve most security headers; only relax X-Frame-Options (allow embedding) if present
+    const xfo = response.headers.get('x-frame-options');
+    if (xfo) {
+        headers.set('x-frame-options', 'SAMEORIGIN'); // soften instead of remove
     }
+    // Leave CSP intact (no blanket stripping) to reduce XSS risk.
     
     return headers;
 }
@@ -1676,57 +1714,21 @@ async function handleHealthAPI(request, env) {
     });
 }
 
-// Handle games API
+// Handle games API (clean version with ETag)
 async function handleGamesAPI(request, env) {
-    // Add cache headers
-    const headers = {
-        'Content-Type': 'application/json',
-        'Cache-Control': `public, max-age=${GAMES_CACHE_TTL}`,
-        ...getCORSHeaders()
-    };
-    
-    return new Response(JSON.stringify(GAMES_DATABASE), {
-        status: 200,
-        headers
-    });
-}
-
-// Handle configuration API
-async function handleConfigAPI(request, env) {
-    // Get the comprehensive admin configuration
-    let config = { ...DEFAULT_CONFIG };
-    
-    try {
-        // Try new admin config system first
-        if (env.WATERWALL_KV) {
-            const adminConfig = await env.WATERWALL_KV.get('admin_config');
-            if (adminConfig) {
-                const parsed = JSON.parse(adminConfig);
-                config = { ...config, ...parsed };
-            }
-        }
-        
-        // Fallback to legacy config system
-        if (env.CONFIG_KV) {
-            const legacyConfig = await env.CONFIG_KV.get('app_config', 'json');
-            if (legacyConfig) {
-                config = { ...config, ...legacyConfig };
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching config from KV:', error);
-        // Fall back to default config
+    const body = JSON.stringify(GAMES_DATABASE);
+    const etag = 'W/"gdb-' + body.length + '"';
+    if (request.headers.get('If-None-Match') === etag) {
+        return new Response(null, { status: 304, headers: { 'ETag': etag, ...getCORSHeaders() } });
     }
-    
-    const headers = {
-        'Content-Type': 'application/json',
-        'Cache-Control': `public, max-age=${CONFIG_CACHE_TTL}`,
-        ...getCORSHeaders()
-    };
-    
-    return new Response(JSON.stringify(config), {
+    return new Response(body, {
         status: 200,
-        headers
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${GAMES_CACHE_TTL}`,
+            'ETag': etag,
+            ...getCORSHeaders()
+        }
     });
 }
 
@@ -2074,6 +2076,25 @@ async function handleAdminConfigAPI(request, env) {
                     status: 400,
                     headers: { 'Content-Type': 'application/json', ...getCORSHeaders() }
                 });
+            }
+
+            const configErrors = [];
+            if(newConfig.features){
+                const errs = validateObject(newConfig.features, {
+                    proxyEnabled:{type:'boolean'},
+                    searchEnabled:{type:'boolean'},
+                    favoritesEnabled:{type:'boolean'}
+                }); configErrors.push(...errs);
+            }
+            if(newConfig.maintenanceMode){
+                const errs = validateObject(newConfig.maintenanceMode, {
+                    enabled:{type:'boolean'},
+                    message:{type:'string', maxLength:300},
+                    estimatedTime:{type:'string', maxLength:120}
+                }); configErrors.push(...errs);
+            }
+            if(configErrors.length){
+                return new Response(JSON.stringify({error:'Validation failed', details:configErrors}), {status:400, headers:{'Content-Type':'application/json', ...getCORSHeaders()}});
             }
             
             // Merge with existing config
@@ -2472,6 +2493,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     
     // Cross-Device Sync Endpoints
     if(path.startsWith('/sync/')){
+        const {error} = requireUser(request); if(error) return error;
         const userId = path.split('/')[2];
         if(!userId) return jsonResponse({error: 'User ID required'}, 400);
         
@@ -2509,6 +2531,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     
     // Friends System Endpoints
     if(path === '/friends'){
+        const {error, userId: __authUserId} = requireUser(request); if(error) return error;
         if(!env.USER_DATA_KV) {
             return jsonResponse({error: 'User data storage not configured. Please set up USER_DATA_KV namespace.'}, 503);
         }
@@ -2520,6 +2543,10 @@ handleAPIRequest = async function(request, url, env, ctx){
                 if(!requesterId || !targetUsername || !requesterUsername) {
                     return jsonResponse({error: 'Missing required fields'}, 400);
                 }
+                const errs = [];
+                if(targetUsername.length > 40) errs.push('targetUsername too long');
+                if(requesterUsername.length > 40) errs.push('requesterUsername too long');
+                if(errs.length) return jsonResponse({error:'Validation failed', details:errs}, 400);
                 
                 // Store friend request for recipient
                 const requestKey = `friend_request:${targetUsername}:${requesterId}`;
@@ -2593,6 +2620,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     }
     
     if(path === '/friends/accept'){
+        const {error} = requireUser(request); if(error) return error;
         if(method === 'POST'){
             const {userId, username, requesterId, requesterUsername} = await request.json();
             
@@ -2620,6 +2648,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     }
     
     if(path === '/friends/decline'){
+        const {error} = requireUser(request); if(error) return error;
         if(method === 'POST'){
             const {username, requesterId} = await request.json();
             await env.USER_DATA_KV?.delete(`friend_request:${username}:${requesterId}`);
@@ -2629,6 +2658,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     }
     
     if(path === '/friends/cancel'){
+        const {error} = requireUser(request); if(error) return error;
         if(method === 'POST'){
             const {requesterId, targetUsername} = await request.json();
             await env.USER_DATA_KV?.delete(`friend_request:${targetUsername}:${requesterId}`);
@@ -2638,6 +2668,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     }
     
     if(path === '/friends/remove'){
+        const {error} = requireUser(request); if(error) return error;
         if(method === 'POST'){
             const {userId, friendId} = await request.json();
             
@@ -2657,6 +2688,7 @@ handleAPIRequest = async function(request, url, env, ctx){
     
     // Presence Tracking Endpoints
     if(path === '/presence'){
+        const {error} = requireUser(request); if(error) return error;
         if(method === 'POST'){
             // Update user presence
             const {userId, username, status, currentGame} = await request.json();
@@ -2681,9 +2713,16 @@ handleAPIRequest = async function(request, url, env, ctx){
             const friendIds = url.searchParams.get('ids')?.split(',') || [];
             const presenceData = {};
             
-            for(const friendId of friendIds.slice(0, 50)){ // Limit to 50 friends
-                const presence = await env.USER_DATA_KV?.get(`presence:${friendId}`, 'json');
-                if(presence) presenceData[friendId] = presence;
+                for(const friendId of friendIds.slice(0, 50)){ // Limit to 50 friends
+                    const presence = await env.USER_DATA_KV?.get(`presence:${friendId}`, 'json');
+                    if(presence){
+                        // prune stale (older than 5 minutes)
+                        if(Date.now() - presence.lastSeen > 5*60*1000){
+                            await env.USER_DATA_KV.delete(`presence:${friendId}`).catch(()=>{});
+                            continue;
+                        }
+                        presenceData[friendId] = presence;
+                    }
             }
             
             return jsonResponse({presence: presenceData});

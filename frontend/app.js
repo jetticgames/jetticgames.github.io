@@ -3185,37 +3185,7 @@ function updateSettingsPageValues() {
 }
 
 // ===== Update / Cache Refresh =====
-function checkForUpdates() {
-    const btn = document.getElementById('checkUpdatesBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Updating...';
-    }
-    // Unregister all service workers, delete all caches, then reload with cache-busting param
-    const doReload = () => {
-        // Add a cache-busting query param to the URL
-        const url = new URL(window.location.href);
-        url.searchParams.set('v', Date.now());
-        setTimeout(() => {
-            showUpdateModal(btn);
-            window.location.replace(url.toString());
-        }, 400);
-    };
-    const clearCachesAndReload = () => {
-        if (window.caches) {
-            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).finally(doReload);
-        } else {
-            doReload();
-        }
-    };
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => {
-            Promise.all(regs.map(r => r.unregister())).finally(clearCachesAndReload);
-        });
-    } else {
-        clearCachesAndReload();
-    }
-}
+// (Removed duplicate checkForUpdates definition; single async version earlier handles logic.)
 
 // Extend existing renderFavoritesSection to also update the dedicated page
 const __origRenderFavoritesSection = renderFavoritesSection;
