@@ -2315,6 +2315,8 @@ function showGamePage(game) {
     }
     
     // Build ads in sidebar instead of suggested games
+    const adCol = document.getElementById('adColumn');
+    if(adCol){ adCol.dataset.forceReload='1'; }
     renderAdColumn();
     
     // Load the game after a brief delay to ensure iframe is ready
@@ -2353,6 +2355,13 @@ function renderAdColumn(){
         console.error('❌ Ad column element not found');
         return;
     }
+    // If already populated and iframes present, avoid redundant reload unless forced
+    const existingFrames = col.querySelectorAll('iframe[data-aa]');
+    if(existingFrames.length && !col.dataset.forceReload){
+        console.log('ℹ️ Ad column already populated; skipping re-render');
+        return;
+    }
+    col.dataset.forceReload='';
     col.innerHTML='';
     // Determine number of ads based on viewport & content height (min 2, up to 6)
     const base = Math.ceil(window.innerHeight / 300); // rough vertical capacity
@@ -2382,6 +2391,16 @@ function renderAdColumn(){
         col.appendChild(slot);
     }
     console.log(`✅ Ad column rendered with ${count} slots`);
+
+    // Safety: if ad network blocked (no load events), retry once after short delay
+    setTimeout(()=>{
+        const loadedOrAttempted = col.querySelector('iframe[data-aa]');
+        if(!loadedOrAttempted){
+            console.warn('⚠️ No ad iframes detected after initial render, retrying...');
+            col.dataset.forceReload='1';
+            renderAdColumn();
+        }
+    }, 1500);
 }
 
 // (Removed suggested game card creation in favor of ads)
