@@ -802,6 +802,39 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     display: block;
 }
 
+/* Add Friend Form primary button styling */
+.add-friend-form button.primary {
+    background: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1;
+    transition: background .25s, filter .25s, transform .15s;
+}
+
+.add-friend-form button.primary i { font-size: 14px; }
+
+.add-friend-form button.primary:hover {
+    background: var(--accent-hover);
+    filter: brightness(1.05);
+}
+
+.add-friend-form button.primary:active {
+    transform: translateY(1px);
+}
+
+.add-friend-form button.primary:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
 /* Friends Stats Cards */
 .friends-stats {
     display: grid;
