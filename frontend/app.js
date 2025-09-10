@@ -1539,8 +1539,9 @@ function forceRenderGames() {
         console.warn('⚠️ Some game entries invalid or duplicate; cleaned:', cleaned.length, 'original:', games.length);
         games = cleaned;
     }
-    allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
-    console.log('✅ All games rendered:', games.length);
+    // Use unified builder that injects inline ads every 4 games
+    allGamesGrid.innerHTML = buildGamesWithInlineAds(games).join('');
+    console.log('✅ All games rendered with inline ads:', games.length);
     renderFavoritesSection();
     
     // Render ads in sidebar
