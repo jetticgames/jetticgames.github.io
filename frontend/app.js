@@ -2363,9 +2363,9 @@ function renderAdColumn(){
         const slot=document.createElement('div');
         slot.className='ad-slot loading';
     // Insert provided ad snippet with full coverage and unique IDs
-    slot.innerHTML = `<div class="ad-frame" style="width: 100%; height: 100%; margin: 0; background: rgba(0, 0, 0, 0.50); position: absolute; top: 0; left: 0; z-index: 1;">
-          <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive'
-                            style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display: block; position: absolute; top: 0; left: 0;'></iframe>
+    slot.innerHTML = `<div id="frame" style="width: 100%;margin: auto;background: rgba(0, 0, 0, 0.50);position: relative; z-index: 99998;">
+          <iframe data-aa='2409694' src='//acceptable.a-ads.com/2409694/?size=Adaptive'
+                            style='border:0; padding:0; width:70%; height:auto; overflow:hidden;display: block;margin: auto'></iframe>
         </div>`;
     // Remove loading class once iframe loads
     const innerFrame = slot.querySelector('iframe');
@@ -2485,8 +2485,8 @@ function createInlineAdCard(idx){
     <div class="game-card ad-card" data-ad-index="${idx}">
         <div class="ad-aspect">
             <div class="ad-slot loading">
-                <div class="ad-frame">
-                    <iframe data-aa='2408693' src='https://acceptable.a-ads.com/2408693/?size=400x225' loading='lazy' referrerpolicy='no-referrer' allowtransparency='true'></iframe>
+                <div class="ad-frame" style="background:rgba(0,0,0,0.50); display:flex; align-items:center; justify-content:center;">
+                    <iframe data-aa='2409694' src='//acceptable.a-ads.com/2409694/?size=Adaptive' loading='lazy' referrerpolicy='no-referrer' allowtransparency='true' style='border:0; padding:0; width:70%; height:auto; overflow:hidden; display:block; margin:auto;'></iframe>
                 </div>
             </div>
         </div>
