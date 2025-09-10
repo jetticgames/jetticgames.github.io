@@ -1112,6 +1112,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     opacity: 1;
 }
 
+/* Inline ad cards inside game grid */
+.game-card.ad-card {position:relative;}
+.game-card.ad-card .game-card-overlay {opacity:1; background:linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);} 
+.game-card.ad-card .overlay-title {font-size:14px;}
+.game-card.ad-card .overlay-category {font-size:11px; opacity:.85;}
+.game-card.ad-card::after {content:'Ad'; position:absolute; top:6px; left:8px; background:rgba(0,0,0,0.55); padding:3px 8px; border-radius:6px; font-size:10px; letter-spacing:.5px; text-transform:uppercase; font-weight:600;}
+
 .overlay-title {
     font-size: 16px;
     font-weight: 600;

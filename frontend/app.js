@@ -2403,7 +2403,7 @@ function filterByCategory(category){
     }
     const grid=document.getElementById('allGames');
     const title=document.querySelector('#homePage .games-section:not(#favoriteGamesSection) .section-title');
-    if(grid) grid.innerHTML = filtered.length? filtered.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
+    if(grid) grid.innerHTML = filtered.length? buildGamesWithInlineAds(filtered).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
     if(title) {
         if(category === 'all') {
             title.textContent = 'All Games';
@@ -2417,7 +2417,7 @@ function showSearchResults(query, results){
     ensureHomePage(); hideAllPages(); const hp=document.getElementById('homePage'); if(hp) hp.classList.add('active');
     const grid=document.getElementById('allGames'); const title=document.querySelector('#homePage .games-section:not(#favoriteGamesSection) .section-title');
     if(title) title.textContent=`Results for "${query}" (${results.length})`;
-    if(grid) grid.innerHTML = results.length? results.map(g=>createGameCard(g)).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
+    if(grid) grid.innerHTML = results.length? buildGamesWithInlineAds(results).join('') : '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#7d8590;">No games found.</div>';
 }
 
 function hideAllPages(forceDisplayNone=false) {
@@ -2455,14 +2455,50 @@ function renderGamesByCategory() {
     console.log('All games container found:', !!allGamesContainer);
     
     if (allGamesContainer && games.length > 0) {
-        console.log('Rendering', games.length, 'total games');
-        allGamesContainer.innerHTML = games.map(game => createGameCard(game)).join('');
+        console.log('Rendering', games.length, 'total games (with inline ads)');
+        allGamesContainer.innerHTML = buildGamesWithInlineAds(games).join('');
         console.log('All games rendered successfully');
     } else {
         console.log('All games container not found or no games available');
         console.log('allGamesContainer:', allGamesContainer);
         console.log('games.length:', games.length);
     }
+}
+
+// Build list of game cards + injected ad cards using same 16:9 styling
+function buildGamesWithInlineAds(gameList){
+    const output=[]; 
+    // Next ad insertion index (random 3-6 span)
+    let nextAdIndex = randomAdSpan(0);
+    for(let i=0;i<gameList.length;i++){
+        if(i===nextAdIndex){
+            output.push(createInlineAdCard(i));
+            nextAdIndex = i + randomAdSpan(i+1);
+        }
+        output.push(createGameCard(gameList[i]));
+    }
+    return output;
+}
+
+function randomAdSpan(seed){
+    // random span between 3 and 6
+    return 3 + Math.floor(Math.random()*4); // 3,4,5,6
+}
+
+function createInlineAdCard(idx){
+    // Matches .game-card dimensions & overlay pattern; reuse ad iframe snippet from sidebar
+    return `
+    <div class="game-card ad-card" data-ad-index="${idx}" style="position:relative;">
+        <div class="ad-slot loading" style="position:absolute; inset:0; border:none;">
+            <div class="ad-frame" style="width:100%; height:100%; position:absolute; inset:0; background:rgba(0,0,0,0.50);">
+                <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive' style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display:block; position:absolute; top:0; left:0;'></iframe>
+            </div>
+        </div>
+        <div class="game-card-overlay" style="pointer-events:none;">
+            <div class="overlay-title">Advertisement</div>
+            <div class="overlay-category">Support the site</div>
+        </div>
+    </div>`;
 }
 
 function renderRecommendedGames(currentGame) {
