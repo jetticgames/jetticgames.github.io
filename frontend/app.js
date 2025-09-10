@@ -2467,33 +2467,24 @@ function renderGamesByCategory() {
 
 // Build list of game cards + injected ad cards using same 16:9 styling
 function buildGamesWithInlineAds(gameList){
-    const output=[]; 
-    // Next ad insertion index (random 3-6 span)
-    let nextAdIndex = randomAdSpan(0);
+    const output=[];
     for(let i=0;i<gameList.length;i++){
-        if(i===nextAdIndex){
-            output.push(createInlineAdCard(i));
-            nextAdIndex = i + randomAdSpan(i+1);
-        }
         output.push(createGameCard(gameList[i]));
+        const isFourth = (i+1)%4===0;
+        if(isFourth && i < gameList.length-1){
+            output.push(createInlineAdCard(i));
+        }
     }
-    // Defer hook to activate iframe load listeners after injection
-    setTimeout(initInlineAdSlots, 0);
+    setTimeout(initInlineAdSlots,0);
     return output;
 }
 
-function randomAdSpan(seed){
-    // random span between 3 and 6
-    return 3 + Math.floor(Math.random()*4); // 3,4,5,6
-}
-
 function createInlineAdCard(idx){
-    // Matches .game-card dimensions & overlay pattern; reuse ad iframe snippet from sidebar
     return `
     <div class="game-card ad-card" data-ad-index="${idx}" style="position:relative;">
         <div class="ad-slot loading" style="position:absolute; inset:0; border:none;">
             <div class="ad-frame" style="width:100%; height:100%; position:absolute; inset:0; background:rgba(0,0,0,0.50);">
-                <iframe data-aa='2408693' src='//acceptable.a-ads.com/2408693/?size=Adaptive' style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display:block; position:absolute; top:0; left:0;'></iframe>
+                <iframe data-aa='2408693' src='https://acceptable.a-ads.com/2408693/?size=Adaptive' loading='lazy' referrerpolicy='no-referrer' style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display:block; position:absolute; top:0; left:0;'></iframe>
             </div>
         </div>
         <div class="game-card-overlay" style="pointer-events:none;">

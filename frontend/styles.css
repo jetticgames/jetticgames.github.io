@@ -564,7 +564,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 /* Truncate long account label to prevent sidebar scrollbar */
 #accountLabel {
-    max-width: 120px; /* fits layout without overflow */
+    max-width: 90px; /* slimmer to reduce sidebar scrollbar risk */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
