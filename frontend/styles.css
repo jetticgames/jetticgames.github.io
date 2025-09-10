@@ -1057,7 +1057,10 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     position: relative;
     opacity: 0;
     animation: fadeInUp 0.6s ease forwards;
-    height: 140px; /* Fixed height for regular cards */
+    /* Use 16:9 ratio for consistency; fixed height replaced */
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 140px; /* fallback for browsers without aspect-ratio */
 }
 
 .featured-grid .game-card {
@@ -1123,11 +1126,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 /* Inline ad cards inside game grid */
-.game-card.ad-card {position:relative;}
-.game-card.ad-card .game-card-overlay {opacity:1; background:linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);} 
-.game-card.ad-card .overlay-title {font-size:14px;}
-.game-card.ad-card .overlay-category {font-size:11px; opacity:.85;}
-.game-card.ad-card::after {content:'Ad'; position:absolute; top:6px; left:8px; background:rgba(0,0,0,0.55); padding:3px 8px; border-radius:6px; font-size:10px; letter-spacing:.5px; text-transform:uppercase; font-weight:600;}
+.game-card.ad-card {position:relative; border:2px solid #1f6feb; box-shadow:0 0 0 1px rgba(31,111,235,0.35);}
+/* Remove hover lift for ads */
+.game-card.ad-card:hover {transform:none; box-shadow:0 0 0 1px rgba(31,111,235,0.55);} 
+/* Remove gradient & overlay text for inline ads */
+.game-card.ad-card .game-card-overlay {display:none !important;}
+/* Keep small corner label */
+.game-card.ad-card::after {content:'Ad'; position:absolute; top:6px; left:8px; background:rgba(31,111,235,0.85); padding:3px 8px; border-radius:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; font-weight:600;}
 
 .overlay-title {
     font-size: 16px;
