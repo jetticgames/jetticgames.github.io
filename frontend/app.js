@@ -18,80 +18,6 @@ let isProxyEnabled = false; // Disabled by default per new requirement
 const proxyUrl = `${BACKEND_URL}/proxy`;
 let favorites = [];
 
-// ====== PERFORMANCE & ACCESSIBILITY ENHANCEMENTS (Injected) ======
-// requestIdleCallback polyfill
-window.requestIdleCallback = window.requestIdleCallback || function(cb){ return setTimeout(()=>cb({didTimeout:false,timeRemaining:()=>0}),50); };
-window.cancelIdleCallback = window.cancelIdleCallback || function(id){ clearTimeout(id); };
-
-// Reduced motion: disable particles / animations if user prefers
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-function applyReducedMotion(){
-    if(prefersReducedMotion.matches){
-        if(window.settings){ settings.particlesEnabled = false; settings.animationsEnabled = false; }
-        document.documentElement.classList.add('reduced-motion');
-    } else {
-        document.documentElement.classList.remove('reduced-motion');
-    }
-}
-prefersReducedMotion.addEventListener('change', applyReducedMotion);
-applyReducedMotion();
-
-// Focus outline only when using keyboard
-let usingKeyboard = false;
-window.addEventListener('keydown', e=>{ if(e.key === 'Tab'){ usingKeyboard = true; document.documentElement.classList.add('using-keyboard'); }});
-window.addEventListener('mousedown', ()=>{ usingKeyboard = false; document.documentElement.classList.remove('using-keyboard'); });
-
-// Live region for announcements
-const announcer = document.createElement('div');
-announcer.id='liveRegion';
-announcer.setAttribute('aria-live','polite');
-announcer.setAttribute('aria-atomic','true');
-announcer.className='visually-hidden';
-document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(announcer));
-function announce(msg){ announcer.textContent=''; setTimeout(()=>announcer.textContent=msg, 50); }
-window.__announce = announce;
-
-// IntersectionObserver lazy rendering for large game lists
-let __gameCardObserver;
-function ensureGameObserver(){
-    if(__gameCardObserver) return __gameCardObserver;
-    __gameCardObserver = new IntersectionObserver(entries=>{
-        for(const ent of entries){
-            if(ent.isIntersecting){
-                const placeholder = ent.target;
-                const tpl = placeholder.getAttribute('data-card-html');
-                if(tpl){ placeholder.outerHTML = tpl; }
-                __gameCardObserver.unobserve(placeholder);
-            }
-        }
-    }, { rootMargin:'300px 0px' });
-    return __gameCardObserver;
-}
-
-function createLazyGameCard(game){
-    // Keep meaningful accessible name with aria-label
-    const immediate = false; // can flip to heuristic (e.g., first 20 eager)
-    if(immediate) return createGameCard(game);
-    const safeTitle = (game.title||'Game').replace(/</g,'&lt;');
-    const cardHTML = createGameCard(game);
-    return `<div class="game-card placeholder" role="group" aria-label="${safeTitle}" data-card-html="${cardHTML.replace(/"/g,'&quot;')}">`+
-                 `<div class='skeleton-thumb'></div><div class='skeleton-line'></div></div>`;
-}
-
-function renderAllGamesLazy(gamesArr){
-    const container = document.getElementById('allGames');
-    if(!container) return;
-    const observer = ensureGameObserver();
-    container.innerHTML = gamesArr.map(g=>createLazyGameCard(g)).join('');
-    // Observe placeholders
-    requestIdleCallback(()=>{
-        container.querySelectorAll('.game-card.placeholder').forEach(el=>observer.observe(el));
-    });
-    announce(`${gamesArr.length} games loaded`);
-}
-window.__renderAllGamesLazy = renderAllGamesLazy;
-// ====== END PERFORMANCE & ACCESSIBILITY ENHANCEMENTS ======
-
 // Admin-controlled configuration (loaded from backend)
 let adminConfig = null;
 
@@ -1613,7 +1539,7 @@ function forceRenderGames() {
         console.warn('⚠️ Some game entries invalid or duplicate; cleaned:', cleaned.length, 'original:', games.length);
         games = cleaned;
     }
-    if(window.__renderAllGamesLazy){ window.__renderAllGamesLazy(games); } else { allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join(''); }
+    allGamesGrid.innerHTML = games.map(game => createGameCard(game)).join('');
     console.log('✅ All games rendered:', games.length);
     renderFavoritesSection();
     
@@ -2530,7 +2456,7 @@ function renderGamesByCategory() {
     
     if (allGamesContainer && games.length > 0) {
         console.log('Rendering', games.length, 'total games');
-    if(window.__renderAllGamesLazy){ window.__renderAllGamesLazy(games); } else { allGamesContainer.innerHTML = games.map(game => createGameCard(game)).join(''); }
+        allGamesContainer.innerHTML = games.map(game => createGameCard(game)).join('');
         console.log('All games rendered successfully');
     } else {
         console.log('All games container not found or no games available');
@@ -3259,7 +3185,37 @@ function updateSettingsPageValues() {
 }
 
 // ===== Update / Cache Refresh =====
-// (Removed duplicate checkForUpdates definition; single async version earlier handles logic.)
+function checkForUpdates() {
+    const btn = document.getElementById('checkUpdatesBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
+    }
+    // Unregister all service workers, delete all caches, then reload with cache-busting param
+    const doReload = () => {
+        // Add a cache-busting query param to the URL
+        const url = new URL(window.location.href);
+        url.searchParams.set('v', Date.now());
+        setTimeout(() => {
+            showUpdateModal(btn);
+            window.location.replace(url.toString());
+        }, 400);
+    };
+    const clearCachesAndReload = () => {
+        if (window.caches) {
+            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).finally(doReload);
+        } else {
+            doReload();
+        }
+    };
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+            Promise.all(regs.map(r => r.unregister())).finally(clearCachesAndReload);
+        });
+    } else {
+        clearCachesAndReload();
+    }
+}
 
 // Extend existing renderFavoritesSection to also update the dedicated page
 const __origRenderFavoritesSection = renderFavoritesSection;
