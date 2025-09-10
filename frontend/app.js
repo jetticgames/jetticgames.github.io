@@ -2477,6 +2477,8 @@ function buildGamesWithInlineAds(gameList){
         }
         output.push(createGameCard(gameList[i]));
     }
+    // Defer hook to activate iframe load listeners after injection
+    setTimeout(initInlineAdSlots, 0);
     return output;
 }
 
@@ -2500,6 +2502,24 @@ function createInlineAdCard(idx){
         </div>
     </div>`;
 }
+
+function initInlineAdSlots(){
+    document.querySelectorAll('.game-card.ad-card .ad-slot.loading iframe').forEach(frame=>{
+        if(frame.dataset._bound) return; frame.dataset._bound='1';
+        const slot = frame.closest('.ad-slot');
+        frame.addEventListener('load', ()=> slot && slot.classList.remove('loading'));
+        frame.addEventListener('error', ()=> slot && slot.classList.remove('loading'));
+    });
+}
+
+// Re-init ad slots after search/category updates (simple mutation observer)
+const gamesGridObserver = new MutationObserver((m)=>{
+    if(m.some(r=> r.addedNodes.length)) initInlineAdSlots();
+});
+window.addEventListener('DOMContentLoaded', ()=>{
+    const grid = document.getElementById('allGames');
+    if(grid) gamesGridObserver.observe(grid,{childList:true});
+});
 
 function renderRecommendedGames(currentGame) {
     // Recommended games removed in simplified layout

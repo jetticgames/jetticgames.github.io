@@ -562,6 +562,16 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     cursor: pointer;
 }
 
+/* Truncate long account label to prevent sidebar scrollbar */
+#accountLabel {
+    max-width: 120px; /* fits layout without overflow */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+}
+
 .nav-link:hover {
     background: var(--hover-color);
     color: var(--text-primary);
