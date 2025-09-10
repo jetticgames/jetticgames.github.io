@@ -2482,10 +2482,12 @@ function buildGamesWithInlineAds(gameList){
 
 function createInlineAdCard(idx){
     return `
-    <div class="game-card ad-card" data-ad-index="${idx}" style="position:relative;">
-        <div class="ad-slot loading" style="position:absolute; inset:0; border:none;">
-            <div class="ad-frame" style="width:100%; height:100%; position:absolute; inset:0; background:transparent;">
-                <iframe data-aa='2408693' src='https://acceptable.a-ads.com/2408693/?size=Adaptive' loading='lazy' referrerpolicy='no-referrer' style='border:0; padding:0; width:100%; height:100%; overflow:hidden; display:block; position:absolute; top:0; left:0;'></iframe>
+    <div class="game-card ad-card" data-ad-index="${idx}">
+        <div class="ad-aspect">
+            <div class="ad-slot loading">
+                <div class="ad-frame">
+                    <iframe data-aa='2408693' src='https://acceptable.a-ads.com/2408693/?size=400x225' loading='lazy' referrerpolicy='no-referrer' allowtransparency='true'></iframe>
+                </div>
             </div>
         </div>
     </div>`;

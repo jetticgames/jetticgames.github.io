@@ -1133,6 +1133,11 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .game-card.ad-card .game-card-overlay {display:none !important;}
 /* Keep small corner label */
 .game-card.ad-card::after {content:'Ad'; position:absolute; top:6px; left:8px; background:rgba(31,111,235,0.85); padding:3px 8px; border-radius:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; font-weight:600;}
+/* Ad aspect wrapper ensures iframe stays 16:9 irrespective of ad creative */
+.game-card.ad-card .ad-aspect {position:relative; width:100%; aspect-ratio:16/9; background:rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center;}
+.game-card.ad-card .ad-slot {position:relative; width:100%; height:100%;}
+.game-card.ad-card .ad-frame {position:relative; width:100%; height:100%;}
+.game-card.ad-card iframe {width:100%; height:100%; display:block; object-fit:cover;}
 
 .overlay-title {
     font-size: 16px;
