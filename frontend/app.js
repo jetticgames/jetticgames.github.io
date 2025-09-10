@@ -4947,9 +4947,10 @@ async function renderFriendsPage(){
 function updateFriendsStats(friends) {
     const totalCount = document.getElementById('totalFriendsCount');
     const pendingCount = document.getElementById('pendingRequestsCount');
-    
-    if(totalCount) totalCount.textContent = friends.list.length;
-    if(pendingCount) pendingCount.textContent = friends.incoming.length;
+    const listLen = friends?.list?.length ?? friends?.friends?.length ?? FriendsManager?.friends?.length ?? 0;
+    const pendingLen = friends?.incoming?.length ?? friends?.pendingRequests?.length ?? friends?.pending?.length ?? 0;
+    if(totalCount) totalCount.textContent = listLen;
+    if(pendingCount) pendingCount.textContent = pendingLen;
     // Online count will be updated by updatePresence
 }
 
@@ -5020,29 +5021,55 @@ async function refreshFriendsPage() {
 
 async function wireFriendsEvents(){ const page=document.getElementById('friendsPage'); if(!page) return; page.querySelectorAll('button[data-remove]').forEach(b=> b.onclick=()=>friendAction('remove',{user:b.getAttribute('data-remove')})); page.querySelectorAll('button[data-accept]').forEach(b=> b.onclick=()=>friendAction('accept',{from:b.getAttribute('data-accept')})); page.querySelectorAll('button[data-decline]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-decline')})); page.querySelectorAll('button[data-cancel]').forEach(b=> b.onclick=()=>friendAction('decline',{from:b.getAttribute('data-cancel')})); const form=document.getElementById('addFriendForm'); if(form){ form.onsubmit= async e=>{ e.preventDefault(); const uname=document.getElementById('addFriendUsername').value.trim(); if(!uname) return; const res = await friendAction('request',{username:uname}); const fb=document.getElementById('addFriendFeedback'); if(fb) fb.textContent = res?.error? res.error : 'Request sent'; if(!res.error) form.reset(); }; }}
 
+// Re-enabled friend actions using backend social endpoints (unauthenticated backend; TODO: secure)
 async function friendAction(action, body){ 
-    showError('Friends system requires backend authentication. This feature is temporarily disabled.');
-    console.debug('[Friends] Action attempted but backend authentication is disabled:', action, body);
-    return {error: 'Friends system temporarily unavailable'}; 
+    try {
+        const user = await auth0Client?.getUser();
+        if(!user){ return {error:'Not signed in'}; }
+        const username = await getUserDisplayName();
+        let endpoint = '';
+        let payload = {};
+        switch(action){
+            case 'request':
+                endpoint = '/api/friends/request';
+                payload = { requesterId:user.sub, requesterUsername:username, targetUsername: body.username };
+                break;
+            case 'accept':
+                endpoint = '/api/friends/accept';
+                payload = { userId:user.sub, username, requesterId: body.from, requesterUsername: body.fromUsername||body.from }; break;
+            case 'decline':
+                endpoint = '/api/friends/decline';
+                payload = { username, requesterId: body.from || body['data-decline'] || body.requesterId }; break;
+            case 'cancel':
+                endpoint = '/api/friends/cancel';
+                payload = { requesterId:user.sub, targetUsername: body.username || body.targetUsername }; break;
+            case 'remove':
+                endpoint = '/api/friends/remove';
+                payload = { userId:user.sub, friendId: body.user || body.friendId }; break;
+            default:
+                return {error:'Unknown action'};
+        }
+        const res = await fetch(`${BACKEND_URL}${endpoint}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        const data = await res.json();
+        if(!res.ok || data.error){ return {error: data.error || 'Action failed'}; }
+        // Refresh friend data silently
+        if(['request','accept','decline','cancel','remove'].includes(action)){
+            await FriendsManager.loadFriends?.();
+            renderFriendsPage();
+        }
+        return data;
+    } catch(err){
+        console.error('[Friends] action failed', action, err);
+        return {error:'Network error'};
+    }
 }
 
-// Presence system disabled - requires backend authentication
-async function presenceHeartbeat(){ 
-    console.debug('[Presence] Heartbeat disabled - backend authentication removed');
-    return;
+// Restore lightweight presence wrappers calling PresenceManager
+async function presenceHeartbeat(){
+    PresenceManager.updatePresence('online', currentGame?.title||null);
 }
-async function updatePresence(){ 
-    console.debug('[Presence] Updates disabled - backend authentication removed');
-    
-    // Set friends count to 0 since we can't track presence
-    const onlineCount = document.getElementById('onlineFriendsCount');
-    if(onlineCount) onlineCount.textContent = '0';
-    
-    // Clear presence list
-    const presenceList = document.getElementById('presenceList'); 
-    if(presenceList) presenceList.innerHTML = '<li class="muted-hint">Presence tracking unavailable</li>';
-    
-    return;
+async function updatePresence(status='online', game=null){
+    PresenceManager.updatePresence(status, game);
 }
 
 async function refreshFriendsPage() {
