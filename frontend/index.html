@@ -3,78 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Prevent caching of this page to ensure updates are loaded -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>WaterWall - Ultimate Gaming Platform</title>
-    
-    <!-- Simplified Asset Loading with Local Default -->
+    <title>WaterWall</title>
+
     <script>
-        // Backend URL for API calls (points to the self-hosted Express server)
-        // Set global variable for app.js to use
         window.WATERWALL_BACKEND_URL = window.location.origin;
-        
-        console.log('🎮 WaterWall loading with local assets and backend APIs');
+        console.log('WaterWall v3 loading...');
     </script>
-    
-    <!-- Load local CSS (reliable) -->
+
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logo.png">
-    <!-- Font Awesome for icons -->
-            <link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" id="poppinsFont">
-            <!-- Local minimal Font Awesome subset fallback (loads instantly if CDN blocked) -->
-            <link rel="stylesheet" href="vendor/fa-local.css" id="faLocalFallback">
-            <!-- Font Awesome (primary + layered fallbacks, no SRI to avoid mismatch failures) -->
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" id="faPrimary">
-            <noscript><link rel="stylesheet" href="https://unpkg.com/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"></noscript>
-            <script>
-                (function(){
-                    const altSources = [
-                        'https://unpkg.com/@fortawesome/fontawesome-free@6.4.0/css/all.min.css',
-                        'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'
-                    ];
-                    function haveIcons(){
-                        // After stylesheet load FA adds .fa-classic or metrics exist; simplest: test for a known pseudo element font family
-                        return !!document.querySelector('.fa, .fas, .fa-solid, .fa-regular, .fa-brands');
-                    }
-                    function injectFallback(href){
-                        if(document.querySelector('link[data-fa-fallback="'+href+'"]')) return;
-                        const l=document.createElement('link');
-                        l.rel='stylesheet'; l.href=href; l.setAttribute('data-fa-fallback', href);
-                        document.head.appendChild(l);
-                    }
-                    window.addEventListener('load', function(){
-                        // Give primary a brief window, then test; if no icons, add fallbacks sequentially
-                        let idx=0;
-                        function tryNext(){
-                            if(haveIcons()) return; // success
-                            if(idx < altSources.length){ injectFallback(altSources[idx++]); setTimeout(tryNext, 900); }
-                        }
-                        setTimeout(tryNext, 1100);
-                    });
-                })();
-            </script>
-    <!-- Auth0 SPA SDK removed here; dynamic loader in app.js now attempts multiple valid versions (2.7→2.0) with local fallback. -->
-    <script>window.__PREFERRED_AUTH0_VERSION='2.7';</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/fa-local.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Global Page Loader (Logo + Ring Spinner) -->
     <div id="appPageLoader" class="app-page-loader" aria-live="polite" aria-busy="true">
         <div class="apl-full">
             <div class="apl-logo-wrap">
                 <img src="logo.png" alt="WaterWall" class="apl-logo" draggable="false" />
             </div>
             <div class="apl-spinner" aria-hidden="true"></div>
-            <h2 class="apl-title">WaterWall</h2>
-            <p class="apl-sub" id="aplHint">Loading games & features...</p>
-            <div class="apl-warning" style="display:none;">Connection seems slow... still preparing assets.</div>
         </div>
     </div>
+
     <div class="app-container">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo-container">
@@ -83,387 +40,279 @@
                     </div>
                     <span class="logo-text">WaterWall</span>
                 </div>
-                <!-- Profile dropdown container inserted near header for layering -->
                 <div id="profileDropdown" class="profile-dropdown" aria-hidden="true">
                     <ul>
-                        <li><button type="button" id="openProfileSettingsBtn"><i class="fas fa-id-card"></i><span>Profile Settings</span></button></li>
+                        <li><button type="button" id="openProfileSettingsBtn"><i class="fas fa-id-card"></i><span>Profile</span></button></li>
+                        <li><button type="button" id="openSettingsBtn"><i class="fas fa-sliders-h"></i><span>Settings</span></button></li>
                         <li><button type="button" id="logoutFromDropdownBtn" class="danger"><i class="fas fa-sign-out-alt"></i><span>Log out</span></button></li>
                     </ul>
                 </div>
             </div>
-            
             <nav class="sidebar-nav">
                 <ul class="nav-list">
                     <li class="nav-item active" data-page="home">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-home"></i>
-                            <span>Home</span>
-                        </a>
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-home"></i><span>Home</span></a>
                     </li>
                     <li class="nav-item" data-page="favorites">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-heart"></i>
-                            <span>Favorites</span>
-                        </a>
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-heart"></i><span>Favorites</span></a>
                     </li>
                     <li class="nav-item" data-page="friends">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon fas fa-user-friends"></i>
-                            <span>Friends</span>
-                        </a>
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span></a>
                     </li>
                 </ul>
-                
                 <ul class="nav-list nav-bottom">
                     <div class="nav-actions">
-                        <li class="nav-item nav-account" id="accountNavItem">
-                            <a href="#" class="nav-link account-link" style="justify-content:flex-start;">
-                                <i class="nav-icon fas fa-user-circle"></i>
-                                <span id="accountLabel">Sign in / Sign up</span>
-                            </a>
-                        </li>
                         <li class="nav-item nav-settings" data-page="settings">
-                            <a href="#" class="nav-link" style="justify-content:flex-end;">
-                                <i class="nav-icon fas fa-cog"></i>
-                            </a>
+                            <a href="#" class="nav-link" aria-label="Settings"><i class="nav-icon fas fa-gear"></i></a>
+                        </li>
+                        <li class="nav-item nav-account" id="accountNavItem">
+                            <a href="#" class="nav-link account-link"><span class="nav-avatar" id="accountAvatar"></span><span id="accountLabel">Sign in / Sign up</span></a>
+                            <div id="accountDropdown" class="account-dropdown" aria-hidden="true">
+                                <ul>
+                                    <li><button type="button" id="accountProfileBtn"><i class="fas fa-id-card"></i><span>Profile</span></button></li>
+                                    <li><button type="button" id="accountLogoutBtn" class="danger"><i class="fas fa-sign-out-alt"></i><span>Log out</span></button></li>
+                                </ul>
+                            </div>
                         </li>
                     </div>
                 </ul>
             </nav>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
-            <!-- Top Header -->
             <header class="top-header">
                 <div class="header-content">
                     <div class="header-stats">
-                        <div class="stat-item">
-                            <i class="stat-icon fas fa-gamepad"></i>
-                            <span><span data-stat="games">0</span> Games</span>
-                        </div>
-                        <div class="stat-item">
-                            <i class="stat-icon fas fa-folder"></i>
-                            <span><span data-stat="categories">0</span> Categories</span>
-                        </div>
-                        <div class="stat-item">
-                            <i class="stat-icon fas fa-users"></i>
-                            <span>1000+ Players</span>
-                        </div>
+                        <div class="stat-item"><i class="stat-icon fas fa-gamepad"></i><span><span data-stat="games">0</span> Games</span></div>
+                        <div class="stat-item"><i class="stat-icon fas fa-folder"></i><span><span data-stat="categories">0</span> Categories</span></div>
                     </div>
-                    
                     <div class="header-actions">
-                        <!-- WaterWall Online Services Status -->
                         <div class="header-status">
                             <div class="status-indicator">
                                 <div class="status-dot" id="statusDot"></div>
                                 <span class="status-text" id="statusText">Checking...</span>
                             </div>
                         </div>
-                        
                         <div class="search-container">
                             <input type="text" id="searchInput" placeholder="Search games...">
-                            <button class="search-btn">
-                                <i class="fas fa-search"></i>
-                            </button>
+                            <button class="search-btn"><i class="fas fa-search"></i></button>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <!-- Content Area -->
             <canvas id="particleBackground" class="particle-bg-canvas" aria-hidden="true"></canvas>
             <div class="content-area">
-                <!-- Home Page -->
-                <div id="homePage" class="page active">
-                    <section id="favoriteGamesSection" class="games-section" style="display:none;">
+                <section id="homePage" class="page active">
+                    <div class="games-section">
                         <div class="section-header">
-                            <h2 id="favoritesTitle" class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Your Favorites</h2>
+                            <h2 class="section-title">Featured</h2>
                         </div>
-                        <div class="games-grid" id="favoriteGamesGrid"></div>
-                    </section>
-                    <section class="games-section">
-                        <div class="section-header">
-                            <h2 id="allGamesTitle" class="section-title">All Games</h2>
-                            <div id="categoryTabs" class="category-tabs"></div>
-                        </div>
+                        <div id="homeBanner" class="home-banner-slot"></div>
+                        <div id="categoryTabs" class="category-tabs"></div>
                         <div class="games-grid" id="allGames"></div>
-                    </section>
-                </div>
-                <!-- Friends Page (dynamic content injected by app.js) -->
-                <div id="friendsPage" class="page" style="display:none;">
-                    <section class="games-section">
+                    </div>
+                </section>
+
+                <section id="favoritesPage" class="page" style="display:none;">
+                    <div class="games-section">
                         <div class="section-header">
-                            <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
+                            <h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Favorites</h2>
                         </div>
-                        <div id="friendsAuthNotice" class="empty-state" style="display:block;">
-                            <h3>Sign in required</h3>
-                            <p>You must sign in to view and manage friends.</p>
+                        <div class="notice-box" id="favoritesLoginBox" style="display:none;">
+                            <div class="empty-state" id="favoritesLoginNotice">
+                                <div class="empty-state-icon"><i class="fas fa-lock"></i></div>
+                                <h3>Sign in to see favorites</h3>
+                                <p>Create an account to save and access your favorite games.</p>
+                                <button type="button" class="update-check-btn" id="favoritesLoginBtn">Sign In</button>
+                            </div>
+                        </div>
+                        <p class="muted-hint" id="favoritesAuthHint" style="display:none;">Sign in to save and view your favorite games.</p>
+                        <div class="games-grid" id="favoritesGrid"></div>
+                        <p class="muted-hint" id="favoritesEmpty" style="display:none;">Add games to favorites to see them here.</p>
+                    </div>
+                </section>
+
+                <section id="friendsPage" class="page" style="display:none;">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
+                        <div class="friends-tab-nav" id="friendsTabNav" style="display:none;">
+                            <button class="friends-tab cat-tab active" data-tab="overview">Overview</button>
+                            <button class="friends-tab cat-tab" data-tab="manage">Manage</button>
+                            <button class="friends-tab cat-tab" data-tab="add">Add Friend</button>
+                        </div>
+                    </div>
+                    <div class="notice-box" id="friendsAuthNoticeBox" style="display:block;">
+                        <div id="friendsAuthNotice" class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-user-lock"></i></div>
+                            <h3>Sign in to manage friends</h3>
+                            <p>Log in to add, accept, and manage your friends list.</p>
                             <button id="friendsLoginBtn" class="update-check-btn">Sign In</button>
                         </div>
-                        <div id="friendsUnavailableNotice" class="empty-state" style="display:none;">
-                            <h3>Friends system is currently unavailable</h3>
-                            <p>It will be back within 24 hours. Please try again later.</p>
-                            <div class="empty-state-icon">
-                                <i class="fas fa-users" style="color: var(--text-muted);"></i>
-                            </div>
-                        </div>
-                        <div id="friendsContent" style="display:none;">
-                            <!-- Friends Tab Navigation -->
-                            <div class="friends-tab-nav">
-                                <button class="friends-tab active" data-tab="overview">Overview</button>
-                                <button class="friends-tab" data-tab="friends">Friends</button>
-                                <button class="friends-tab" data-tab="requests">Requests</button>
-                                <button class="friends-tab" data-tab="add">Add Friends</button>
-                            </div>
-                            
-                            <!-- Overview Tab -->
-                            <div id="friendsTabOverview" class="friends-tab-content active">
+                    </div>
+                    <div id="friendsContent" style="display:none;" class="friends-tabs-shell">
+                        <div class="friends-tab-panels">
+                            <div class="friends-tab-panel active" data-panel="overview">
                                 <div class="friends-stats">
-                                    <div class="stat-card">
-                                        <div class="stat-number" id="totalFriendsCount">0</div>
-                                        <div class="stat-label">Total Friends</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-number" id="onlineFriendsCount">0</div>
-                                        <div class="stat-label">Online Now</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-number" id="pendingRequestsCount">0</div>
-                                        <div class="stat-label">Pending Requests</div>
-                                    </div>
+                                    <div class="stat-card"><div class="stat-number" id="friendsCount">0</div><div class="stat-label">Friends</div></div>
+                                    <div class="stat-card"><div class="stat-number" id="pendingCount">0</div><div class="stat-label">Pending</div></div>
                                 </div>
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-circle" style="color: #00d26a;"></i> Friends Online</h3>
-                                    <ul id="presenceList" class="friends-list"></ul>
+                                <ul id="friendsList" class="friends-list"></ul>
+                            </div>
+                            <div class="friends-tab-panel" data-panel="manage">
+                                <div class="manage-header-row">
+                                    <div class="manage-text">
+                                        <h3>Manage connections</h3>
+                                        <p class="muted-hint">Review requests, remove friends, or block users.</p>
+                                    </div>
+                                    <button type="button" class="update-check-btn" id="openAddFriendModalBtn">Add Friend</button>
                                 </div>
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-clock"></i> Recent Activity</h3>
-                                    <div id="recentActivity" class="activity-feed">
-                                        <p class="muted-hint">Recent friend activity will appear here</p>
+                                <div class="friends-columns">
+                                    <div class="friends-panel">
+                                        <h3>Friends</h3>
+                                        <ul id="manageFriendsList" class="friends-list"></ul>
+                                    </div>
+                                    <div class="friends-panel">
+                                        <h3>Requests</h3>
+                                        <ul id="manageIncomingList" class="friends-list"></ul>
+                                        <h4 style="margin-top:12px;">Outgoing</h4>
+                                        <ul id="manageOutgoingList" class="friends-list"></ul>
+                                    </div>
+                                    <div class="friends-panel">
+                                        <h3>Blocked</h3>
+                                        <ul id="blockedList" class="friends-list"></ul>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- Friends List Tab -->
-                            <div id="friendsTabFriends" class="friends-tab-content">
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-users"></i> Your Friends</h3>
-                                    <ul id="friendsList" class="friends-list"></ul>
-                                </div>
-                            </div>
-                            
-                            <!-- Requests Tab -->
-                            <div id="friendsTabRequests" class="friends-tab-content">
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-inbox"></i> Incoming Requests</h3>
-                                    <ul id="incomingList" class="friends-list"></ul>
-                                </div>
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-paper-plane"></i> Sent Requests</h3>
-                                    <ul id="outgoingList" class="friends-list"></ul>
-                                </div>
-                            </div>
-                            
-                            <!-- Add Friends Tab -->
-                            <div id="friendsTabAdd" class="friends-tab-content">
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-user-plus"></i> Add New Friend</h3>
-                                    <form id="addFriendForm" class="add-friend-form">
-                                        <div class="form-group">
-                                            <label for="addFriendUsername">Username:</label>
-                                            <input type="text" id="addFriendUsername" placeholder="Enter username" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <button type="submit" class="primary">
-                                                <i class="fas fa-user-plus"></i>
-                                                Send Friend Request
-                                            </button>
-                                        </div>
-                                        <div id="addFriendFeedback" class="form-feedback"></div>
-                                    </form>
-                                </div>
-                                <div class="friends-panel">
-                                    <h3><i class="fas fa-info-circle"></i> Tips</h3>
-                                    <ul class="tips-list">
-                                        <li>Usernames are case-sensitive</li>
-                                        <li>You can see when friends are online and what games they're playing</li>
-                                        <li>Friend requests expire after 30 days if not accepted</li>
-                                    </ul>
+                            <div class="friends-tab-panel" data-panel="add">
+                                <div class="friends-add-panel">
+                                    <p>Open the add friend popup to send a request without leaving this page.</p>
+                                    <button type="button" class="update-check-btn" id="openAddFriendModalBtnInline">Open Add Friend</button>
                                 </div>
                             </div>
                         </div>
-                        <!-- Removed legacy duplicate friends columns (duplicate IDs) -->
-                        </div>
-                    </section>
-                </div>
-                <!-- Profile Settings Page -->
-                <div id="profileSettingsPage" class="page" style="display:none;">
-                    <div class="profile-settings-wrapper">
-                        <div class="profile-card">
-                            <h2>Your Profile</h2>
-                            <div class="profile-row">
-                                <label class="avatar-uploader" id="avatarUploader" for="avatarInput">
-                                    <input type="file" id="avatarInput" accept="image/*" />
-                                    <img id="avatarPreview" alt="Avatar" style="display:none;" />
-                                    <span id="avatarPlaceholder" style="font-size:12px; color:#7d8590; text-align:center; padding:6px;">Click to upload<br>PNG/JPG/WebP</span>
-                                </label>
-                                <form class="profile-form" id="profileForm" autocomplete="off">
-                                    <label>Username
-                                        <input type="text" id="profileUsername" minlength="3" maxlength="24" placeholder="Choose a username" />
-                                    </label>
-                                    <label>Accent Color
-                                        <input type="color" id="profileColor" value="#58a6ff" />
-                                    </label>
-                                    <div class="profile-actions">
-                                        <button type="button" id="profileCancelBtn" class="secondary">Cancel</button>
-                                        <button type="submit" id="profileSaveBtn" class="primary">Save Changes</button>
-                                        <div class="save-indicator" id="profileSaveIndicator" style="display:none;"></div>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
                     </div>
-                </div>
-                <!-- Inline auth status elements (minimal) -->
-                <div style="display:none;" aria-hidden="true">
-                    <div id="authLoading">Loading authentication...</div>
-                    <div id="authLoggedOut" style="display:none;">
-                        <button type="button" id="loginBtn" aria-label="Sign in" hidden></button>
-                    </div>
-                    <div id="authLoggedIn" style="display:none;">
-                        <img id="userPicture" alt="User picture" hidden />
-                        <span id="userName" hidden>User</span>
-                        <span id="userEmail" hidden></span>
-                        <pre id="idTokenPreview" hidden></pre>
-                        <button type="button" id="logoutBtn" hidden>Logout</button>
-                    </div>
-                </div>
+                </section>
 
-                <!-- Game Page -->
-                <div id="gamePage" class="page">
+                <section id="settingsPage" class="page" style="display:none;">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-sliders-h"></i> Settings</h2>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="settings-card">
+                            <h3>Theme</h3>
+                            <label>Accent Color<input type="color" id="settingAccent" value="#58a6ff"></label>
+                        </div>
+                        <div class="settings-card">
+                            <h3>Proxy</h3>
+                            <label class="switch-row">Default Proxy<input type="checkbox" id="settingProxyDefault"></label>
+                        </div>
+                        <div class="settings-card">
+                            <h3>Particles</h3>
+                            <label class="switch-row">Enable<input type="checkbox" id="settingParticles"></label>
+                            <label>Count<input type="number" id="settingParticleCount" min="0" max="300"></label>
+                            <label>Speed<input type="number" id="settingParticleSpeed" min="0" max="3" step="0.1"></label>
+                        </div>
+                        <div class="settings-card">
+                            <h3>Cursor</h3>
+                            <label class="switch-row">Enable<input type="checkbox" id="settingCursor"></label>
+                            <label>Size<input type="number" id="settingCursorSize" min="4" max="32"></label>
+                            <label>Color<input type="color" id="settingCursorColor" value="#ffffff"></label>
+                        </div>
+                    </div>
+                    <div class="settings-actions">
+                        <button class="update-check-btn" id="settingsSaveBtn">Save Settings</button>
+                        <div id="settingsFeedback" class="form-feedback"></div>
+                    </div>
+                </section>
+
+                <section id="profilePage" class="page" style="display:none;">
+                    <div class="profile-card">
+                        <h2>Your Profile</h2>
+                        <div class="profile-row">
+                            <label class="avatar-uploader" for="avatarInput">
+                                <input type="file" id="avatarInput" accept="image/*" />
+                                <img id="avatarPreview" alt="Avatar" style="display:none;" />
+                                <span id="avatarPlaceholder" class="muted-hint">Click to upload</span>
+                            </label>
+                            <form id="profileForm" class="profile-form" autocomplete="off">
+                                <label>Username<input type="text" id="profileUsername" minlength="3" maxlength="24" required></label>
+                                <label>Accent Color<input type="color" id="profileColor" value="#58a6ff"></label>
+                                <div class="profile-actions">
+                                    <button type="submit" class="update-check-btn">Save Profile</button>
+                                    <div class="save-indicator" id="profileSaveIndicator" style="display:none;"></div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="gamePage" class="page" style="display:none;">
                     <div class="game-page-container">
                         <div class="game-main-area">
-                            <!-- Game Frame Container (height calculated to leave room for controls) -->
                             <div class="game-frame-wrapper">
                                 <iframe id="gameFrame" src="" title="Game"></iframe>
-                                <!-- Loading Overlay -->
                                 <div id="gameLoadingOverlay" aria-live="polite" style="display:none;">
                                     <div class="loading-inner">
                                         <div class="loading-bar"><div class="loading-bar-fill"></div></div>
                                         <div class="loading-status" id="loadingStatusText">Loading game...</div>
                                         <div class="loading-hint" id="loadingHintText">Preparing resources</div>
-                                        <button class="loading-proxy-btn" id="loadingProxyToggle" style="display:none;">Disable Proxy & Retry</button>
+                                        <button class="loading-proxy-btn" id="loadingProxyToggle">Toggle Proxy</button>
                                     </div>
                                 </div>
                             </div>
-                            <!-- Game Info Bar -->
                             <div class="game-info-bottom">
                                 <div class="game-info-left">
                                     <h1 id="gameTitle">Game Title</h1>
                                     <span id="gameCategory">Category</span>
                                 </div>
                                 <div class="game-info-right">
+                                    <div class="game-friend-avatars" id="gameFriendAvatars"></div>
                                     <div class="proxy-toggle-container" aria-label="Proxy toggle">
-                                        <div class="proxy-toggle-visual off" id="proxyToggleGame" data-proxy-toggle="game" role="button" aria-pressed="false" aria-label="Proxy disabled" title="Proxy Disabled">
+                                        <div class="proxy-toggle-visual off" id="proxyToggleGame" role="button" aria-pressed="false" title="Proxy Disabled">
                                             <i class="fas fa-cloud cloud-icon"></i>
-                                            <span class="status-badge">
-                                                <i class="fas fa-check check-icon"></i>
-                                                <i class="fas fa-times times-icon"></i>
-                                            </span>
+                                            <span class="status-badge"><i class="fas fa-check check-icon"></i><i class="fas fa-times times-icon"></i></span>
                                         </div>
                                     </div>
-                                    <button class="icon-btn fav-btn" data-action="favorite" title="Add to Favorites" aria-label="Add to favorites" aria-pressed="false">
-                                        <i class="fas fa-heart"></i>
-                                    </button>
-                                    <button class="icon-btn" data-action="fullscreen" title="Fullscreen">
-                                        <i class="fas fa-expand"></i>
-                                    </button>
+                                    <button class="icon-btn fav-btn" id="gameFavBtn" aria-pressed="false"><i class="fas fa-heart"></i></button>
+                                    <button class="icon-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
                                 </div>
                             </div>
-                            <!-- Game Description (scrolls separately) -->
                             <div class="game-description">
                                 <h3>About this game</h3>
-                                <p id="gameDescription">Game description will appear here...</p>
+                                <p id="gameDescription">Select a game to view details.</p>
                             </div>
                         </div>
-                        
-                        <!-- Game Sidebar with Suggestions -->
-                        <div class="game-sidebar">
-                            <div class="ad-column" id="adColumn" aria-label="Advertisements"></div>
-                        </div>
                     </div>
-                </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <!-- Offline Overlays -->
-    <div id="offlineOverlays" class="offline-overlays" style="display: none;">
-        <!-- Game Embed Offline Overlay -->
-        <div id="gameOfflineOverlay" class="game-offline-overlay">
-            <div class="offline-content">
-                <i class="fas fa-wifi-slash"></i>
-                <h3>You are offline</h3>
-                <p>Please check your internet connection to play games.</p>
-            </div>
-        </div>
-        
-        <!-- Main Content Offline Overlay -->
-        <div id="mainOfflineOverlay" class="main-offline-overlay">
-            <div class="offline-content">
-                <i class="fas fa-wifi-slash"></i>
-                <h2>You are offline</h2>
-                <p>Games and content are not available while offline.<br>Please check your internet connection.</p>
-            </div>
-        </div>
-        
-        <!-- Ads Offline Overlay -->
-        <div id="adsOfflineOverlay" class="ads-offline-overlay">
-            <div class="offline-content">
-                <i class="fas fa-wifi-slash"></i>
-                <span>You are offline</span>
-            </div>
-        </div>
+    <div id="offlineOverlays" class="offline-overlays" style="display:none;">
+        <div id="gameOfflineOverlay" class="game-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h3>You are offline</h3><p>Check your connection.</p></div></div>
+        <div id="mainOfflineOverlay" class="main-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h2>You are offline</h2><p>Games and data unavailable while offline.</p></div></div>
     </div>
 
-    <!-- Fullscreen Overlay -->
-    <div id="fullscreenOverlay" class="fullscreen-overlay">
-        <div class="fullscreen-controls">
-            <button class="exit-fullscreen-btn">
+    <div id="authModal" style="display:none;" class="auth-modal-shell">
+        <div class="modal-overlay"></div>
+        <div class="auth-modal">
+            <div class="auth-tabs">
+                <button data-tab="login" class="auth-tab active">Login</button>
+                <button data-tab="register" class="auth-tab">Register</button>
+            </div>
+            <form id="authForm" class="auth-form">
+                <label>Username<input type="text" name="username" required minlength="3" maxlength="24" /></label>
+                <label>Password<input type="password" name="password" required minlength="6" /></label>
+                <button type="submit" class="update-check-btn">Continue</button>
+                <p class="auth-feedback" id="authFeedback"></p>
+            </form>
+            <button class="close-auth" id="closeAuthModal" aria-label="Close">
                 <i class="fas fa-times"></i>
-                Exit Fullscreen
             </button>
         </div>
-        <iframe id="fullscreenFrame" src="" title="Game Fullscreen"></iframe>
     </div>
 
-    <!-- Load local app.js (reliable) - with aggressive cache busting -->
-    <script src="app.js?v=20250906-nocache&t=1"></script>
-    <!-- Update Confirmation Modal -->
-    <div id="updateModal" class="update-modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle" style="display:none;">
-        <div class="update-modal-backdrop"></div>
-        <div class="update-modal-dialog">
-            <div class="update-modal-header">
-                <h3 id="updateModalTitle">Reload Required</h3>
-            </div>
-            <div class="update-modal-body">
-                <p>Updates have been fetched. Reload now to apply the latest assets?</p>
-            </div>
-            <div class="update-modal-actions">
-                <button class="update-btn-secondary" id="updateLaterBtn">Later</button>
-                <button class="update-btn-primary" id="updateReloadBtn">Reload Now</button>
-            </div>
-        </div>
-    </div>
-    <!-- Mobile Unsupported Overlay -->
-    <div id="mobileUnsupported" class="mobile-unsupported" aria-hidden="true" style="display:none;">
-        <div class="mu-content">
-            <h1>Mobile Not Supported</h1>
-            <p>WaterWall is currently available on desktop devices only. Please visit from a larger screen.</p>
-        </div>
-    </div>
-    <!-- Logout Confirm Modal -->
     <div id="logoutConfirmModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
         <div style="background:#161b22; border:1px solid #30363d; padding:20px 24px; border-radius:12px; width:320px; font-family:inherit;">
             <h3 style="margin:0 0 12px; font-size:18px;">Log out?</h3>
@@ -474,5 +323,25 @@
             </div>
         </div>
     </div>
+
+    <div id="addFriendModal" class="auth-modal-shell" style="display:none;">
+        <div class="modal-overlay" id="addFriendModalOverlay"></div>
+        <div class="auth-modal add-friend-modal">
+            <h3 style="margin:0 0 12px;">Add Friend</h3>
+            <form id="addFriendModalForm" class="auth-form">
+                <label>Username<input type="text" id="addFriendModalInput" required minlength="3" maxlength="24" placeholder="Enter username" /></label>
+                <button type="submit" class="update-check-btn">Send Request</button>
+                <p class="form-feedback" id="addFriendModalFeedback"></p>
+            </form>
+            <button class="close-auth" id="closeAddFriendModal" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+        <div id="notificationStack" class="notification-stack" aria-live="polite"></div>
+    <div id="ww-toast" style="display:none;"></div>
+
+    <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

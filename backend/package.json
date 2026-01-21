@@ -29,6 +29,7 @@
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
+    "js-yaml": "^4.1.0",
     "morgan": "^1.10.0"
   },
   "devDependencies": {

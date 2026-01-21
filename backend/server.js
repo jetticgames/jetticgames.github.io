@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const morgan = require('morgan');
+const yaml = require('js-yaml');
 
 const APP_VERSION = '3.0.0';
 const PORT = process.env.PORT || 3000;
@@ -18,8 +19,10 @@ const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const COOKIE_NAME = 'ww_session';
+const ONLINE_WINDOW_MS = 10 * 60 * 1000; // users must ping within last 10 minutes to count as online
 
 const app = express();
 
@@ -74,6 +77,53 @@ async function loadConfig() {
     });
 }
 
+async function loadBannerConfig() {
+    try {
+        const raw = await fs.readFile(BANNER_FILE, 'utf8');
+        const data = yaml.load(raw);
+        if (!data || data.enabled === false) return null;
+        const button = data.button || {};
+        return {
+            id: String(data.id || 'default'),
+            message: data.message || '',
+            description: data.description || '',
+            background: data.background || '#11161f',
+            textColor: data.textColor || '#e5e7eb',
+            dismissible: data.dismissible !== false,
+            dismissCooldownHours: Number.isFinite(data.dismissCooldownHours) ? data.dismissCooldownHours : 24,
+            button: {
+                enabled: button.enabled !== false && !!button.url,
+                label: button.label || 'Learn more',
+                url: button.url || '',
+                background: button.background || '#1f6feb',
+                textColor: button.textColor || '#ffffff'
+            }
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+function defaultSettingsFromConfig(config) {
+    const d = config.defaults || {};
+    const particles = d.particles || {};
+    const cursor = d.cursor || {};
+    return {
+        proxyDefault: !!d.proxyDefault,
+        accentColor: d.accentColor || '#58a6ff',
+        particlesEnabled: particles.enabled !== false,
+        particleCount: Number.isFinite(particles.count) ? particles.count : 50,
+        particleSpeed: Number.isFinite(particles.speed) ? particles.speed : 0.5,
+        particleColor: particles.color || '#58a6ff',
+        particleLineDistance: Number.isFinite(particles.lineDistance) ? particles.lineDistance : 150,
+        particleMouseInteraction: particles.mouse !== false,
+        cursorEnabled: cursor.enabled !== false,
+        cursorSize: Number.isFinite(cursor.size) ? cursor.size : 8,
+        cursorColor: cursor.color || '#ffffff',
+        cursorType: ['circle', 'dot', 'none', 'custom'].includes(cursor.type) ? cursor.type : 'circle'
+    };
+}
+
 async function loadGames() {
     const data = await readJson(GAMES_FILE, []);
     return Array.isArray(data) ? data : data.games || [];
@@ -95,7 +145,9 @@ function sanitizeUser(user) {
         username: user.username,
         profile: user.profile || {},
         favorites: user.favorites || [],
-        friends: user.friends || { accepted: [], incoming: [], outgoing: [] },
+        friends: user.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] },
+        settings: user.settings || {},
+        presence: user.presence || { online: false, gameId: null, lastSeen: null },
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
     };
@@ -138,28 +190,71 @@ function colorIsValid(hex) {
     return /^#([0-9a-fA-F]{6})$/.test(hex);
 }
 
+function ensurePresence(user) {
+    if (!user.presence) {
+        user.presence = { online: false, gameId: null, lastSeen: new Date().toISOString() };
+    }
+    if (!user.presence.lastSeen) user.presence.lastSeen = new Date().toISOString();
+    if (user.presence.online === undefined) user.presence.online = false;
+    if (user.presence.gameId === undefined) user.presence.gameId = null;
+}
+
+function isUserOnline(user, now = Date.now()) {
+    ensurePresence(user);
+    const last = Date.parse(user.presence.lastSeen || '');
+    const fresh = Number.isFinite(last) ? (now - last) <= ONLINE_WINDOW_MS : false;
+    return !!user.presence.online && fresh;
+}
+
+function setPresence(user, { online, gameId }) {
+    ensurePresence(user);
+    if (online !== undefined) user.presence.online = !!online;
+    if (gameId !== undefined) user.presence.gameId = gameId === null ? null : String(gameId);
+    user.presence.lastSeen = new Date().toISOString();
+}
+
 // --- Ensure data files exist on startup
 (async () => {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await ensureFile(USERS_FILE, { users: [] });
     await ensureFile(GAMES_FILE, []);
     await ensureFile(CONFIG_FILE, {});
+        await ensureFile(BANNER_FILE, `enabled: true
+id: default
+message: "Welcome to WaterWall!"
+description: "Play and save your favorites."
+background: "#11161f"
+textColor: "#e5e7eb"
+dismissible: true
+dismissCooldownHours: 24
+button:
+    enabled: true
+    label: "Visit Store"
+    url: "https://example.com"
+    background: "#1f6feb"
+    textColor: "#ffffff"
+`);
 })();
 
 // --- Core endpoints
 app.get('/health', async (req, res) => {
     const games = await loadGames();
+    const users = await loadUsers();
+    const now = Date.now();
+    const onlineUsers = users.filter(u => isUserOnline(u, now)).length;
     res.json({
         status: 'ok',
         version: APP_VERSION,
         time: new Date().toISOString(),
-        games: games.length
+        games: games.length,
+        players: onlineUsers,
+        totalUsers: users.length
     });
 });
 
 app.get('/api/config', async (req, res) => {
-    const config = await loadConfig();
-    res.json(config);
+    const [config, banner] = await Promise.all([loadConfig(), loadBannerConfig()]);
+    res.json({ ...config, banner });
 });
 
 app.get('/api/games', async (req, res) => {
@@ -210,6 +305,8 @@ app.post('/api/auth/register', async (req, res) => {
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
     const users = await loadUsers();
+    const config = await loadConfig();
+    const defaultSettings = defaultSettingsFromConfig(config);
     const existing = await getUserByUsername(users, username);
     if (existing) return res.status(409).json({ error: 'Username already exists' });
 
@@ -225,7 +322,9 @@ app.post('/api/auth/register', async (req, res) => {
             accentColor: (await loadConfig()).defaults?.accentColor || '#58a6ff',
             avatar: null
         },
-        friends: { accepted: [], incoming: [], outgoing: [] },
+        settings: defaultSettings,
+        friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+        presence: { online: true, gameId: null, lastSeen: now },
         createdAt: now,
         updatedAt: now
     };
@@ -248,6 +347,10 @@ app.post('/api/auth/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.passwordHash || '');
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
+    setPresence(user, { online: true });
+    user.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+
     const token = signToken(user);
     setSessionCookie(res, token);
     res.json({ user: sanitizeUser(user) });
@@ -255,6 +358,21 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/logout', (req, res) => {
     res.clearCookie(COOKIE_NAME);
+    (async () => {
+        const users = await loadUsers();
+        const token = req.cookies[COOKIE_NAME];
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                const me = await getUserById(users, decoded.id);
+                if (me) {
+                    setPresence(me, { online: false, gameId: null });
+                    me.updatedAt = new Date().toISOString();
+                    await saveUsers(users);
+                }
+            } catch (_) {}
+        }
+    })();
     res.json({ success: true });
 });
 
@@ -262,6 +380,9 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     const users = await loadUsers();
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
+    setPresence(me, { online: true });
+    me.updatedAt = new Date().toISOString();
+    await saveUsers(users);
     res.json({ user: sanitizeUser(me) });
 });
 
@@ -294,6 +415,75 @@ app.put('/api/profile', requireAuth, async (req, res) => {
     res.json({ user: sanitizeUser(me) });
 });
 
+// --- Settings
+function validateSettings(input) {
+    const out = {};
+    if (input.proxyDefault !== undefined) out.proxyDefault = !!input.proxyDefault;
+    if (input.accentColor !== undefined) {
+        if (!colorIsValid(input.accentColor)) throw new Error('Invalid accent color');
+        out.accentColor = input.accentColor;
+    }
+    if (input.particlesEnabled !== undefined) out.particlesEnabled = !!input.particlesEnabled;
+    if (input.particleCount !== undefined) {
+        const n = Number(input.particleCount);
+        if (!Number.isFinite(n) || n < 0 || n > 500) throw new Error('Invalid particle count');
+        out.particleCount = Math.round(n);
+    }
+    if (input.particleSpeed !== undefined) {
+        const n = Number(input.particleSpeed);
+        if (!Number.isFinite(n) || n < 0 || n > 3) throw new Error('Invalid particle speed');
+        out.particleSpeed = n;
+    }
+    if (input.particleColor !== undefined) {
+        if (!colorIsValid(input.particleColor)) throw new Error('Invalid particle color');
+        out.particleColor = input.particleColor;
+    }
+    if (input.particleLineDistance !== undefined) {
+        const n = Number(input.particleLineDistance);
+        if (!Number.isFinite(n) || n < 10 || n > 600) throw new Error('Invalid line distance');
+        out.particleLineDistance = Math.round(n);
+    }
+    if (input.particleMouseInteraction !== undefined) out.particleMouseInteraction = !!input.particleMouseInteraction;
+    if (input.cursorEnabled !== undefined) out.cursorEnabled = !!input.cursorEnabled;
+    if (input.cursorSize !== undefined) {
+        const n = Number(input.cursorSize);
+        if (!Number.isFinite(n) || n < 4 || n > 48) throw new Error('Invalid cursor size');
+        out.cursorSize = Math.round(n);
+    }
+    if (input.cursorColor !== undefined) {
+        if (!colorIsValid(input.cursorColor)) throw new Error('Invalid cursor color');
+        out.cursorColor = input.cursorColor;
+    }
+    if (input.cursorType !== undefined) {
+        const allowed = ['circle', 'dot', 'none', 'custom'];
+        if (!allowed.includes(input.cursorType)) throw new Error('Invalid cursor type');
+        out.cursorType = input.cursorType;
+    }
+    return out;
+}
+
+app.get('/api/settings', requireAuth, async (req, res) => {
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    res.json({ settings: me.settings || defaultSettingsFromConfig(await loadConfig()) });
+});
+
+app.put('/api/settings', requireAuth, async (req, res) => {
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    try {
+        const update = validateSettings(req.body || {});
+        me.settings = { ...(me.settings || defaultSettingsFromConfig(await loadConfig())), ...update };
+        me.updatedAt = new Date().toISOString();
+        await saveUsers(users);
+        res.json({ settings: me.settings });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Invalid settings' });
+    }
+});
+
 // --- Favorites
 app.get('/api/favorites', requireAuth, async (req, res) => {
     const users = await loadUsers();
@@ -321,17 +511,38 @@ function resolveFriendList(users, ids = []) {
     return ids
         .map(id => users.find(u => u.id === id))
         .filter(Boolean)
-        .map(u => ({ id: u.id, username: u.username, avatar: u.profile?.avatar, accentColor: u.profile?.accentColor }));
+        .map(u => ({
+            id: u.id,
+            username: u.username,
+            avatar: u.profile?.avatar,
+            accentColor: u.profile?.accentColor,
+            presence: {
+                online: !!u.presence?.online,
+                gameId: u.presence?.gameId || null,
+                lastSeen: u.presence?.lastSeen || null
+            }
+        }));
+}
+
+function ensureFriendStruct(user) {
+    user.friends = user.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] };
+    user.friends.accepted = user.friends.accepted || [];
+    user.friends.incoming = user.friends.incoming || [];
+    user.friends.outgoing = user.friends.outgoing || [];
+    user.friends.blocked = user.friends.blocked || [];
 }
 
 app.get('/api/friends', requireAuth, async (req, res) => {
     const users = await loadUsers();
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
+    ensureFriendStruct(me);
+    ensurePresence(me);
     const friends = resolveFriendList(users, me.friends?.accepted || []);
     const incoming = resolveFriendList(users, me.friends?.incoming || []);
     const outgoing = resolveFriendList(users, me.friends?.outgoing || []);
-    res.json({ friends, incomingRequests: incoming, outgoingRequests: outgoing });
+    const blocked = resolveFriendList(users, me.friends?.blocked || []);
+    res.json({ friends, incomingRequests: incoming, outgoingRequests: outgoing, blocked });
 });
 
 app.post('/api/friends/request', requireAuth, async (req, res) => {
@@ -344,8 +555,12 @@ app.post('/api/friends/request', requireAuth, async (req, res) => {
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.id === me.id) return res.status(400).json({ error: 'Cannot add yourself' });
 
-    me.friends = me.friends || { accepted: [], incoming: [], outgoing: [] };
-    target.friends = target.friends || { accepted: [], incoming: [], outgoing: [] };
+    ensureFriendStruct(me);
+    ensureFriendStruct(target);
+
+    if (me.friends.blocked.includes(target.id) || target.friends.blocked.includes(me.id)) {
+        return res.status(403).json({ error: 'User is blocked' });
+    }
 
     if (me.friends.accepted.includes(target.id)) return res.status(409).json({ error: 'Already friends' });
     if (me.friends.outgoing.includes(target.id)) return res.status(409).json({ error: 'Request already sent' });
@@ -367,8 +582,8 @@ app.post('/api/friends/respond', requireAuth, async (req, res) => {
     const other = await getUserByUsername(users, username);
     if (!other) return res.status(404).json({ error: 'User not found' });
 
-    me.friends = me.friends || { accepted: [], incoming: [], outgoing: [] };
-    other.friends = other.friends || { accepted: [], incoming: [], outgoing: [] };
+    ensureFriendStruct(me);
+    ensureFriendStruct(other);
 
     me.friends.incoming = me.friends.incoming.filter(id => id !== other.id);
     other.friends.outgoing = other.friends.outgoing.filter(id => id !== me.id);
@@ -383,6 +598,25 @@ app.post('/api/friends/respond', requireAuth, async (req, res) => {
     res.json({ success: true });
 });
 
+app.post('/api/friends/cancel', requireAuth, async (req, res) => {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const other = await getUserByUsername(users, username);
+    if (!other) return res.status(404).json({ error: 'User not found' });
+
+    ensureFriendStruct(me);
+    ensureFriendStruct(other);
+
+    me.friends.outgoing = me.friends.outgoing.filter(id => id !== other.id);
+    other.friends.incoming = other.friends.incoming.filter(id => id !== me.id);
+    me.updatedAt = other.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    res.json({ success: true });
+});
+
 app.post('/api/friends/remove', requireAuth, async (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'Username is required' });
@@ -392,14 +626,88 @@ app.post('/api/friends/remove', requireAuth, async (req, res) => {
     const other = await getUserByUsername(users, username);
     if (!other) return res.status(404).json({ error: 'User not found' });
 
-    me.friends = me.friends || { accepted: [], incoming: [], outgoing: [] };
-    other.friends = other.friends || { accepted: [], incoming: [], outgoing: [] };
+    ensureFriendStruct(me);
+    ensureFriendStruct(other);
 
     me.friends.accepted = me.friends.accepted.filter(id => id !== other.id);
     other.friends.accepted = other.friends.accepted.filter(id => id !== me.id);
     me.updatedAt = other.updatedAt = new Date().toISOString();
     await saveUsers(users);
     res.json({ success: true });
+});
+
+// Block / Unblock
+app.post('/api/friends/block', requireAuth, async (req, res) => {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const other = await getUserByUsername(users, username);
+    if (!other) return res.status(404).json({ error: 'User not found' });
+
+    ensureFriendStruct(me);
+    ensureFriendStruct(other);
+
+    if (!me.friends.blocked.includes(other.id)) me.friends.blocked.push(other.id);
+    me.friends.accepted = me.friends.accepted.filter(id => id !== other.id);
+    me.friends.incoming = me.friends.incoming.filter(id => id !== other.id);
+    me.friends.outgoing = me.friends.outgoing.filter(id => id !== other.id);
+
+    other.friends.accepted = other.friends.accepted.filter(id => id !== me.id);
+    other.friends.incoming = other.friends.incoming.filter(id => id !== me.id);
+    other.friends.outgoing = other.friends.outgoing.filter(id => id !== me.id);
+
+    me.updatedAt = other.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    res.json({ success: true });
+});
+
+app.post('/api/friends/unblock', requireAuth, async (req, res) => {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const other = await getUserByUsername(users, username);
+    if (!other) return res.status(404).json({ error: 'User not found' });
+    ensureFriendStruct(me);
+    me.friends.blocked = me.friends.blocked.filter(id => id !== other.id);
+    me.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    res.json({ success: true });
+});
+
+// --- Presence
+app.get('/api/presence', requireAuth, async (req, res) => {
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    ensurePresence(me);
+    res.json({ presence: me.presence });
+});
+
+app.put('/api/presence', requireAuth, async (req, res) => {
+    const { online, gameId } = req.body || {};
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    if (gameId !== undefined && gameId !== null && String(gameId).length > 128) {
+        return res.status(400).json({ error: 'Invalid gameId' });
+    }
+    setPresence(me, { online, gameId: gameId === undefined ? me.presence?.gameId || null : gameId });
+    me.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    res.json({ presence: me.presence });
+});
+
+app.get('/api/presence/friends', requireAuth, async (req, res) => {
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    ensureFriendStruct(me);
+    const friends = resolveFriendList(users, me.friends?.accepted || []);
+    res.json({ friends });
 });
 
 // --- Proxy

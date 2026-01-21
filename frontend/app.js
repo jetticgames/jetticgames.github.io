@@ -1,23 +1,32 @@
-// WaterWall frontend (rebuilt) - v3.0.0
+// WaterWall frontend v3 - rebuilt
 (() => {
     'use strict';
 
-    const backendUrl = (typeof window !== 'undefined' && window.WATERWALL_BACKEND_URL) || window.location.origin;
+    const backendUrl = window.WATERWALL_BACKEND_URL || window.location.origin;
 
     const state = {
-        config: null,
         games: [],
-        filteredGames: [],
+        filtered: [],
         categories: [],
         favorites: new Set(),
+        banner: null,
         user: null,
-        friends: { friends: [], incomingRequests: [], outgoingRequests: [] },
+        friends: { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] },
+        settings: null,
         currentGame: null,
-        proxyEnabled: false,
-        showingFavoritesOnly: false
+        proxyEnabled: false
     };
 
-    let els = {};
+    const runtime = {
+        cursorEl: null,
+        cursorHandler: null,
+        particle: { canvas: null, ctx: null, particles: [], anim: null },
+        friendsPoll: null,
+        friendsSnapshot: null,
+        friendsPlayingMap: new Map()
+    };
+
+    const els = {};
 
     const api = {
         async request(path, options = {}) {
@@ -27,24 +36,18 @@
                 ...options
             });
             if (!res.ok) {
-                let message = res.statusText;
-                try {
-                    const body = await res.json();
-                    message = body.error || message;
-                } catch (_) {
-                    // ignore
-                }
-                const err = new Error(message);
+                let msg = res.statusText;
+                try { msg = (await res.json()).error || msg; } catch (_) {}
+                const err = new Error(msg);
                 err.status = res.status;
                 throw err;
             }
-            const contentType = res.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) return res.json();
-            return res.text();
+            const ct = res.headers.get('content-type') || '';
+            return ct.includes('application/json') ? res.json() : res.text();
         },
-        get: (path) => api.request(path),
-        post: (path, body) => api.request(path, { method: 'POST', body: JSON.stringify(body || {}) }),
-        put: (path, body) => api.request(path, { method: 'PUT', body: JSON.stringify(body || {}) })
+        get: (p) => api.request(p),
+        post: (p, b) => api.request(p, { method: 'POST', body: JSON.stringify(b || {}) }),
+        put: (p, b) => api.request(p, { method: 'PUT', body: JSON.stringify(b || {}) })
     };
 
     document.addEventListener('DOMContentLoaded', init);
@@ -52,23 +55,30 @@
     function init() {
         cacheElements();
         bindNavigation();
+        bindAuthModal();
         bindSearch();
         bindProfileForm();
+        bindSettingsForm();
         bindFriendsUI();
+        bindFavoritesUI();
         bindGameControls();
-        bindGlobalEvents();
+        bindLogoutModal();
         registerServiceWorker();
-        loadInitialData();
+        setActiveNav('home');
+        showPage('home');
+        loadInitial();
     }
 
     function cacheElements() {
-        els = {
+        Object.assign(els, {
             loader: document.getElementById('appPageLoader'),
             navItems: Array.from(document.querySelectorAll('.nav-item')),
             pages: {
                 home: document.getElementById('homePage'),
+                favorites: document.getElementById('favoritesPage'),
                 friends: document.getElementById('friendsPage'),
-                profile: document.getElementById('profileSettingsPage'),
+                settings: document.getElementById('settingsPage'),
+                profile: document.getElementById('profilePage'),
                 game: document.getElementById('gamePage')
             },
             statsGames: document.querySelector('[data-stat="games"]'),
@@ -76,107 +86,128 @@
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
             searchInput: document.getElementById('searchInput'),
+            homeBanner: document.getElementById('homeBanner'),
             categoryTabs: document.getElementById('categoryTabs'),
-            allGamesGrid: document.getElementById('allGames'),
-            favoritesSection: document.getElementById('favoriteGamesSection'),
-            favoritesGrid: document.getElementById('favoriteGamesGrid'),
-            favoritesTitle: document.getElementById('favoritesTitle'),
-            accountLabel: document.getElementById('accountLabel'),
+            allGames: document.getElementById('allGames'),
+            favoritesGrid: document.getElementById('favoritesGrid'),
+            favoritesEmpty: document.getElementById('favoritesEmpty'),
+            favoritesLoginBox: document.getElementById('favoritesLoginBox'),
+            favoritesLoginNotice: document.getElementById('favoritesLoginNotice'),
+            favoritesLoginBtn: document.getElementById('favoritesLoginBtn'),
             accountNavItem: document.getElementById('accountNavItem'),
+            accountLabel: document.getElementById('accountLabel'),
+            accountAvatar: document.getElementById('accountAvatar'),
             profileDropdown: document.getElementById('profileDropdown'),
-            profileBtn: document.getElementById('openProfileSettingsBtn'),
-            logoutBtn: document.getElementById('logoutFromDropdownBtn'),
+            openProfileSettingsBtn: document.getElementById('openProfileSettingsBtn'),
+            openSettingsBtn: document.getElementById('openSettingsBtn'),
+            logoutFromDropdownBtn: document.getElementById('logoutFromDropdownBtn'),
             friendsAuthNotice: document.getElementById('friendsAuthNotice'),
-            friendsUnavailableNotice: document.getElementById('friendsUnavailableNotice'),
+            friendsAuthNoticeBox: document.getElementById('friendsAuthNoticeBox'),
             friendsContent: document.getElementById('friendsContent'),
-            friendsTabs: Array.from(document.querySelectorAll('.friends-tab')),
-            friendsTabPanels: {
-                overview: document.getElementById('friendsTabOverview'),
-                friends: document.getElementById('friendsTabFriends'),
-                requests: document.getElementById('friendsTabRequests'),
-                add: document.getElementById('friendsTabAdd')
-            },
-            friendsLists: {
-                presence: document.getElementById('presenceList'),
-                friends: document.getElementById('friendsList'),
-                incoming: document.getElementById('incomingList'),
-                outgoing: document.getElementById('outgoingList')
-            },
-            friendsCounts: {
-                total: document.getElementById('totalFriendsCount'),
-                online: document.getElementById('onlineFriendsCount'),
-                pending: document.getElementById('pendingRequestsCount')
-            },
-            addFriendForm: document.getElementById('addFriendForm'),
-            addFriendInput: document.getElementById('addFriendUsername'),
-            addFriendFeedback: document.getElementById('addFriendFeedback'),
+            friendsTabNav: document.getElementById('friendsTabNav'),
+            friendsTabPanels: Array.from(document.querySelectorAll('.friends-tab-panel')),
+            friendsList: document.getElementById('friendsList'),
+            manageFriendsList: document.getElementById('manageFriendsList'),
+            manageIncomingList: document.getElementById('manageIncomingList'),
+            manageOutgoingList: document.getElementById('manageOutgoingList'),
+            blockedList: document.getElementById('blockedList'),
+            openAddFriendModalBtn: document.getElementById('openAddFriendModalBtn'),
+            openAddFriendModalBtnInline: document.getElementById('openAddFriendModalBtnInline'),
+            addFriendModal: document.getElementById('addFriendModal'),
+            addFriendModalForm: document.getElementById('addFriendModalForm'),
+            addFriendModalInput: document.getElementById('addFriendModalInput'),
+            addFriendModalFeedback: document.getElementById('addFriendModalFeedback'),
+            closeAddFriendModal: document.getElementById('closeAddFriendModal'),
+            addFriendModalOverlay: document.getElementById('addFriendModalOverlay'),
             friendsLoginBtn: document.getElementById('friendsLoginBtn'),
+            friendsCount: document.getElementById('friendsCount'),
+            pendingCount: document.getElementById('pendingCount'),
             profileForm: document.getElementById('profileForm'),
             profileUsername: document.getElementById('profileUsername'),
             profileColor: document.getElementById('profileColor'),
-            profileSaveIndicator: document.getElementById('profileSaveIndicator'),
             avatarInput: document.getElementById('avatarInput'),
             avatarPreview: document.getElementById('avatarPreview'),
             avatarPlaceholder: document.getElementById('avatarPlaceholder'),
+            profileSaveIndicator: document.getElementById('profileSaveIndicator'),
+            settingAccent: document.getElementById('settingAccent'),
+            settingProxyDefault: document.getElementById('settingProxyDefault'),
+            settingParticles: document.getElementById('settingParticles'),
+            settingParticleCount: document.getElementById('settingParticleCount'),
+            settingParticleSpeed: document.getElementById('settingParticleSpeed'),
+            settingCursor: document.getElementById('settingCursor'),
+            settingCursorSize: document.getElementById('settingCursorSize'),
+            settingCursorColor: document.getElementById('settingCursorColor'),
+            settingsSaveBtn: document.getElementById('settingsSaveBtn'),
+            settingsFeedback: document.getElementById('settingsFeedback'),
             gameFrame: document.getElementById('gameFrame'),
             gameTitle: document.getElementById('gameTitle'),
             gameCategory: document.getElementById('gameCategory'),
             gameDescription: document.getElementById('gameDescription'),
+            gameFriendAvatars: document.getElementById('gameFriendAvatars'),
             gameLoadingOverlay: document.getElementById('gameLoadingOverlay'),
             loadingStatusText: document.getElementById('loadingStatusText'),
             loadingHintText: document.getElementById('loadingHintText'),
             loadingProxyToggle: document.getElementById('loadingProxyToggle'),
             proxyToggleGame: document.getElementById('proxyToggleGame'),
-            gameFavBtn: document.querySelector('.game-info-right .fav-btn'),
-            fullscreenBtn: document.querySelector('[data-action="fullscreen"]'),
+            gameFavBtn: document.getElementById('gameFavBtn'),
+            fullscreenBtn: document.getElementById('fullscreenBtn'),
             offlineOverlays: document.getElementById('offlineOverlays'),
+            authModal: document.getElementById('authModal'),
+            authTabs: Array.from(document.querySelectorAll('.auth-tab')),
+            authForm: document.getElementById('authForm'),
+            authFeedback: document.getElementById('authFeedback'),
+            closeAuthModal: document.getElementById('closeAuthModal'),
             logoutConfirmModal: document.getElementById('logoutConfirmModal'),
             logoutConfirmBtn: document.getElementById('logoutConfirmBtn'),
-            logoutCancelBtn: document.getElementById('logoutCancelBtn')
-        };
+            logoutCancelBtn: document.getElementById('logoutCancelBtn'),
+            toast: document.getElementById('ww-toast'),
+            notificationStack: document.getElementById('notificationStack')
+        });
     }
 
     function bindNavigation() {
-        els.navItems.forEach((item) => {
-            item.addEventListener('click', (event) => {
-                event.preventDefault();
-                const page = item.dataset.page;
-                setActiveNav(page);
-                if (page === 'favorites') {
-                    state.showingFavoritesOnly = true;
-                    renderGames();
-                    scrollToFavorites();
-                } else {
-                    state.showingFavoritesOnly = false;
-                    showPage(page);
-                }
-            });
-        });
+        els.navItems.forEach((item) => item.addEventListener('click', (e) => {
+            const page = item.dataset.page;
+            if (!page) return; // Skip non-navigation items like account
+            e.preventDefault();
+            setActiveNav(page);
+            showPage(page);
+        }));
 
         els.accountNavItem?.addEventListener('click', (e) => {
             e.preventDefault();
-            if (!state.user) {
-                openAuthModal('login');
+            if (state.user) {
+                toggleAccountDropdown();
             } else {
-                toggleProfileDropdown();
+                openAuthModal('login');
             }
         });
 
-        els.profileBtn?.addEventListener('click', () => {
-            hideProfileDropdown();
-            showPage('profile');
+        els.openProfileSettingsBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('profile'); });
+        els.openSettingsBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('settings'); });
+        els.logoutFromDropdownBtn?.addEventListener('click', () => { hideProfileDropdown(); showLogoutConfirm(); });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#accountNavItem') || e.target.closest('#accountDropdown')) return;
+            hideAccountDropdown();
         });
 
-        els.logoutBtn?.addEventListener('click', () => {
-            hideProfileDropdown();
-            showLogoutConfirm();
-        });
+        document.getElementById('accountProfileBtn')?.addEventListener('click', () => { hideAccountDropdown(); showPage('profile'); });
+        document.getElementById('accountLogoutBtn')?.addEventListener('click', () => { hideAccountDropdown(); showLogoutConfirm(); });
+    }
+
+    function bindAuthModal() {
+        els.authTabs.forEach((tab) => tab.addEventListener('click', () => {
+            els.authTabs.forEach((t) => t.classList.toggle('active', t === tab));
+            els.authModal.dataset.mode = tab.dataset.tab;
+        }));
+        els.closeAuthModal?.addEventListener('click', closeAuthModal);
+        els.authModal?.querySelector('.modal-overlay')?.addEventListener('click', closeAuthModal);
+        els.authForm?.addEventListener('submit', handleAuthSubmit);
     }
 
     function bindSearch() {
-        els.searchInput?.addEventListener('input', () => {
-            filterGames();
-        });
+        els.searchInput?.addEventListener('input', () => filterAndRender());
     }
 
     function bindProfileForm() {
@@ -189,20 +220,22 @@
                 accentColor: els.profileColor.value,
                 avatar: els.avatarPreview?.dataset?.value || null
             };
-            toggleProfileSaving(true);
+            toggleSaving(true);
             try {
                 const { user } = await api.put('/api/profile', payload);
                 state.user = user;
-                refreshUserUI();
-                showToast('Profile updated');
+                state.settings = user.settings || state.settings;
+                applyAccent(user.profile?.accentColor);
+                showToast('Profile saved');
+                populateProfileForm();
             } catch (err) {
                 showToast(err.message || 'Failed to save profile', true);
             } finally {
-                toggleProfileSaving(false);
+                toggleSaving(false);
             }
         });
 
-        els.avatarInput?.addEventListener('change', async (e) => {
+        els.avatarInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
             if (file.size > 1.5 * 1024 * 1024) {
@@ -212,45 +245,101 @@
             }
             const reader = new FileReader();
             reader.onload = () => {
-                const dataUrl = reader.result;
-                els.avatarPreview.src = dataUrl;
+                els.avatarPreview.src = reader.result;
                 els.avatarPreview.style.display = 'block';
+                els.avatarPreview.dataset.value = reader.result;
                 els.avatarPlaceholder.style.display = 'none';
-                els.avatarPreview.dataset.value = dataUrl;
             };
             reader.readAsDataURL(file);
         });
     }
 
+    function bindSettingsForm() {
+        els.settingsSaveBtn?.addEventListener('click', async () => {
+            if (!state.user) return openAuthModal('login');
+            const payload = {
+                accentColor: els.settingAccent.value,
+                proxyDefault: els.settingProxyDefault.checked,
+                particlesEnabled: els.settingParticles.checked,
+                particleCount: Number(els.settingParticleCount.value || 0),
+                particleSpeed: Number(els.settingParticleSpeed.value || 0),
+                cursorEnabled: els.settingCursor.checked,
+                cursorSize: Number(els.settingCursorSize.value || 8),
+                cursorColor: els.settingCursorColor.value
+            };
+            setSettingsFeedback('Saving...', false);
+            try {
+                const { settings } = await api.put('/api/settings', payload);
+                state.settings = settings;
+                applySettingsBehavior(settings);
+                setSettingsFeedback('Saved', false);
+            } catch (err) {
+                setSettingsFeedback(err.message || 'Failed to save', true);
+            }
+        });
+    }
+
     function bindFriendsUI() {
-        els.friendsTabs.forEach((tab) => {
-            tab.addEventListener('click', () => {
-                const target = tab.dataset.tab;
-                els.friendsTabs.forEach((t) => t.classList.toggle('active', t === tab));
-                Object.entries(els.friendsTabPanels).forEach(([key, panel]) => {
-                    panel.classList.toggle('active', key === target);
-                });
-            });
+        els.friendsLoginBtn?.addEventListener('click', () => openAuthModal('login'));
+
+        els.friendsTabNav?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.friends-tab');
+            if (!btn) return;
+            const tab = btn.dataset.tab;
+            if (tab === 'add') {
+                openAddFriendModal();
+                return;
+            }
+            switchFriendsPanel(tab, btn);
         });
 
-        els.addFriendForm?.addEventListener('submit', async (e) => {
+        const openAdd = () => openAddFriendModal();
+        els.openAddFriendModalBtn?.addEventListener('click', openAdd);
+        els.openAddFriendModalBtnInline?.addEventListener('click', openAdd);
+
+        els.addFriendModalForm?.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!state.user) return openAuthModal('login');
-            const username = els.addFriendInput.value.trim();
+            const username = (els.addFriendModalInput.value || '').trim();
             if (!username) return;
-            els.addFriendFeedback.textContent = '';
+            els.addFriendModalFeedback.textContent = '';
             try {
                 await api.post('/api/friends/request', { username });
-                els.addFriendFeedback.textContent = `Request sent to ${username}`;
-                els.addFriendFeedback.style.color = '#58a6ff';
+                els.addFriendModalFeedback.textContent = `Request sent to ${username}`;
+                els.addFriendModalFeedback.style.color = '#58a6ff';
+                els.addFriendModalInput.value = '';
+                setTimeout(closeAddFriendModal, 500);
                 await loadFriends();
             } catch (err) {
-                els.addFriendFeedback.textContent = err.message || 'Failed to send request';
-                els.addFriendFeedback.style.color = '#f85149';
+                els.addFriendModalFeedback.textContent = err.message || 'Failed to send request';
+                els.addFriendModalFeedback.style.color = '#f85149';
             }
         });
 
-        els.friendsLoginBtn?.addEventListener('click', () => openAuthModal('login'));
+        const closeAdd = () => closeAddFriendModal();
+        els.closeAddFriendModal?.addEventListener('click', closeAdd);
+        els.addFriendModalOverlay?.addEventListener('click', closeAdd);
+    }
+
+    function bindFavoritesUI() {
+        els.favoritesLoginBtn?.addEventListener('click', () => openAuthModal('login'));
+    }
+
+    function switchFriendsPanel(tab, btn) {
+        const current = els.friendsTabPanels.find((p) => p.classList.contains('active'));
+        const next = els.friendsTabPanels.find((p) => p.dataset.panel === tab);
+        if (!next || current === next) return;
+
+        els.friendsTabNav.querySelectorAll('.friends-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+
+        [current, next].forEach((p) => p?.classList.add('animating'));
+        current?.classList.add('slide-out');
+        next.classList.add('slide-in', 'active');
+
+        setTimeout(() => {
+            current?.classList.remove('active', 'slide-out', 'animating');
+            next.classList.remove('slide-in', 'animating');
+        }, 260);
     }
 
     function bindGameControls() {
@@ -259,74 +348,92 @@
             updateProxyUI();
             if (state.currentGame) loadGameFrame(state.currentGame);
         });
-
         els.loadingProxyToggle?.addEventListener('click', () => {
             state.proxyEnabled = !state.proxyEnabled;
             updateProxyUI();
             if (state.currentGame) loadGameFrame(state.currentGame);
         });
-
         els.gameFavBtn?.addEventListener('click', () => {
             if (!state.currentGame) return;
             toggleFavorite(state.currentGame.id);
         });
-
         els.fullscreenBtn?.addEventListener('click', () => {
-            const frameWrapper = document.querySelector('.game-frame-wrapper');
-            if (!frameWrapper) return;
-            if (!document.fullscreenElement) {
-                frameWrapper.requestFullscreen?.();
-            } else {
-                document.exitFullscreen?.();
-            }
+            const wrap = document.querySelector('.game-frame-wrapper');
+            if (!wrap) return;
+            if (!document.fullscreenElement) wrap.requestFullscreen?.(); else document.exitFullscreen?.();
         });
     }
 
-    function bindGlobalEvents() {
-        window.addEventListener('online', updateOfflineState);
-        window.addEventListener('offline', updateOfflineState);
-        document.addEventListener('click', (e) => {
-            if (els.profileDropdown?.contains(e.target) || els.accountNavItem?.contains(e.target)) return;
-            hideProfileDropdown();
-        });
-
-        els.logoutConfirmBtn?.addEventListener('click', async () => {
-            await logout();
-            hideLogoutConfirm();
-        });
+    function bindLogoutModal() {
+        els.logoutConfirmBtn?.addEventListener('click', async () => { await logout(); hideLogoutConfirm(); });
         els.logoutCancelBtn?.addEventListener('click', hideLogoutConfirm);
     }
 
-    async function loadInitialData() {
+    async function loadInitial() {
         showLoader(true);
         try {
-            const [config, games, stats, user] = await Promise.all([
+            const [config, games, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
                 api.get('/api/games'),
                 api.get('/api/stats').catch(() => null),
                 api.get('/api/auth/me').catch(() => null)
             ]);
-            state.config = config;
             state.games = games || [];
-            state.filteredGames = state.games.slice();
+            state.filtered = state.games.slice();
             state.categories = buildCategories(state.games);
-            if (user?.user) {
-                state.user = user.user;
-                state.favorites = new Set(state.user.favorites || []);
-                await loadFriends();
-            }
-            if (stats) updateStats(stats);
-            renderCategoryTabs();
+            state.banner = config?.banner || null;
+            buildCategoryTabs();
+            renderHomeBanner(state.banner);
             renderGames();
-            renderFavorites();
-            refreshUserUI();
-            await updateHealthStatus();
+            if (stats) updateStats(stats); else updateStats({ totalGames: state.games.length, categoryCount: state.categories.length });
+            if (me?.user) {
+                state.user = me.user;
+                state.favorites = new Set((me.user.favorites || []).map(String));
+                state.settings = me.user.settings || null;
+                await loadSettingsIfNeeded();
+                await loadFriends();
+                startFriendsPolling();
+                updateAccountAvatar(state.user);
+                updatePresence(true, null);
+                refreshUserUI();
+            } else {
+                refreshUserUI();
+            }
+            updateHealth();
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
         } finally {
             showLoader(false);
-            updateOfflineState();
         }
+    }
+
+    function startFriendsPolling() {
+        if (runtime.friendsPoll) clearInterval(runtime.friendsPoll);
+        if (!state.user) return;
+        runtime.friendsPoll = setInterval(() => {
+            loadFriends();
+        }, 20000);
+    }
+
+    function updatePresence(online = true, gameId = null) {
+        if (!state.user) return;
+        api.put('/api/presence', { online, gameId }).catch(() => {});
+    }
+
+    function updateStats(stats) {
+        if (!stats) return;
+        if (els.statsGames) els.statsGames.textContent = stats.totalGames ?? stats.games ?? '—';
+        if (els.statsCategories) els.statsCategories.textContent = stats.categoryCount ?? '—';
+    }
+
+    async function loadSettingsIfNeeded() {
+        if (!state.user) return;
+        if (state.settings) { applySettingsToUI(state.settings); return; }
+        try {
+            const { settings } = await api.get('/api/settings');
+            state.settings = settings;
+            applySettingsToUI(settings);
+        } catch (_) {}
     }
 
     function buildCategories(games) {
@@ -335,7 +442,93 @@
         return Array.from(cats);
     }
 
-    function renderCategoryTabs() {
+    function renderHomeBanner(banner) {
+        if (!els.homeBanner) return;
+        els.homeBanner.innerHTML = '';
+        if (!banner || !banner.message) {
+            els.homeBanner.style.display = 'none';
+            return;
+        }
+        if (isBannerDismissed(banner)) {
+            els.homeBanner.style.display = 'none';
+            return;
+        }
+
+        const wrap = document.createElement('div');
+        wrap.className = 'home-banner';
+        wrap.style.background = banner.background || '#11161f';
+        wrap.style.color = banner.textColor || '#e5e7eb';
+
+        const text = document.createElement('div');
+        text.className = 'home-banner-text';
+
+        const title = document.createElement('div');
+        title.className = 'home-banner-title';
+        title.textContent = banner.message;
+        text.appendChild(title);
+
+        if (banner.description) {
+            const desc = document.createElement('div');
+            desc.className = 'home-banner-description';
+            desc.textContent = banner.description;
+            text.appendChild(desc);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'home-banner-actions';
+
+        if (banner.button?.enabled && banner.button.url) {
+            const btn = document.createElement('a');
+            btn.className = 'banner-btn';
+            btn.href = banner.button.url;
+            btn.target = banner.button.url.startsWith('#') ? '_self' : '_blank';
+            btn.rel = 'noopener';
+            btn.textContent = banner.button.label || 'Learn more';
+            btn.style.background = banner.button.background || '#1f6feb';
+            btn.style.color = banner.button.textColor || '#ffffff';
+            actions.appendChild(btn);
+        }
+
+        if (banner.dismissible !== false) {
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'banner-dismiss';
+            close.innerHTML = '<i class="fas fa-times"></i>';
+            close.addEventListener('click', () => {
+                markBannerDismissed(banner);
+                renderHomeBanner(null);
+            });
+            actions.appendChild(close);
+        }
+
+        wrap.appendChild(text);
+        wrap.appendChild(actions);
+        els.homeBanner.appendChild(wrap);
+        els.homeBanner.style.display = 'block';
+    }
+
+    function isBannerDismissed(banner) {
+        if (!banner || banner.dismissible === false) return false;
+        const key = `ww_banner_dismiss_${banner.id || 'default'}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return false;
+        try {
+            const data = JSON.parse(raw);
+            const cooldownMs = Math.max(0, (banner.dismissCooldownHours || 0) * 3600 * 1000);
+            if (!cooldownMs) return false;
+            return Date.now() - (data.ts || 0) < cooldownMs;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function markBannerDismissed(banner) {
+        if (!banner || banner.dismissible === false) return;
+        const key = `ww_banner_dismiss_${banner.id || 'default'}`;
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now() }));
+    }
+
+    function buildCategoryTabs() {
         if (!els.categoryTabs) return;
         els.categoryTabs.innerHTML = '';
         state.categories.forEach((cat, idx) => {
@@ -344,58 +537,58 @@
             btn.textContent = cat === 'all' ? 'All' : capitalize(cat);
             btn.dataset.category = cat;
             btn.addEventListener('click', () => {
-                Array.from(els.categoryTabs.children).forEach((c) => c.classList.remove('active'));
+                els.categoryTabs.querySelectorAll('.cat-tab').forEach((b) => b.classList.remove('active'));
                 btn.classList.add('active');
-                filterGames();
+                filterAndRender();
             });
             els.categoryTabs.appendChild(btn);
         });
     }
 
-    function filterGames() {
+    function filterAndRender() {
         const query = (els.searchInput?.value || '').toLowerCase();
-        const activeCatBtn = els.categoryTabs?.querySelector('.cat-tab.active');
-        const activeCategory = activeCatBtn ? activeCatBtn.dataset.category : 'all';
-        state.filteredGames = state.games.filter((game) => {
-            const matchesQuery = !query ||
-                game.title.toLowerCase().includes(query) ||
-                (game.description || '').toLowerCase().includes(query);
-            const matchesCategory = activeCategory === 'all' || (game.category || '').toLowerCase() === activeCategory.toLowerCase();
-            const matchesFavorites = !state.showingFavoritesOnly || state.favorites.has(String(game.id));
-            return matchesQuery && matchesCategory && matchesFavorites;
+        const activeBtn = els.categoryTabs?.querySelector('.cat-tab.active');
+        const activeCat = activeBtn ? activeBtn.dataset.category : 'all';
+        state.filtered = state.games.filter((g) => {
+            const matchesQuery = !query || g.title.toLowerCase().includes(query) || (g.description || '').toLowerCase().includes(query);
+            const matchesCat = activeCat === 'all' || (g.category || '').toLowerCase() === activeCat.toLowerCase();
+            return matchesQuery && matchesCat;
         });
         renderGames();
     }
 
     function renderGames() {
-        if (!els.allGamesGrid) return;
-        els.allGamesGrid.innerHTML = '';
-        const list = state.filteredGames;
-        if (!list.length) {
-            els.allGamesGrid.innerHTML = '<p class="muted-hint">No games match your filters.</p>';
-            return;
-        }
+        if (!els.allGames) return;
+        els.allGames.innerHTML = '';
         const frag = document.createDocumentFragment();
-        list.forEach((game) => frag.appendChild(buildGameCard(game)));
-        els.allGamesGrid.appendChild(frag);
+        state.filtered.forEach((game, idx) => frag.appendChild(buildGameCard(game, idx)));
+        els.allGames.appendChild(frag);
     }
 
-    function buildGameCard(game) {
+    const placeholderThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270" fill="none"><rect width="480" height="270" fill="%23161b22"/><path d="M70 190h340M70 150h200M70 110h140" stroke="%2330363d" stroke-width="14" stroke-linecap="round"/><circle cx="380" cy="110" r="38" stroke="%2358a6ff" stroke-width="12"/></svg>';
+
+    function buildGameCard(game, idx = 0) {
+        const thumb = game.thumbnail || placeholderThumb;
         const card = document.createElement('div');
         card.className = 'game-card';
         card.dataset.id = game.id;
+        card.style.animationDelay = `${Math.min(idx, 60) * 60}ms`;
         card.innerHTML = `
-            <div class="game-thumb" style="background-image:url('${game.thumbnail || 'images/placeholder.png'}')"></div>
-            <div class="game-info">
-                <div class="game-meta">
-                    <span class="game-category">${capitalize(game.category || 'Other')}</span>
-                    <button class="icon-btn small fav-toggle" aria-label="Favorite" data-id="${game.id}">
-                        <i class="fas fa-heart"></i>
-                    </button>
-                </div>
-                <h3>${game.title}</h3>
-                <p>${(game.description || '').slice(0, 96)}${(game.description || '').length > 96 ? '…' : ''}</p>
+            <div class="card-friend-avatars"></div>
+            <div class="game-thumb">
+                <img src="${thumb}" alt="${game.title}" loading="lazy" />
+                <div class="game-card-overlay"></div>
+            </div>
+            <div class="game-card-content">
+                <div class="game-card-title">${game.title}</div>
+                <div class="game-card-category">${capitalize(game.category || 'Other')}</div>
+            </div>
+            <div class="game-card-actions">
+                <button class="icon-btn small fav-toggle" aria-label="Favorite" data-id="${game.id}"><i class="fas fa-heart"></i></button>
             </div>`;
+
+        const img = card.querySelector('img');
+        img.addEventListener('error', () => { img.src = placeholderThumb; });
 
         card.addEventListener('click', (e) => {
             if (e.target.closest('.fav-toggle')) return;
@@ -405,19 +598,82 @@
             e.stopPropagation();
             toggleFavorite(game.id);
         });
-        updateCardFavoriteState(card, game.id);
+        updateFavButton(card.querySelector('.fav-toggle'), game.id);
+        renderCardFriends(card, game.id);
         return card;
     }
 
-    function renderFavorites() {
+    function renderCardFriends(card, gameId) {
+        const wrap = card.querySelector('.card-friend-avatars');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        const friends = runtime.friendsPlayingMap.get(String(gameId)) || [];
+        if (!friends.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = 'flex';
+        const maxShow = 3;
+        friends.slice(0, maxShow).forEach((f) => {
+            const pill = document.createElement('div');
+            pill.className = 'card-avatar-pill';
+            if (f.avatar) pill.style.backgroundImage = `url(${f.avatar})`; else pill.textContent = (f.username || '?')[0].toUpperCase();
+            wrap.appendChild(pill);
+        });
+        if (friends.length > maxShow) {
+            const more = document.createElement('div');
+            more.className = 'card-avatar-pill more';
+            more.textContent = `+${friends.length - maxShow}`;
+            wrap.appendChild(more);
+        }
+    }
+
+    function renderFavoritesPage() {
         if (!els.favoritesGrid) return;
-        const favGames = state.games.filter((g) => state.favorites.has(String(g.id)));
-        els.favoritesSection.style.display = favGames.length ? 'block' : 'none';
+        const isAuthed = !!state.user;
+        const favGames = isAuthed ? state.games.filter((g) => state.favorites.has(String(g.id))) : [];
+
         els.favoritesGrid.innerHTML = '';
-        if (!favGames.length) return;
+
+        if (els.favoritesLoginBox) els.favoritesLoginBox.style.display = isAuthed ? 'none' : 'block';
+        if (!isAuthed) {
+            if (els.favoritesAuthHint) els.favoritesAuthHint.style.display = 'none';
+            if (els.favoritesGrid) els.favoritesGrid.style.display = 'none';
+            if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'none';
+            return;
+        }
+
+        if (els.favoritesAuthHint) els.favoritesAuthHint.style.display = 'none';
+        if (els.favoritesGrid) els.favoritesGrid.style.display = 'grid';
+
+        if (!favGames.length) {
+            if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'block';
+            return;
+        }
+        if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'none';
+
         const frag = document.createDocumentFragment();
-        favGames.forEach((game) => frag.appendChild(buildGameCard(game)));
+        favGames.forEach((g, idx) => frag.appendChild(buildGameCard(g, idx)));
         els.favoritesGrid.appendChild(frag);
+    }
+
+    function renderGameFriends(gameId) {
+        const wrap = els.gameFriendAvatars;
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        const friends = runtime.friendsPlayingMap.get(String(gameId)) || [];
+        if (!friends.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = 'flex';
+        const maxShow = 4;
+        friends.slice(0, maxShow).forEach((f) => {
+            const pill = document.createElement('div');
+            pill.className = 'card-avatar-pill';
+            if (f.avatar) pill.style.backgroundImage = `url(${f.avatar})`; else pill.textContent = (f.username || '?')[0].toUpperCase();
+            wrap.appendChild(pill);
+        });
+        if (friends.length > maxShow) {
+            const more = document.createElement('div');
+            more.className = 'card-avatar-pill more';
+            more.textContent = `+${friends.length - maxShow}`;
+            wrap.appendChild(more);
+        }
     }
 
     async function openGame(gameId) {
@@ -427,9 +683,12 @@
         els.gameTitle.textContent = game.title;
         els.gameCategory.textContent = capitalize(game.category || 'Other');
         els.gameDescription.textContent = game.description || '';
-        setActiveNav(null);
         showPage('game');
         updateGameFavoriteButton(game.id);
+        state.proxyEnabled = state.settings?.proxyDefault || false;
+        updateProxyUI();
+        updatePresence(true, game.id);
+        renderGameFriends(game.id);
         loadGameFrame(game);
     }
 
@@ -437,7 +696,7 @@
         if (!els.gameFrame) return;
         els.gameLoadingOverlay.style.display = 'flex';
         els.loadingStatusText.textContent = 'Loading game...';
-        els.loadingHintText.textContent = state.proxyEnabled ? 'Proxy enabled for this session' : 'Direct loading';
+        els.loadingHintText.textContent = state.proxyEnabled ? 'Proxy enabled' : 'Direct load';
         const src = state.proxyEnabled ? `${backendUrl}/proxy?url=${encodeURIComponent(game.embed)}` : game.embed;
         els.gameFrame.src = src;
         const onLoad = () => {
@@ -448,280 +707,460 @@
     }
 
     function toggleFavorite(gameId) {
-        if (!state.user) return openAuthModal('login');
+        if (!state.user) {
+            pushNotification('Sign in required', 'Create an account to save favorites to your profile.', 'warning');
+            return;
+        }
         api.post('/api/favorites/toggle', { gameId: String(gameId) })
             .then(({ favorites }) => {
-                state.favorites = new Set(favorites || []);
-                renderFavorites();
+                state.favorites = new Set((favorites || []).map(String));
+                renderFavoritesPage();
                 renderGames();
                 updateGameFavoriteButton(gameId);
+                if (state.currentGame?.id === gameId) renderGameFriends(gameId);
             })
             .catch((err) => showToast(err.message || 'Failed to update favorites', true));
     }
 
     function updateGameFavoriteButton(gameId) {
-        if (!els.gameFavBtn) return;
         const isFav = state.favorites.has(String(gameId));
-        els.gameFavBtn.classList.toggle('active', isFav);
-        els.gameFavBtn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+        els.gameFavBtn?.classList.toggle('active', isFav);
+        els.gameFavBtn?.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+        renderGameFriends(gameId);
     }
 
-    function updateCardFavoriteState(card, gameId) {
-        const btn = card.querySelector('.fav-toggle');
+    function updateFavButton(btn, gameId) {
         if (!btn) return;
         const isFav = state.favorites.has(String(gameId));
         btn.classList.toggle('active', isFav);
         btn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
     }
 
-    function showPage(page) {
-        Object.entries(els.pages).forEach(([key, el]) => {
-            if (!el) return;
-            const shouldShow = key === page || (page === 'favorites' && key === 'home');
-            el.style.display = shouldShow ? 'block' : 'none';
-            el.classList.toggle('active', shouldShow);
-        });
-        if (page === 'home' || page === 'favorites') {
-            filterGames();
+    async function loadFriends() {
+        if (!state.user) return;
+        try {
+            const data = await api.get('/api/friends');
+            diffFriendsAndNotify(runtime.friendsSnapshot, data);
+            runtime.friendsSnapshot = snapshotFriends(data);
+            state.friends = data;
+            runtime.friendsPlayingMap = buildFriendsPlayingMap(data);
+            renderFriends();
+        } catch (err) {
+            showToast(err.message || 'Friends unavailable', true);
+            els.friendsContent.style.display = 'none';
+            if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = state.user ? 'none' : 'block';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = state.user ? 'none' : 'block';
         }
     }
 
-    function setActiveNav(page) {
-        els.navItems.forEach((item) => item.classList.toggle('active', item.dataset.page === page));
-        if (page) showPage(page);
+    function snapshotFriends(data = {}) {
+        const norm = (arr = []) => arr.map((u) => u.username).filter(Boolean);
+        const presence = {};
+        (data.friends || []).forEach((u) => {
+            presence[u.username] = {
+                online: !!u.presence?.online,
+                gameId: u.presence?.gameId || null
+            };
+        });
+        return {
+            friends: norm(data.friends),
+            incoming: norm(data.incomingRequests),
+            outgoing: norm(data.outgoingRequests),
+            presence
+        };
     }
 
-    function scrollToFavorites() {
-        if (!els.favoritesSection) return;
-        showPage('home');
-        setTimeout(() => {
-            els.favoritesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 150);
+    function diffFriendsAndNotify(prev, next) {
+        if (!prev) return;
+        const incomingNew = (next.incomingRequests || []).filter((u) => !prev.incoming?.includes(u.username));
+        incomingNew.forEach((u) => pushNotification('Friend request', `${u.username} sent you a friend request`, 'info'));
+
+        const accepted = (next.friends || []).filter((u) => prev.outgoing?.includes(u.username));
+        accepted.forEach((u) => pushNotification('Request accepted', `${u.username} accepted your friend request`, 'success'));
+
+        const prevPresence = prev.presence || {};
+        const nextPresence = {};
+        (next.friends || []).forEach((u) => { nextPresence[u.username] = u.presence || {}; });
+        Object.entries(nextPresence).forEach(([name, pres]) => {
+            const prevP = prevPresence[name] || {};
+            if (prevP.online !== pres.online) {
+                pushNotification('Presence', `${name} is now ${pres.online ? 'online' : 'offline'}`, pres.online ? 'success' : 'warning');
+            }
+            if (pres.online && pres.gameId && pres.gameId !== prevP.gameId) {
+                const title = getGameTitleById(pres.gameId) || 'a game';
+                pushNotification('Now playing', `${name} started playing ${title}`, 'info');
+            }
+        });
     }
 
-    function updateStats(stats) {
-        if (els.statsGames) els.statsGames.textContent = stats.totalGames ?? state.games.length;
-        if (els.statsCategories) els.statsCategories.textContent = stats.categoryCount ?? state.categories.length;
+    function buildFriendsPlayingMap(data) {
+        const map = new Map();
+        (data?.friends || []).forEach((f) => {
+            const gid = f.presence?.gameId;
+            if (!f.presence?.online || !gid) return;
+            const key = String(gid);
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(f);
+        });
+        return map;
     }
 
-    async function updateHealthStatus() {
+    function renderFriends() {
+        if (!state.user) {
+            els.friendsAuthNotice.style.display = 'block';
+            els.friendsContent.style.display = 'none';
+            if (els.friendsTabNav) els.friendsTabNav.style.display = 'none';
+            return;
+        }
+
+        const { friends = [], incomingRequests = [], outgoingRequests = [], blocked = [] } = state.friends || {};
+
+        els.friendsAuthNotice.style.display = 'none';
+        els.friendsContent.style.display = 'grid';
+        if (els.friendsTabNav) els.friendsTabNav.style.display = 'flex';
+        if (els.addFriendModal) els.addFriendModal.style.display = 'none';
+
+        renderUserList(els.friendsList, friends, { statusText: 'Friend', emptyText: 'No friends yet.' });
+
+        renderUserList(els.manageFriendsList, friends, {
+            statusText: 'Friend',
+            emptyText: 'No friends to manage.',
+            actions: [
+                { label: 'Remove', icon: 'fa-xmark', action: (user) => removeFriend(user.username), success: (user) => `Removed ${user.username}` },
+                { label: 'Block', icon: 'fa-ban', action: (user) => blockUser(user.username), tone: 'danger', success: (user) => `Blocked ${user.username}` }
+            ]
+        });
+        renderUserList(els.manageIncomingList, incomingRequests, {
+            statusText: 'Incoming request',
+            emptyText: 'No incoming requests.',
+            actions: [
+                { label: 'Accept', icon: 'fa-check', tone: 'positive', action: (user) => respondToRequest(user.username, 'accept'), success: (user) => `Accepted ${user.username}` },
+                { label: 'Decline', icon: 'fa-xmark', tone: 'danger', action: (user) => respondToRequest(user.username, 'decline'), success: (user) => `Declined ${user.username}` },
+                { label: 'Block', icon: 'fa-ban', tone: 'danger', action: (user) => blockUser(user.username), success: (user) => `Blocked ${user.username}` }
+            ]
+        });
+        renderUserList(els.manageOutgoingList, outgoingRequests, {
+            statusText: 'Awaiting approval',
+            emptyText: 'No outgoing requests.',
+            actions: [
+                { label: 'Cancel', icon: 'fa-xmark', tone: 'danger', action: (user) => cancelRequest(user.username), success: (user) => `Canceled request to ${user.username}` }
+            ]
+        });
+        renderUserList(els.blockedList, blocked, {
+            statusText: 'Blocked',
+            emptyText: 'No blocked users.',
+            actions: [
+                { label: 'Unblock', icon: 'fa-unlock', action: (user) => unblockUser(user.username), success: (user) => `Unblocked ${user.username}` }
+            ]
+        });
+
+        els.friendsCount.textContent = friends.length;
+        els.pendingCount.textContent = incomingRequests.length;
+
+        // update overlays for current game
+        if (state.currentGame) renderGameFriends(state.currentGame.id);
+        renderGames();
+    }
+
+    function renderUserList(container, list = [], options = {}) {
+        if (!container) return;
+        const { emptyText = 'Nothing here yet.', statusText = '', actions = [] } = options;
+        container.innerHTML = '';
+        if (!list.length) {
+            container.innerHTML = `<li class="muted-hint">${emptyText}</li>`;
+            return;
+        }
+        list.forEach((user) => {
+            const li = document.createElement('li');
+            li.className = 'friend-row';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'friend-avatar';
+            if (user.avatar) {
+                avatar.style.backgroundImage = `url(${user.avatar})`;
+            } else {
+                avatar.style.background = user.accentColor || '#58a6ff';
+                avatar.textContent = (user.username || '?')[0].toUpperCase();
+            }
+
+            const meta = document.createElement('div');
+            meta.className = 'friend-meta';
+            const name = document.createElement('div');
+            name.className = 'friend-name';
+            name.textContent = user.username;
+            const status = document.createElement('div');
+            status.className = 'friend-status';
+            status.textContent = buildFriendStatus(user, statusText);
+            meta.append(name, status);
+
+            const actionsWrap = document.createElement('div');
+            actionsWrap.className = 'friend-actions';
+            actionsWrap.style.display = 'flex';
+            actionsWrap.style.gap = '8px';
+
+            actions.forEach(({ label, action, tone, success, icon }) => {
+                const btn = document.createElement('button');
+                btn.className = 'friend-action-btn';
+                btn.setAttribute('aria-label', label);
+                if (tone === 'danger') btn.classList.add('danger');
+                if (tone === 'positive') btn.classList.add('positive');
+                btn.innerHTML = `<i class="fas ${icon || 'fa-check'}"></i>`;
+                btn.addEventListener('click', async () => {
+                    const successMsg = typeof success === 'function' ? success(user) : success;
+                    await performFriendAction(() => action(user), successMsg);
+                });
+                actionsWrap.appendChild(btn);
+            });
+
+            li.append(avatar, meta);
+            if (actionsWrap.childElementCount) li.appendChild(actionsWrap);
+            container.appendChild(li);
+        });
+    }
+
+    function buildFriendStatus(user, fallback) {
+        const presence = user?.presence;
+        if (!presence) return fallback || 'Online';
+        if (presence.online && presence.gameId) {
+            const title = getGameTitleById(presence.gameId);
+            return title ? `Playing ${title}` : 'Playing';
+        }
+        if (presence.online) return 'Online';
+        return 'Offline';
+    }
+
+    async function performFriendAction(actionFn, successMessage) {
+        try {
+            await actionFn();
+            if (successMessage) showToast(successMessage);
+            await loadFriends();
+        } catch (err) {
+            showToast(err.message || 'Action failed', true);
+        }
+    }
+
+    function respondToRequest(username, action) {
+        return api.post('/api/friends/respond', { username, action });
+    }
+
+    function removeFriend(username) {
+        return api.post('/api/friends/remove', { username });
+    }
+
+    function blockUser(username) {
+        return api.post('/api/friends/block', { username });
+    }
+
+    function unblockUser(username) {
+        return api.post('/api/friends/unblock', { username });
+    }
+
+    function cancelRequest(username) {
+        return api.post('/api/friends/cancel', { username });
+    }
+
+    function applySettingsToUI(settings) {
+        if (!settings) return;
+        if (els.settingAccent) els.settingAccent.value = settings.accentColor || '#58a6ff';
+        if (els.settingProxyDefault) els.settingProxyDefault.checked = !!settings.proxyDefault;
+        if (els.settingParticles) els.settingParticles.checked = settings.particlesEnabled !== false;
+        if (els.settingParticleCount) els.settingParticleCount.value = settings.particleCount ?? 50;
+        if (els.settingParticleSpeed) els.settingParticleSpeed.value = settings.particleSpeed ?? 0.5;
+        if (els.settingCursor) els.settingCursor.checked = settings.cursorEnabled !== false;
+        if (els.settingCursorSize) els.settingCursorSize.value = settings.cursorSize ?? 8;
+        if (els.settingCursorColor) els.settingCursorColor.value = settings.cursorColor || '#ffffff';
+        applySettingsBehavior(settings);
+    }
+
+    function applyAccent(color) {
+        if (!color) return;
+        document.documentElement.style.setProperty('--accent-color', color);
+    }
+
+    function applySettingsBehavior(settings) {
+        if (!settings) return;
+        applyAccent(settings.accentColor);
+        state.proxyEnabled = !!settings.proxyDefault;
+        if (settings.cursorEnabled !== false) {
+            enableCustomCursor(settings);
+        } else {
+            disableCustomCursor();
+        }
+        if (settings.particlesEnabled !== false) {
+            startParticles(settings);
+        } else {
+            stopParticles();
+        }
+        updateProxyUI();
+    }
+
+    async function updateHealth() {
         try {
             const health = await api.get('/health');
-            setStatus(true, `Online · ${health.games} games`);
+            const players = Number.isFinite(health.players) ? health.players : (Number.isFinite(health.games) ? health.games : null);
+            if (players === null) throw new Error('Bad health payload');
+            setStatus(true, `Online - ${players} Players`);
         } catch (_) {
-            setStatus(false, 'Offline');
+            setStatus(false, 'Offline - Check Network');
         }
     }
 
     function setStatus(isOnline, text) {
-        if (!els.statusDot || !els.statusText) return;
-        els.statusDot.classList.toggle('online', isOnline);
-        els.statusDot.classList.toggle('offline', !isOnline);
+        els.statusDot?.classList.toggle('online', isOnline);
+        els.statusDot?.classList.toggle('offline', !isOnline);
+        els.statusText.textContent = text;
         els.statusText.classList.toggle('online', isOnline);
         els.statusText.classList.toggle('offline', !isOnline);
-        els.statusText.textContent = text;
     }
 
     function refreshUserUI() {
         if (state.user) {
             els.accountLabel.textContent = state.user.username;
-            if (state.user.profile?.accentColor && document.documentElement) {
-                document.documentElement.style.setProperty('--accent-color', state.user.profile.accentColor);
-            }
-            els.friendsAuthNotice.style.display = 'none';
-            els.friendsContent.style.display = 'block';
+            if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'none';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'none';
+            els.friendsContent.style.display = 'grid';
             populateProfileForm();
-            loadFriends();
+            applySettingsToUI(state.settings || state.user.settings);
+            updateAccountAvatar(state.user);
         } else {
             els.accountLabel.textContent = 'Sign in / Sign up';
-            els.friendsAuthNotice.style.display = 'block';
+            if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'block';
             els.friendsContent.style.display = 'none';
+            state.favorites = new Set();
+            state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
+            if (els.friendsCount) els.friendsCount.textContent = '0';
+            if (els.pendingCount) els.pendingCount.textContent = '0';
+            updateAccountAvatar(null);
         }
+            closeAddFriendModal();
+        renderFavoritesPage();
     }
+
+        function updateAccountAvatar(user) {
+            if (!els.accountAvatar) return;
+            const avatarUrl = user?.profile?.avatar;
+            els.accountAvatar.style.backgroundImage = avatarUrl ? `url(${avatarUrl})` : 'none';
+            els.accountAvatar.textContent = avatarUrl ? '' : (user?.username?.[0]?.toUpperCase() || '');
+        }
 
     function populateProfileForm() {
         if (!state.user) return;
-        if (els.profileUsername) els.profileUsername.value = state.user.username || '';
-        if (els.profileColor) els.profileColor.value = state.user.profile?.accentColor || '#58a6ff';
-        if (state.user.profile?.avatar && els.avatarPreview) {
+        els.profileUsername.value = state.user.username || '';
+        els.profileColor.value = state.user.profile?.accentColor || '#58a6ff';
+        if (state.user.profile?.avatar) {
             els.avatarPreview.src = state.user.profile.avatar;
             els.avatarPreview.style.display = 'block';
-            els.avatarPlaceholder.style.display = 'none';
             els.avatarPreview.dataset.value = state.user.profile.avatar;
+            els.avatarPlaceholder.style.display = 'none';
         }
     }
 
-    async function loadFriends() {
-        if (!state.user) return;
-        try {
-            const data = await api.get('/api/friends');
-            state.friends = data;
-            renderFriends();
-        } catch (err) {
-            console.warn('Friends load failed', err);
-            els.friendsUnavailableNotice.style.display = 'block';
-            els.friendsContent.style.display = 'none';
-        }
+    function setActiveNav(page) {
+        els.navItems.forEach((item) => item.classList.toggle('active', item.dataset.page === page));
     }
 
-    function renderFriends() {
-        const { friends = [], incomingRequests = [], outgoingRequests = [] } = state.friends || {};
-        els.friendsUnavailableNotice.style.display = 'none';
-        els.friendsContent.style.display = 'block';
-        renderFriendList(els.friendsLists.friends, friends, true);
-        renderFriendList(els.friendsLists.presence, friends.slice(0, 5), false);
-        renderRequests(els.friendsLists.incoming, incomingRequests, 'accept');
-        renderRequests(els.friendsLists.outgoing, outgoingRequests, 'pending');
-        els.friendsCounts.total.textContent = friends.length;
-        els.friendsCounts.online.textContent = friends.length;
-        els.friendsCounts.pending.textContent = incomingRequests.length;
-    }
-
-    function renderFriendList(container, list, allowRemove) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (!list.length) {
-            container.innerHTML = '<li class="muted-hint">No friends yet.</li>';
-            return;
-        }
-        list.forEach((friend) => {
-            const li = document.createElement('li');
-            li.className = 'friend-row';
-            li.innerHTML = `
-                <div class="friend-avatar" style="background:${friend.accentColor || '#58a6ff'}">${friend.username?.[0]?.toUpperCase() || '?'}</div>
-                <div class="friend-meta">
-                    <div class="friend-name">${friend.username}</div>
-                    <div class="friend-status">Online</div>
-                </div>
-            `;
-            if (allowRemove) {
-                const btn = document.createElement('button');
-                btn.textContent = 'Remove';
-                btn.className = 'update-check-btn';
-                btn.addEventListener('click', async () => {
-                    await api.post('/api/friends/remove', { username: friend.username });
-                    await loadFriends();
-                });
-                li.appendChild(btn);
-            }
-            container.appendChild(li);
+    function showPage(page) {
+        Object.entries(els.pages).forEach(([key, el]) => {
+            if (!el) return;
+            const show = key === page;
+            el.style.display = show ? 'block' : 'none';
+            el.classList.toggle('active', show);
         });
-    }
-
-    function renderRequests(container, list, mode) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (!list.length) {
-            container.innerHTML = '<li class="muted-hint">Nothing here yet.</li>';
-            return;
+        if (page === 'favorites') renderFavoritesPage();
+        if (page === 'home') filterAndRender();
+        if (page !== 'game') {
+            updatePresence(true, null);
         }
-        list.forEach((friend) => {
-            const li = document.createElement('li');
-            li.className = 'friend-row';
-            li.innerHTML = `
-                <div class="friend-avatar" style="background:${friend.accentColor || '#58a6ff'}">${friend.username?.[0]?.toUpperCase() || '?'}</div>
-                <div class="friend-meta">
-                    <div class="friend-name">${friend.username}</div>
-                    <div class="friend-status">Request</div>
-                </div>
-            `;
-            if (mode === 'accept') {
-                const accept = document.createElement('button');
-                accept.textContent = 'Accept';
-                accept.className = 'update-check-btn';
-                accept.addEventListener('click', async () => {
-                    await api.post('/api/friends/respond', { username: friend.username, action: 'accept' });
-                    await loadFriends();
-                });
-                const decline = document.createElement('button');
-                decline.textContent = 'Decline';
-                decline.className = 'update-check-btn';
-                decline.addEventListener('click', async () => {
-                    await api.post('/api/friends/respond', { username: friend.username, action: 'decline' });
-                    await loadFriends();
-                });
-                li.append(accept, decline);
-            } else {
-                const pending = document.createElement('span');
-                pending.className = 'muted-hint';
-                pending.textContent = 'Pending';
-                li.appendChild(pending);
-            }
-            container.appendChild(li);
-        });
-    }
-
-    function updateProxyUI() {
-        const active = state.proxyEnabled;
-        if (els.proxyToggleGame) {
-            els.proxyToggleGame.classList.toggle('off', !active);
-            els.proxyToggleGame.setAttribute('aria-pressed', active ? 'true' : 'false');
-            els.proxyToggleGame.title = active ? 'Proxy Enabled' : 'Proxy Disabled';
-        }
-    }
-
-    function showLoader(show) {
-        if (!els.loader) return;
-        els.loader.style.display = show ? 'flex' : 'none';
-        if (!show) els.loader.classList.add('fade-out');
-    }
-
-    function updateOfflineState() {
-        const offline = !navigator.onLine;
-        if (els.offlineOverlays) els.offlineOverlays.style.display = offline ? 'block' : 'none';
-    }
-
-    function toggleProfileSaving(isSaving) {
-        if (els.profileSaveIndicator) els.profileSaveIndicator.style.display = isSaving ? 'inline-block' : 'none';
-        if (els.profileForm) els.profileForm.querySelectorAll('input, button').forEach((el) => { el.disabled = isSaving; });
-    }
-
-    function showToast(message, isError = false) {
-        console[isError ? 'warn' : 'log'](message);
-        const existing = document.getElementById('ww-toast');
-        if (existing) existing.remove();
-        const el = document.createElement('div');
-        el.id = 'ww-toast';
-        el.textContent = message;
-        el.style.position = 'fixed';
-        el.style.bottom = '24px';
-        el.style.right = '24px';
-        el.style.padding = '12px 16px';
-        el.style.background = isError ? '#f85149' : '#238636';
-        el.style.color = '#fff';
-        el.style.borderRadius = '10px';
-        el.style.zIndex = '20000';
-        el.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 3200);
-    }
-
-    function capitalize(str) {
-        if (!str) return '';
-        return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
     function toggleProfileDropdown() {
         if (!els.profileDropdown) return;
-        const isOpen = els.profileDropdown.getAttribute('aria-hidden') === 'false';
-        els.profileDropdown.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+        const open = els.profileDropdown.getAttribute('aria-hidden') === 'false';
+        els.profileDropdown.setAttribute('aria-hidden', open ? 'true' : 'false');
+    }
+
+    function openAddFriendModal() {
+        if (!state.user) {
+            openAuthModal('login');
+            return;
+        }
+        if (!els.addFriendModal) return;
+        els.addFriendModal.style.display = 'flex';
+        els.addFriendModalInput?.focus();
+    }
+
+    function closeAddFriendModal() {
+        if (!els.addFriendModal) return;
+        els.addFriendModal.style.display = 'none';
+        if (els.addFriendModalFeedback) els.addFriendModalFeedback.textContent = '';
+    }
+
+    function toggleAccountDropdown() {
+        const drop = document.getElementById('accountDropdown');
+        if (!drop) return;
+        const open = drop.getAttribute('aria-hidden') === 'false';
+        drop.setAttribute('aria-hidden', open ? 'true' : 'false');
+    }
+
+    function hideAccountDropdown() {
+        const drop = document.getElementById('accountDropdown');
+        if (drop) drop.setAttribute('aria-hidden', 'true');
     }
 
     function hideProfileDropdown() {
         if (els.profileDropdown) els.profileDropdown.setAttribute('aria-hidden', 'true');
     }
 
-    async function logout() {
+    function openAuthModal(defaultTab = 'login') {
+        if (!els.authModal) return;
+        els.authModal.style.display = 'flex';
+        els.authModal.dataset.mode = defaultTab;
+        els.authTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === defaultTab));
+    }
+
+    function closeAuthModal() {
+        if (els.authModal) els.authModal.style.display = 'none';
+    }
+
+    async function handleAuthSubmit(e) {
+        e.preventDefault();
+        const mode = els.authModal.dataset.mode || 'login';
+        const username = els.authForm.username.value.trim();
+        const password = els.authForm.password.value;
+        els.authFeedback.textContent = '';
         try {
-            await api.post('/api/auth/logout');
-        } finally {
-            state.user = null;
-            state.favorites = new Set();
+            const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+            const { user } = await api.post(path, { username, password });
+            state.user = user;
+            state.favorites = new Set((user.favorites || []).map(String));
+            state.settings = user.settings || null;
+            await loadSettingsIfNeeded();
+            await loadFriends();
+            startFriendsPolling();
+            updateAccountAvatar(state.user);
+            updatePresence(true, null);
             refreshUserUI();
-            renderFavorites();
-            renderGames();
-            showPage('home');
+            closeAuthModal();
+            showToast(mode === 'register' ? 'Account created' : 'Signed in');
+        } catch (err) {
+            els.authFeedback.textContent = err.message || 'Authentication failed';
         }
+    }
+
+    async function logout() {
+        try { await api.post('/api/auth/logout'); } catch (_) {}
+        state.user = null;
+        state.favorites = new Set();
+        state.settings = null;
+        state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
+        runtime.friendsSnapshot = null;
+        if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
+        runtime.friendsPlayingMap = new Map();
+        disableCustomCursor();
+        stopParticles();
+        refreshUserUI();
+        showPage('home');
     }
 
     function showLogoutConfirm() {
@@ -732,89 +1171,180 @@
         if (els.logoutConfirmModal) els.logoutConfirmModal.style.display = 'none';
     }
 
-    // --- Auth modal ---
-    function openAuthModal(defaultTab = 'login') {
-        let modal = document.getElementById('authModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'authModal';
-            modal.innerHTML = `
-            <div class="modal-overlay"></div>
-            <div class="auth-modal">
-                <div class="auth-tabs">
-                    <button data-tab="login" class="auth-tab active">Login</button>
-                    <button data-tab="register" class="auth-tab">Register</button>
-                </div>
-                <form id="authForm" class="auth-form">
-                    <label>Username
-                        <input type="text" name="username" required minlength="3" maxlength="24" />
-                    </label>
-                    <label>Password
-                        <input type="password" name="password" required minlength="6" />
-                    </label>
-                    <button type="submit" class="update-check-btn">Continue</button>
-                    <p class="auth-feedback" id="authFeedback"></p>
-                </form>
-                <button class="icon-btn" id="closeAuthModal" style="position:absolute; top:10px; right:10px;"><i class="fas fa-times"></i></button>
-            </div>`;
-            modal.style.position = 'fixed';
-            modal.style.inset = '0';
-            modal.style.zIndex = '16000';
-            modal.style.display = 'flex';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
-            modal.querySelector('.modal-overlay').style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);';
-            modal.querySelector('.auth-modal').style.cssText = 'position:relative;background:#161b22;border:1px solid #30363d;padding:20px 22px;border-radius:12px;width:320px;box-shadow:0 10px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:12px;';
-            modal.querySelectorAll('.auth-tab').forEach((tab) => {
-                tab.addEventListener('click', () => {
-                    modal.querySelectorAll('.auth-tab').forEach((t) => t.classList.remove('active'));
-                    tab.classList.add('active');
-                });
-            });
-            modal.querySelector('#closeAuthModal').addEventListener('click', closeAuthModal);
-            modal.querySelector('.modal-overlay').addEventListener('click', closeAuthModal);
-            modal.querySelector('#authForm').addEventListener('submit', handleAuthSubmit);
-            document.body.appendChild(modal);
-        } else {
-            modal.style.display = 'flex';
-        }
-        modal.querySelectorAll('.auth-tab').forEach((tab) => {
-            tab.classList.toggle('active', tab.dataset.tab === defaultTab);
-        });
-        modal.dataset.mode = defaultTab;
+    function updateProxyUI() {
+        const active = state.proxyEnabled;
+        els.proxyToggleGame?.classList.toggle('off', !active);
+        els.proxyToggleGame?.setAttribute('aria-pressed', active ? 'true' : 'false');
+        els.loadingProxyToggle?.classList.toggle('off', !active);
+        els.loadingProxyToggle?.setAttribute('aria-pressed', active ? 'true' : 'false');
+        if (els.loadingHintText) els.loadingHintText.textContent = active ? 'Proxy enabled' : 'Direct load';
+        if (state.currentGame) renderGameFriends(state.currentGame.id);
     }
 
-    function closeAuthModal() {
-        const modal = document.getElementById('authModal');
-        if (modal) modal.style.display = 'none';
+    function showLoader(show) {
+        if (!els.loader) return;
+        els.loader.style.display = show ? 'flex' : 'none';
+        if (!show) els.loader.classList.add('fade-out');
     }
 
-    async function handleAuthSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
-        const mode = form.closest('#authModal').dataset.mode || 'login';
-        const username = form.username.value.trim();
-        const password = form.password.value;
-        const feedback = document.getElementById('authFeedback');
-        feedback.textContent = '';
-        try {
-            const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
-            const { user } = await api.post(path, { username, password });
-            state.user = user;
-            state.favorites = new Set(user.favorites || []);
-            refreshUserUI();
-            renderFavorites();
-            renderGames();
-            closeAuthModal();
-            showToast(mode === 'register' ? 'Account created' : 'Signed in');
-        } catch (err) {
-            feedback.textContent = err.message || 'Authentication failed';
+    function toggleSaving(isSaving) {
+        if (!els.profileSaveIndicator) return;
+        els.profileSaveIndicator.style.display = isSaving ? 'inline-block' : 'none';
+        els.profileForm.querySelectorAll('input, button').forEach((el) => { el.disabled = isSaving; });
+    }
+
+    function setSettingsFeedback(msg, isError) {
+        if (!els.settingsFeedback) return;
+        els.settingsFeedback.textContent = msg;
+        els.settingsFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    function showToast(message, isError = false) {
+        if (!els.toast) return;
+        const el = els.toast;
+        el.textContent = message;
+        el.style.display = 'block';
+        el.style.position = 'fixed';
+        el.style.bottom = '24px';
+        el.style.right = '24px';
+        el.style.padding = '12px 16px';
+        el.style.background = isError ? '#f85149' : '#238636';
+        el.style.color = '#fff';
+        el.style.borderRadius = '10px';
+        el.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
+        clearTimeout(el._hideTimer);
+        el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    function pushNotification(title, message, type = 'info') {
+        if (!els.notificationStack) return;
+        const card = document.createElement('div');
+        card.className = `notification-card ${type}`;
+        card.innerHTML = `
+            <div class="notification-icon"><i class="fas ${iconForType(type)}"></i></div>
+            <div class="notification-body">
+                <div class="notification-title">${title}</div>
+                <div class="notification-text">${message}</div>
+            </div>
+            <button class="notification-close" aria-label="Dismiss"><i class="fas fa-times"></i></button>
+        `;
+        const remove = () => {
+            if (card.classList.contains('exiting')) return;
+            card.classList.add('exiting');
+            card.addEventListener('animationend', () => card.remove(), { once: true });
+        };
+        card.querySelector('.notification-close')?.addEventListener('click', remove);
+        els.notificationStack.appendChild(card);
+        const timer = setTimeout(remove, 4000);
+        card.addEventListener('mouseenter', () => clearTimeout(timer));
+        card.addEventListener('mouseleave', () => setTimeout(remove, 1200));
+    }
+
+    function iconForType(type) {
+        switch (type) {
+            case 'success': return 'fa-check-circle';
+            case 'warning': return 'fa-exclamation-circle';
+            case 'error': return 'fa-times-circle';
+            default: return 'fa-bell';
         }
     }
 
-    // --- Service worker ---
+    function getGameTitleById(id) {
+        if (!id) return '';
+        const game = state.games.find((g) => String(g.id) === String(id));
+        return game?.title || '';
+    }
+
+    function capitalize(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
+
+    function enableCustomCursor(settings) {
+        const size = settings.cursorSize ?? 8;
+        const color = settings.cursorColor || '#ffffff';
+        document.body.classList.add('custom-cursor-enabled');
+        document.documentElement.style.setProperty('--cursor-size', `${size}px`);
+        document.documentElement.style.setProperty('--cursor-color', color);
+        if (!runtime.cursorEl) {
+            const dot = document.createElement('div');
+            dot.className = 'custom-cursor-dot';
+            document.body.appendChild(dot);
+            runtime.cursorEl = dot;
+            runtime.cursorHandler = (e) => {
+                dot.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+            };
+            window.addEventListener('pointermove', runtime.cursorHandler);
+        }
+    }
+
+    function disableCustomCursor() {
+        document.body.classList.remove('custom-cursor-enabled');
+        if (runtime.cursorEl) {
+            runtime.cursorEl.remove();
+            runtime.cursorEl = null;
+        }
+        if (runtime.cursorHandler) {
+            window.removeEventListener('pointermove', runtime.cursorHandler);
+            runtime.cursorHandler = null;
+        }
+    }
+
+    function startParticles(settings) {
+        const canvas = runtime.particle.canvas || (runtime.particle.canvas = document.getElementById('particleBackground'));
+        if (!canvas) return;
+        const ctx = runtime.particle.ctx || (runtime.particle.ctx = canvas.getContext('2d'));
+        const count = Math.min(Math.max(settings.particleCount ?? 50, 0), 300);
+        const speed = settings.particleSpeed ?? 0.5;
+        const color = settings.particleColor || '#58a6ff';
+        canvas.style.display = 'block';
+
+        const resize = () => {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        };
+        resize();
+        window.removeEventListener('resize', runtime.particle._resize);
+        runtime.particle._resize = resize;
+        window.addEventListener('resize', resize);
+
+        runtime.particle.particles = Array.from({ length: count }, () => ({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * speed,
+            vy: (Math.random() - 0.5) * speed,
+            r: 1.2 + Math.random() * 1.6
+        }));
+
+        const tick = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = color;
+            for (const p of runtime.particle.particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            runtime.particle.anim = requestAnimationFrame(tick);
+        };
+
+        cancelAnimationFrame(runtime.particle.anim);
+        runtime.particle.anim = requestAnimationFrame(tick);
+    }
+
+    function stopParticles() {
+        const canvas = runtime.particle.canvas || document.getElementById('particleBackground');
+        if (canvas) {
+            canvas.style.display = 'none';
+        }
+        if (runtime.particle.anim) cancelAnimationFrame(runtime.particle.anim);
+        runtime.particle.anim = null;
+    }
+
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW registration failed', err));
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 })();
