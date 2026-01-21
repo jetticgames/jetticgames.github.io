@@ -1,35 +1,37 @@
 {
   "name": "waterwall-backend",
-  "version": "2.0.0",
-  "description": "Complete backend API for WaterWall gaming platform powered by Cloudflare Workers",
-  "main": "worker.js",
+  "version": "3.0.0",
+  "description": "Self-hosted Express backend for the WaterWall gaming platform",
+  "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "deploy": "wrangler publish",
-    "deploy:staging": "wrangler publish --env staging",
-    "deploy:production": "wrangler publish --env production",
-    "dev": "wrangler dev",
-    "dev:remote": "wrangler dev --remote",
-    "logs": "wrangler tail",
-    "logs:production": "wrangler tail --env production",
-    "test": "wrangler dev --local",
-    "kv:create": "wrangler kv:namespace create CONFIG_KV && wrangler kv:namespace create RATE_LIMIT_KV",
-    "kv:create:preview": "wrangler kv:namespace create CONFIG_KV --preview && wrangler kv:namespace create RATE_LIMIT_KV --preview",
-    "maintenance:enable": "curl -X PUT -H 'Content-Type: application/json' -d '{\"enabled\":true}' https://your-worker.workers.dev/api/maintenance",
-    "maintenance:disable": "curl -X PUT -H 'Content-Type: application/json' -d '{\"enabled\":false}' https://your-worker.workers.dev/api/maintenance"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [
-    "cloudflare",
-    "worker",
+    "express",
     "api",
     "backend",
     "games",
     "proxy",
-    "cors",
     "waterwall"
   ],
   "author": "WaterWall Team",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0"
+  },
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "nodemon": "^3.0.3"
   }
 }

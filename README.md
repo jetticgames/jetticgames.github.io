@@ -3,6 +3,21 @@
 
 # WaterWall - Advanced Dynamic Gaming Platform
 
+## Self-hosted rebuild (v3)
+
+This repo now ships with a local Express backend instead of the previous Cloudflare Worker setup. The frontend is still the same layout/theme but the logic has been rebuilt for stability.
+
+**Quick start (local):**
+1) `cd backend && npm install`
+2) `npm start`
+3) Open http://localhost:3000 — the backend serves the frontend files, API, proxy, auth, favorites, friends, and profile endpoints.
+
+Key changes:
+- Express API with file-based storage (`backend/data`) for users, favorites, friends, and config
+- Built-in CORS, rate limiting, JWT cookie auth, and basic proxy endpoint
+- Frontend rewritten to hit the new API, with local auth modal, favorites, friends, profile editing, search, categories, and proxy toggle
+
+
 ### A modern, responsive gaming platform with a fully-powered backend and real-time content delivery
 
 ---

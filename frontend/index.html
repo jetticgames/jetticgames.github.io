@@ -11,9 +11,9 @@
     
     <!-- Simplified Asset Loading with Local Default -->
     <script>
-        // Backend URL for API calls (not for asset loading)
+        // Backend URL for API calls (points to the self-hosted Express server)
         // Set global variable for app.js to use
-        window.WATERWALL_BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev';
+        window.WATERWALL_BACKEND_URL = window.location.origin;
         
         console.log('🎮 WaterWall loading with local assets and backend APIs');
     </script>

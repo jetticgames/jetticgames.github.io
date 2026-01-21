@@ -1,0 +1,61 @@
+{
+  "version": "3.0.0",
+  "maintenanceMode": {
+    "enabled": false,
+    "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "estimatedTime": "Please check back in a few hours.",
+    "blockProxy": false
+  },
+  "features": {
+    "accountSystemEnabled": true,
+    "favoritesEnabled": true,
+    "searchEnabled": true,
+    "fullscreenEnabled": true,
+    "categoriesEnabled": true,
+    "settingsMenuEnabled": true,
+    "updatingEnabled": true,
+    "particlesEnabled": true,
+    "customCursorEnabled": true,
+    "proxyEnabled": true,
+    "gameEmbedEnabled": true,
+    "themeCustomizationEnabled": true,
+    "keyboardShortcutsEnabled": true,
+    "adVerificationEnabled": false,
+    "mobileAccessEnabled": false,
+    "debugModeEnabled": false,
+    "analyticsEnabled": false,
+    "errorReportingEnabled": true
+  },
+  "uiControls": {
+    "showHeader": true,
+    "showFooter": true,
+    "showSidebar": true,
+    "showGameControls": true,
+    "showProxyToggle": true,
+    "showFavoriteButton": true,
+    "showFullscreenButton": true,
+    "showSearchBar": true,
+    "showCategoryFilters": true,
+    "showSettingsButton": true,
+    "showUpdateNotifications": true,
+    "showMaintenanceNotice": true
+  },
+  "defaults": {
+    "accentColor": "#58a6ff",
+    "proxyDefault": false,
+    "particles": {
+      "enabled": true,
+      "count": 50,
+      "speed": 0.5,
+      "color": "#58a6ff",
+      "lineDistance": 150,
+      "mouse": true
+    },
+    "cursor": {
+      "enabled": true,
+      "size": 8,
+      "color": "#ffffff",
+      "type": "circle"
+    }
+  }
+}
