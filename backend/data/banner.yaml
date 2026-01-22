@@ -1,13 +1,13 @@
 enabled: true
 id: default
 message: "Welcome to WaterWall!"
-description: "Play and save your favorites."
+description: "This is in early beta. Features are incomplete, and bugs are expected. Please report any issues you encounter."
 background: "#11161f"
 textColor: "#e5e7eb"
 dismissible: true
 dismissCooldownHours: 24
 button:
-  enabled: true
+  enabled: false
   label: "Visit Store"
   url: "https://example.com"
   background: "#1f6feb"

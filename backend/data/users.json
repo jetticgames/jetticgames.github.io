@@ -23,7 +23,7 @@
         "particleColor": "#58a6ff",
         "particleLineDistance": 150,
         "particleMouseInteraction": true,
-        "cursorEnabled": true,
+        "cursorEnabled": false,
         "cursorSize": 6,
         "cursorColor": "#ffffff",
         "cursorType": "circle"
@@ -37,11 +37,11 @@
         "blocked": []
       },
       "createdAt": "2025-12-19T04:15:11.605Z",
-      "updatedAt": "2026-01-21T09:33:26.187Z",
+      "updatedAt": "2026-01-22T02:18:13.581Z",
       "presence": {
         "online": true,
         "gameId": null,
-        "lastSeen": "2026-01-21T09:33:26.187Z"
+        "lastSeen": "2026-01-22T02:18:13.581Z"
       }
     },
     {

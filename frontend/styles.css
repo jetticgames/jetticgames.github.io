@@ -1,5 +1,5 @@
 /* Reset and Base Styles */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
 
 :root {
     /* Dark mode colors (default) */
@@ -22,6 +22,7 @@
     --hover-color: var(--bg-tertiary);
     --cursor-color: var(--text-primary);
     --bg-secondary-transparent: rgba(22, 27, 34, 0.85);
+    --ww-font-weight: 900;
 }
 
 /* Apply accent color to key elements */
@@ -57,7 +58,8 @@
 }
 
 body {
-    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-weight: var(--ww-font-weight);
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
@@ -66,9 +68,26 @@ body {
     text-rendering: optimizeLegibility;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
-/* Enforce Poppins across interactive/text elements */
+/* Enforce Nunito across interactive/text elements */
 button, input, select, textarea, .nav-link, .stat-item, .section-title, .game-card, .game-info-bottom, .cat-tab, .setting-group, .update-check-btn, .control-btn, .icon-btn {
-    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-weight: var(--ww-font-weight) !important;
+}
+
+/* Make general text bold by default to match the reference weight */
+h1, h2, h3, h4, h5, h6,
+p, span, a, li, label,
+input, select, textarea, button,
+.nav-link, .stat-item, .section-title,
+.game-card, .game-info-bottom, .cat-tab,
+.setting-group, .update-check-btn, .control-btn, .icon-btn,
+.friends-tab, .friends-panel, .friends-list li,
+.games-grid, .game-title, .game-description,
+.header-status, .header-actions, .section-header,
+.profile-form, .settings-card, .settings-grid,
+.toast, .notification-card {
+    font-weight: var(--ww-font-weight) !important;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 /* Removed override that interfered with Font Awesome font-family */
 /* ===== Global App Page Loader (Full-screen Logo Spinner) ===== */
@@ -849,6 +868,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     padding: 16px 32px; /* reduce top gap to tighten under sticky header */
     /* In case some element introduced margin collapse, enforce min offset */
     margin-top: 0;
+    overflow: hidden;
 }
 .friends-columns {margin-top:8px;}
 .friends-panel {background: var(--bg-secondary); border:1px solid var(--border-primary); padding:16px 18px 18px; border-radius:14px; position:relative; overflow:hidden; margin-bottom: 24px;}
@@ -1137,10 +1157,33 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .page {
     display: none;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.28s ease, transform 0.32s cubic-bezier(.4, .8, .2, 1);
+    pointer-events: none;
+    will-change: opacity, transform;
+    position: relative;
 }
 
 .page.active {
     display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.page.is-visible {
+    display: block;
+    position: relative;
+}
+
+.page.leaving {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
 }
 
 /* Games Section */
@@ -1275,7 +1318,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .game-card-title {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 900 !important;
     color: var(--text-primary);
     margin-bottom: 4px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.6);
@@ -2201,7 +2244,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 0.9rem;
     font-weight: 500;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 .filter-btn:hover {
@@ -2230,7 +2273,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     border-radius: 25px;
     width: 280px;
     font-size: 0.9rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
     outline: none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -2243,7 +2286,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 #searchInput::placeholder {
     color: rgba(255, 255, 255, 0.7);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 /* Main Content */
@@ -2257,13 +2300,33 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .page {
     display: none;
+    width: 100%;
     opacity: 0;
-    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(12px);
+    transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.4, 0.8, 0.2, 1);
+    pointer-events: none;
+    will-change: opacity, transform;
+    position: relative;
 }
 
 .page.active {
     display: block;
     opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.page.is-visible {
+    display: block;
+    position: relative;
+}
+
+.page.leaving {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
 }
 
 /* Homepage Game Grid */
@@ -2323,14 +2386,14 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     font-size: 1.2rem;
     margin-bottom: 8px;
     font-weight: 600;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 .game-info-overlay .category {
     color: rgba(255, 255, 255, 0.8);
     font-size: 0.9rem;
     font-weight: 400;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
     text-transform: capitalize;
 }
 
@@ -2377,7 +2440,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     margin-bottom: 20px;
     font-weight: 600;
     font-size: 1.2rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 .recommended-list {
@@ -2416,13 +2479,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     font-size: 0.95rem;
     margin-bottom: 5px;
     font-weight: 500;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 .recommended-item-info .category {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.8rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
     text-transform: capitalize;
 }
 
@@ -2462,7 +2525,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     color: rgba(255, 255, 255, 0.9);
     line-height: 1.7;
     font-size: 0.95rem;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
     font-weight: 400;
 }
 
@@ -2502,7 +2565,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     font-size: 1.8rem;
     font-weight: 600;
     margin: 0;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 .game-controls {
@@ -2560,7 +2623,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     color: #ffffff;
     font-size: 0.9rem;
     font-weight: 500;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 
 /* Control Buttons */
@@ -2574,7 +2637,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 0.9rem;
     font-weight: 500;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -3235,7 +3298,7 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 .suggested-game-card img {aspect-ratio:16/9; object-fit:cover; width:120px;}
 .game-frame-wrapper {margin-bottom:28px !important;}
 /* === FINAL EXTRA OVERRIDES === */
-.category-tab {font-family:'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
+.category-tab {font-family:'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
 .games-grid .game-card {height:auto !important; aspect-ratio:16/9;}
 .games-grid .game-card img {position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
 /* Modern proxy toggle */
@@ -3397,7 +3460,7 @@ label .ww-switch-input:checked + .ww-switch::after {transform:translateX(20px); 
 }
 
 .notification {
-    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     border-left: 4px solid rgba(255, 255, 255, 0.3);
 }
 

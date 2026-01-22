@@ -22,9 +22,13 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const COOKIE_NAME = 'ww_session';
-const ONLINE_WINDOW_MS = 10 * 60 * 1000; // users must ping within last 10 minutes to count as online
+const GUEST_COOKIE = 'ww_guest';
+const ONLINE_WINDOW_MS = 60 * 1000; // users must ping within last 60 seconds to count as online
 
 const app = express();
+
+// In-memory heartbeat tracking for guests (non-authenticated visitors)
+const guestHeartbeats = new Map();
 
 // --- Middleware
 app.disable('x-powered-by');
@@ -213,6 +217,26 @@ function setPresence(user, { online, gameId }) {
     user.presence.lastSeen = new Date().toISOString();
 }
 
+function decodeSessionToken(token) {
+    try {
+        return jwt.verify(token, JWT_SECRET);
+    } catch (_) {
+        return null;
+    }
+}
+
+function pruneGuestHeartbeats(now = Date.now()) {
+    for (const [id, ts] of guestHeartbeats.entries()) {
+        if (now - ts > ONLINE_WINDOW_MS) guestHeartbeats.delete(id);
+    }
+    return guestHeartbeats.size;
+}
+
+function guestOnlineCount(now = Date.now()) {
+    pruneGuestHeartbeats(now);
+    return guestHeartbeats.size;
+}
+
 // --- Ensure data files exist on startup
 (async () => {
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -242,12 +266,15 @@ app.get('/health', async (req, res) => {
     const users = await loadUsers();
     const now = Date.now();
     const onlineUsers = users.filter(u => isUserOnline(u, now)).length;
+    const onlineGuests = guestOnlineCount(now);
     res.json({
         status: 'ok',
         version: APP_VERSION,
         time: new Date().toISOString(),
         games: games.length,
-        players: onlineUsers,
+        players: onlineUsers + onlineGuests,
+        onlineUsers,
+        onlineGuests,
         totalUsers: users.length
     });
 });
@@ -507,7 +534,7 @@ app.post('/api/favorites/toggle', requireAuth, async (req, res) => {
 });
 
 // --- Friends
-function resolveFriendList(users, ids = []) {
+function resolveFriendList(users, ids = [], now = Date.now()) {
     return ids
         .map(id => users.find(u => u.id === id))
         .filter(Boolean)
@@ -517,7 +544,7 @@ function resolveFriendList(users, ids = []) {
             avatar: u.profile?.avatar,
             accentColor: u.profile?.accentColor,
             presence: {
-                online: !!u.presence?.online,
+                online: isUserOnline(u, now),
                 gameId: u.presence?.gameId || null,
                 lastSeen: u.presence?.lastSeen || null
             }
@@ -538,10 +565,11 @@ app.get('/api/friends', requireAuth, async (req, res) => {
     if (!me) return res.status(404).json({ error: 'User not found' });
     ensureFriendStruct(me);
     ensurePresence(me);
-    const friends = resolveFriendList(users, me.friends?.accepted || []);
-    const incoming = resolveFriendList(users, me.friends?.incoming || []);
-    const outgoing = resolveFriendList(users, me.friends?.outgoing || []);
-    const blocked = resolveFriendList(users, me.friends?.blocked || []);
+    const now = Date.now();
+    const friends = resolveFriendList(users, me.friends?.accepted || [], now);
+    const incoming = resolveFriendList(users, me.friends?.incoming || [], now);
+    const outgoing = resolveFriendList(users, me.friends?.outgoing || [], now);
+    const blocked = resolveFriendList(users, me.friends?.blocked || [], now);
     res.json({ friends, incomingRequests: incoming, outgoingRequests: outgoing, blocked });
 });
 
@@ -678,13 +706,57 @@ app.post('/api/friends/unblock', requireAuth, async (req, res) => {
     res.json({ success: true });
 });
 
+// --- Heartbeat (online tracking for authenticated and guest users)
+app.post('/api/online/ping', async (req, res) => {
+    const { online = true, gameId } = req.body || {};
+    const now = Date.now();
+    pruneGuestHeartbeats(now);
+
+    const token = req.cookies[COOKIE_NAME];
+    const decoded = token ? decodeSessionToken(token) : null;
+    let users = null;
+    let me = null;
+
+    if (decoded?.id) {
+        users = await loadUsers();
+        me = await getUserById(users, decoded.id);
+    }
+
+    if (me) {
+        const nextGameId = gameId === undefined ? (me.presence?.gameId || null) : gameId;
+        setPresence(me, { online: online !== false, gameId: nextGameId });
+        me.updatedAt = new Date().toISOString();
+        await saveUsers(users);
+        const existingGuest = req.cookies[GUEST_COOKIE];
+        if (existingGuest) guestHeartbeats.delete(existingGuest);
+    } else {
+        let guestId = req.cookies[GUEST_COOKIE] || crypto.randomUUID();
+        if (online === false) {
+            guestHeartbeats.delete(guestId);
+        } else {
+            guestHeartbeats.set(guestId, now);
+        }
+        res.cookie(GUEST_COOKIE, guestId, {
+            httpOnly: false,
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 1000 * 60 * 60 * 24 * 7
+        });
+    }
+
+    const onlineGuests = guestOnlineCount(now);
+    const onlineUsers = users ? users.filter(u => isUserOnline(u, now)).length : null;
+    res.json({ ok: true, onlineGuests, onlineUsers });
+});
+
 // --- Presence
 app.get('/api/presence', requireAuth, async (req, res) => {
     const users = await loadUsers();
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
     ensurePresence(me);
-    res.json({ presence: me.presence });
+    const now = Date.now();
+    res.json({ presence: { ...me.presence, online: isUserOnline(me, now) } });
 });
 
 app.put('/api/presence', requireAuth, async (req, res) => {
@@ -706,7 +778,7 @@ app.get('/api/presence/friends', requireAuth, async (req, res) => {
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
     ensureFriendStruct(me);
-    const friends = resolveFriendList(users, me.friends?.accepted || []);
+    const friends = resolveFriendList(users, me.friends?.accepted || [], Date.now());
     res.json({ friends });
 });
 

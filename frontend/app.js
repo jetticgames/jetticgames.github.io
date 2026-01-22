@@ -3,6 +3,7 @@
     'use strict';
 
     const backendUrl = window.WATERWALL_BACKEND_URL || window.location.origin;
+    const ONLINE_PING_INTERVAL = 30 * 1000;
 
     const state = {
         games: [],
@@ -23,7 +24,10 @@
         particle: { canvas: null, ctx: null, particles: [], anim: null },
         friendsPoll: null,
         friendsSnapshot: null,
-        friendsPlayingMap: new Map()
+        friendsPlayingMap: new Map(),
+        onlinePing: null,
+        healthPoll: null,
+        currentPage: 'home'
     };
 
     const els = {};
@@ -64,6 +68,10 @@
         bindGameControls();
         bindLogoutModal();
         registerServiceWorker();
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') sendOnlinePing();
+        });
+        window.addEventListener('focus', () => sendOnlinePing());
         setActiveNav('home');
         showPage('home');
         loadInitial();
@@ -399,10 +407,11 @@
             } else {
                 refreshUserUI();
             }
-            updateHealth();
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
         } finally {
+            startOnlineHeartbeat();
+            startHealthPolling();
             showLoader(false);
         }
     }
@@ -415,9 +424,35 @@
         }, 20000);
     }
 
+    function startOnlineHeartbeat() {
+        if (runtime.onlinePing) clearInterval(runtime.onlinePing);
+        sendOnlinePing();
+        runtime.onlinePing = setInterval(() => {
+            sendOnlinePing();
+        }, ONLINE_PING_INTERVAL);
+    }
+
+    function startHealthPolling() {
+        if (runtime.healthPoll) clearInterval(runtime.healthPoll);
+        updateHealth();
+        runtime.healthPoll = setInterval(() => {
+            updateHealth();
+        }, 5000);
+    }
+
+    function sendOnlinePing(gameIdOverride) {
+        const payload = { online: true };
+        if (gameIdOverride !== undefined) {
+            payload.gameId = gameIdOverride;
+        } else if (state.currentGame) {
+            payload.gameId = state.currentGame.id;
+        }
+        return api.post('/api/online/ping', payload).catch(() => {});
+    }
+
     function updatePresence(online = true, gameId = null) {
-        if (!state.user) return;
-        api.put('/api/presence', { online, gameId }).catch(() => {});
+        if (!online) return api.post('/api/online/ping', { online: false, gameId: null }).catch(() => {});
+        return sendOnlinePing(gameId);
     }
 
     function updateStats(stats) {
@@ -1061,15 +1096,31 @@
     }
 
     function showPage(page) {
-        Object.entries(els.pages).forEach(([key, el]) => {
-            if (!el) return;
-            const show = key === page;
-            el.style.display = show ? 'block' : 'none';
-            el.classList.toggle('active', show);
-        });
+        const next = els.pages?.[page];
+        if (!next) return;
+
+        const currentKey = runtime.currentPage;
+        const current = currentKey ? els.pages?.[currentKey] : null;
+        if (current === next) return;
+
+        if (current) {
+            current.classList.remove('active');
+            current.classList.add('leaving');
+            setTimeout(() => {
+                current.classList.remove('leaving', 'is-visible');
+                current.style.display = 'none';
+            }, 340);
+        }
+
+        next.style.display = 'block';
+        next.classList.remove('leaving');
+        next.classList.add('is-visible');
+        requestAnimationFrame(() => next.classList.add('active'));
+        runtime.currentPage = page;
         if (page === 'favorites') renderFavoritesPage();
         if (page === 'home') filterAndRender();
         if (page !== 'game') {
+            state.currentGame = null;
             updatePresence(true, null);
         }
     }
