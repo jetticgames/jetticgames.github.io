@@ -1,8 +1,8 @@
-// WaterWall frontend v3 - rebuilt
+// Jettic Games frontend v3 - rebuilt
 (() => {
     'use strict';
 
-    const backendUrl = window.WATERWALL_BACKEND_URL || window.location.origin;
+    const backendUrl = window.JETTIC_BACKEND_URL || window.location.origin;
     const ONLINE_PING_INTERVAL = 30 * 1000;
 
     const state = {
@@ -27,7 +27,11 @@
         friendsPlayingMap: new Map(),
         onlinePing: null,
         healthPoll: null,
-        currentPage: 'home'
+        currentPage: 'home',
+        clockTimer: null,
+        closingGame: null,
+        closeTicker: null,
+        settingsSaveTimer: null
     };
 
     const els = {};
@@ -60,14 +64,14 @@
         cacheElements();
         bindNavigation();
         bindAuthModal();
-        bindSearch();
-        bindProfileForm();
         bindSettingsForm();
         bindFriendsUI();
         bindFavoritesUI();
         bindGameControls();
         bindLogoutModal();
         registerServiceWorker();
+        applyClockSetting(true);
+        applyCurrentSectionSetting(true);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') sendOnlinePing();
         });
@@ -93,6 +97,8 @@
             statsCategories: document.querySelector('[data-stat="categories"]'),
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
+            statusClockText: document.getElementById('statusClockText'),
+            headerClock: document.getElementById('headerClock'),
             searchInput: document.getElementById('searchInput'),
             homeBanner: document.getElementById('homeBanner'),
             categoryTabs: document.getElementById('categoryTabs'),
@@ -145,7 +151,7 @@
             settingCursor: document.getElementById('settingCursor'),
             settingCursorSize: document.getElementById('settingCursorSize'),
             settingCursorColor: document.getElementById('settingCursorColor'),
-            settingsSaveBtn: document.getElementById('settingsSaveBtn'),
+            settingShowClock: document.getElementById('settingShowClock'),
             settingsFeedback: document.getElementById('settingsFeedback'),
             gameFrame: document.getElementById('gameFrame'),
             gameTitle: document.getElementById('gameTitle'),
@@ -168,8 +174,15 @@
             logoutConfirmModal: document.getElementById('logoutConfirmModal'),
             logoutConfirmBtn: document.getElementById('logoutConfirmBtn'),
             logoutCancelBtn: document.getElementById('logoutCancelBtn'),
-            toast: document.getElementById('ww-toast'),
-            notificationStack: document.getElementById('notificationStack')
+            toast: document.getElementById('jg-toast'),
+            notificationStack: document.getElementById('notificationStack'),
+            sidebarCurrentPlaying: document.getElementById('sidebarCurrentPlaying'),
+            sidebarHistory: document.getElementById('sidebarHistory'),
+            sidebarOnlineFriends: document.getElementById('sidebarOnlineFriends'),
+            sidebarCurrentSection: document.getElementById('sidebarCurrentSection'),
+            sidebarHistorySection: document.getElementById('sidebarHistorySection'),
+            sidebarOnlineSection: document.getElementById('sidebarOnlineSection'),
+            settingShowCurrent: document.getElementById('settingShowCurrent')
         });
     }
 
@@ -231,7 +244,7 @@
             toggleSaving(true);
             try {
                 const { user } = await api.put('/api/profile', payload);
-                state.user = user;
+                state.user = normalizeUser(user);
                 state.settings = user.settings || state.settings;
                 applyAccent(user.profile?.accentColor);
                 showToast('Profile saved');
@@ -263,28 +276,31 @@
     }
 
     function bindSettingsForm() {
-        els.settingsSaveBtn?.addEventListener('click', async () => {
-            if (!state.user) return openAuthModal('login');
-            const payload = {
-                accentColor: els.settingAccent.value,
-                proxyDefault: els.settingProxyDefault.checked,
-                particlesEnabled: els.settingParticles.checked,
-                particleCount: Number(els.settingParticleCount.value || 0),
-                particleSpeed: Number(els.settingParticleSpeed.value || 0),
-                cursorEnabled: els.settingCursor.checked,
-                cursorSize: Number(els.settingCursorSize.value || 8),
-                cursorColor: els.settingCursorColor.value
-            };
-            setSettingsFeedback('Saving...', false);
-            try {
-                const { settings } = await api.put('/api/settings', payload);
-                state.settings = settings;
-                applySettingsBehavior(settings);
-                setSettingsFeedback('Saved', false);
-            } catch (err) {
-                setSettingsFeedback(err.message || 'Failed to save', true);
-            }
+        const autoSaveInputs = [
+            els.settingAccent,
+            els.settingProxyDefault,
+            els.settingParticles,
+            els.settingParticleCount,
+            els.settingParticleSpeed,
+            els.settingCursor,
+            els.settingCursorSize,
+            els.settingCursorColor,
+            els.settingShowClock,
+            els.settingShowCurrent
+        ].filter(Boolean);
+
+        autoSaveInputs.forEach((input) => {
+            const evt = input.type === 'color' || input.type === 'number' ? 'input' : 'change';
+            input.addEventListener(evt, () => queueSaveSettings());
         });
+
+        els.settingShowClock?.addEventListener('change', (e) => {
+            applyClockSetting(e.target.checked);
+        });
+        els.settingShowCurrent?.addEventListener('change', (e) => {
+            applyCurrentSectionSetting(e.target.checked);
+        });
+
     }
 
     function bindFriendsUI() {
@@ -395,7 +411,7 @@
             renderGames();
             if (stats) updateStats(stats); else updateStats({ totalGames: state.games.length, categoryCount: state.categories.length });
             if (me?.user) {
-                state.user = me.user;
+                state.user = normalizeUser(me.user);
                 state.favorites = new Set((me.user.favorites || []).map(String));
                 state.settings = me.user.settings || null;
                 await loadSettingsIfNeeded();
@@ -404,6 +420,7 @@
                 updateAccountAvatar(state.user);
                 updatePresence(true, null);
                 refreshUserUI();
+                renderPlayHistory();
             } else {
                 refreshUserUI();
             }
@@ -447,7 +464,12 @@
         } else if (state.currentGame) {
             payload.gameId = state.currentGame.id;
         }
-        return api.post('/api/online/ping', payload).catch(() => {});
+        return api.post('/api/online/ping', payload)
+            .then((res) => {
+                if (Array.isArray(res?.lastPlayed)) updateLastPlayedState(res.lastPlayed);
+                return res;
+            })
+            .catch(() => {});
     }
 
     function updatePresence(online = true, gameId = null) {
@@ -544,7 +566,7 @@
 
     function isBannerDismissed(banner) {
         if (!banner || banner.dismissible === false) return false;
-        const key = `ww_banner_dismiss_${banner.id || 'default'}`;
+        const key = `jg_banner_dismiss_${banner.id || 'default'}`;
         const raw = localStorage.getItem(key);
         if (!raw) return false;
         try {
@@ -559,7 +581,7 @@
 
     function markBannerDismissed(banner) {
         if (!banner || banner.dismissible === false) return;
-        const key = `ww_banner_dismiss_${banner.id || 'default'}`;
+        const key = `jg_banner_dismiss_${banner.id || 'default'}`;
         localStorage.setItem(key, JSON.stringify({ ts: Date.now() }));
     }
 
@@ -714,6 +736,7 @@
     async function openGame(gameId) {
         const game = state.games.find((g) => String(g.id) === String(gameId));
         if (!game) return;
+        cancelCloseTimer(true);
         state.currentGame = game;
         els.gameTitle.textContent = game.title;
         els.gameCategory.textContent = capitalize(game.category || 'Other');
@@ -724,6 +747,7 @@
         updateProxyUI();
         updatePresence(true, game.id);
         renderGameFriends(game.id);
+        updateLocalLastPlayed(game.id);
         loadGameFrame(game);
     }
 
@@ -895,6 +919,7 @@
         // update overlays for current game
         if (state.currentGame) renderGameFriends(state.currentGame.id);
         renderGames();
+        renderOnlineFriends();
     }
 
     function renderUserList(container, list = [], options = {}) {
@@ -1004,6 +1029,8 @@
         if (els.settingCursor) els.settingCursor.checked = settings.cursorEnabled !== false;
         if (els.settingCursorSize) els.settingCursorSize.value = settings.cursorSize ?? 8;
         if (els.settingCursorColor) els.settingCursorColor.value = settings.cursorColor || '#ffffff';
+        if (els.settingShowClock) els.settingShowClock.checked = settings.showClock !== false;
+        if (els.settingShowCurrent) els.settingShowCurrent.checked = settings.showCurrent !== false;
         applySettingsBehavior(settings);
     }
 
@@ -1027,6 +1054,8 @@
             stopParticles();
         }
         updateProxyUI();
+        applyClockSetting(settings.showClock !== false);
+        applyCurrentSectionSetting(settings.showCurrent !== false);
     }
 
     async function updateHealth() {
@@ -1058,7 +1087,7 @@
             applySettingsToUI(state.settings || state.user.settings);
             updateAccountAvatar(state.user);
         } else {
-            els.accountLabel.textContent = 'Sign in / Sign up';
+            els.accountLabel.textContent = 'Log in';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
             if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'block';
             els.friendsContent.style.display = 'none';
@@ -1069,6 +1098,7 @@
             updateAccountAvatar(null);
         }
             closeAddFriendModal();
+        renderPlayHistory();
         renderFavoritesPage();
     }
 
@@ -1103,6 +1133,8 @@
         const current = currentKey ? els.pages?.[currentKey] : null;
         if (current === next) return;
 
+        const wasGame = runtime.currentPage === 'game' && state.currentGame;
+
         if (current) {
             current.classList.remove('active');
             current.classList.add('leaving');
@@ -1119,10 +1151,13 @@
         runtime.currentPage = page;
         if (page === 'favorites') renderFavoritesPage();
         if (page === 'home') filterAndRender();
-        if (page !== 'game') {
-            state.currentGame = null;
+        if (page !== 'game' && wasGame) {
+            beginCloseCurrentGame();
+        } else if (page !== 'game') {
             updatePresence(true, null);
         }
+        renderPlayHistory();
+        renderOnlineFriends();
     }
 
     function toggleProfileDropdown() {
@@ -1183,7 +1218,7 @@
         try {
             const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
             const { user } = await api.post(path, { username, password });
-            state.user = user;
+            state.user = normalizeUser(user);
             state.favorites = new Set((user.favorites || []).map(String));
             state.settings = user.settings || null;
             await loadSettingsIfNeeded();
@@ -1192,6 +1227,7 @@
             updateAccountAvatar(state.user);
             updatePresence(true, null);
             refreshUserUI();
+            renderPlayHistory();
             closeAuthModal();
             showToast(mode === 'register' ? 'Account created' : 'Signed in');
         } catch (err) {
@@ -1208,9 +1244,12 @@
         runtime.friendsSnapshot = null;
         if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
         runtime.friendsPlayingMap = new Map();
+        cancelCloseTimer(true);
+        stopGameFrame();
         disableCustomCursor();
         stopParticles();
         refreshUserUI();
+        renderOnlineFriends();
         showPage('home');
     }
 
@@ -1248,6 +1287,47 @@
         if (!els.settingsFeedback) return;
         els.settingsFeedback.textContent = msg;
         els.settingsFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    function buildSettingsPayload() {
+        return {
+            accentColor: els.settingAccent?.value,
+            proxyDefault: !!els.settingProxyDefault?.checked,
+            particlesEnabled: els.settingParticles?.checked !== false,
+            particleCount: Number(els.settingParticleCount?.value || 0),
+            particleSpeed: Number(els.settingParticleSpeed?.value || 0),
+            cursorEnabled: els.settingCursor?.checked !== false,
+            cursorSize: Number(els.settingCursorSize?.value || 8),
+            cursorColor: els.settingCursorColor?.value,
+            showClock: els.settingShowClock ? els.settingShowClock.checked : true,
+            showCurrent: els.settingShowCurrent ? els.settingShowCurrent.checked : true
+        };
+    }
+
+    function queueSaveSettings() {
+        if (!state.user) {
+            setSettingsFeedback('Log in to save settings', true);
+            return;
+        }
+        if (runtime.settingsSaveTimer) clearTimeout(runtime.settingsSaveTimer);
+        setSettingsFeedback('Saving...', false);
+        runtime.settingsSaveTimer = setTimeout(() => {
+            saveSettings();
+        }, 200);
+    }
+
+    async function saveSettings() {
+        if (!state.user) return openAuthModal('login');
+        const payload = buildSettingsPayload();
+        setSettingsFeedback('Saving...', false);
+        try {
+            const { settings } = await api.put('/api/settings', payload);
+            state.settings = settings;
+            applySettingsBehavior(settings);
+            setSettingsFeedback('Saved', false);
+        } catch (err) {
+            setSettingsFeedback(err.message || 'Failed to save', true);
+        }
     }
 
     function showToast(message, isError = false) {
@@ -1304,6 +1384,20 @@
         if (!id) return '';
         const game = state.games.find((g) => String(g.id) === String(id));
         return game?.title || '';
+    }
+
+    function buildMiniAvatar(user) {
+        if (!user) return null;
+        const div = document.createElement('div');
+        div.className = 'mini-avatar';
+        const avatarUrl = user.profile?.avatar || user.avatar;
+        if (avatarUrl) div.style.backgroundImage = `url(${avatarUrl})`;
+        else {
+            const color = user.profile?.accentColor || user.accentColor;
+            if (color) div.style.background = color;
+            div.textContent = (user.username || '?')[0].toUpperCase();
+        }
+        return div;
     }
 
     function capitalize(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
@@ -1397,5 +1491,234 @@
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
         navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    function normalizeUser(user) {
+        if (!user) return null;
+        const normalized = { ...user };
+        normalized.profile = normalized.profile || {};
+        normalized.profile.lastPlayed = Array.isArray(normalized.profile.lastPlayed) ? normalized.profile.lastPlayed : [];
+        return normalized;
+    }
+
+    function updateLocalLastPlayed(gameId) {
+        if (!state.user || !gameId) return;
+        state.user.profile = state.user.profile || {};
+        const existing = Array.isArray(state.user.profile.lastPlayed) ? state.user.profile.lastPlayed.slice() : [];
+        const idStr = String(gameId);
+        const filtered = existing.filter((id) => String(id) !== idStr);
+        filtered.unshift(idStr);
+        state.user.profile.lastPlayed = filtered.slice(0, 10);
+        renderPlayHistory();
+    }
+
+    function updateLastPlayedState(list) {
+        if (!state.user || !Array.isArray(list)) return;
+        state.user.profile = state.user.profile || {};
+        state.user.profile.lastPlayed = list.map((id) => String(id));
+        renderPlayHistory();
+    }
+
+    function getLastPlayedGames() {
+        return Array.isArray(state.user?.profile?.lastPlayed) ? state.user.profile.lastPlayed : [];
+    }
+
+    function renderPlayHistory() {
+        renderCurrentlyPlaying();
+        renderPreviouslyPlayed();
+        renderOnlineFriends();
+    }
+
+    function renderOnlineFriends() {
+        const list = els.sidebarOnlineFriends;
+        if (!list) return;
+        list.innerHTML = '';
+        if (!state.user) {
+            list.innerHTML = '<li class="sidebar-empty">Sign in to see friends online</li>';
+            return;
+        }
+        const online = (state.friends?.friends || []).filter((f) => f.presence?.online);
+        if (!online.length) {
+            list.innerHTML = '<li class="sidebar-empty">No friends online</li>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        online.slice(0, 10).forEach((f) => {
+            const li = document.createElement('li');
+            li.className = 'sidebar-online-item';
+            const avatar = buildMiniAvatar(f);
+            if (avatar) li.appendChild(avatar);
+            const meta = document.createElement('div');
+            meta.className = 'sidebar-online-meta';
+            const name = document.createElement('span');
+            name.className = 'mini-text';
+            name.textContent = f.username;
+            const game = document.createElement('span');
+            game.className = 'mini-subtext';
+            const title = f.presence?.gameId ? getGameTitleById(f.presence.gameId) || 'Playing' : 'Online';
+            game.textContent = title;
+            meta.append(name, game);
+            li.appendChild(meta);
+            li.addEventListener('click', () => {
+                if (f.presence?.gameId) openGame(f.presence.gameId);
+            });
+            frag.appendChild(li);
+        });
+        list.appendChild(frag);
+    }
+
+    function renderCurrentlyPlaying() {
+        const list = els.sidebarCurrentPlaying;
+        if (!list) return;
+        list.innerHTML = '';
+        if (!state.user) {
+            list.innerHTML = '<li class="sidebar-empty">Sign in to show activity</li>';
+            return;
+        }
+        const activeGame = state.currentGame || runtime.closingGame?.game;
+        if (!activeGame) {
+            list.innerHTML = '<li class="sidebar-empty">Not playing right now</li>';
+            return;
+        }
+        const item = document.createElement('li');
+        item.className = 'sidebar-mini-item active-game';
+        const isClosing = !!runtime.closingGame && !state.currentGame;
+        const progress = isClosing ? runtime.closingGame.progress || 0 : 1;
+        const left = document.createElement('div');
+        left.className = 'mini-left';
+        const ring = document.createElement('div');
+        ring.className = 'sidebar-mini-progress';
+        ring.style.setProperty('--progress', `${Math.round(progress * 100)}%`);
+        left.appendChild(ring);
+        const titleEl = document.createElement('span');
+        titleEl.className = 'mini-text';
+        titleEl.textContent = activeGame.title;
+        left.appendChild(titleEl);
+        item.appendChild(left);
+
+        const avatar = buildMiniAvatar(state.user);
+        if (avatar) item.appendChild(avatar);
+        item.addEventListener('click', () => openGame(activeGame.id));
+        list.appendChild(item);
+    }
+
+    function renderPreviouslyPlayed() {
+        const list = els.sidebarHistory;
+        if (!list) return;
+        list.innerHTML = '';
+        if (!state.user) {
+            list.innerHTML = '<li class="sidebar-empty">Sign in to track play history</li>';
+            return;
+        }
+        const lastPlayed = getLastPlayedGames();
+        if (!lastPlayed.length) {
+            list.innerHTML = '<li class="sidebar-empty">No previous games yet</li>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        lastPlayed.slice(0, 10).forEach((id) => {
+            const title = getGameTitleById(id) || 'Unknown Game';
+            const li = document.createElement('li');
+            li.className = 'sidebar-mini-item';
+            const left = document.createElement('div');
+            left.className = 'mini-left';
+            const text = document.createElement('span');
+            text.className = 'mini-text';
+            text.textContent = title;
+            left.appendChild(text);
+            li.appendChild(left);
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-arrow-up-right-from-square';
+            li.appendChild(icon);
+            li.addEventListener('click', () => openGame(id));
+            frag.appendChild(li);
+        });
+        list.appendChild(frag);
+    }
+
+    function applyClockSetting(show) {
+        const enable = show !== false;
+        if (!els.headerClock) return;
+        els.headerClock.style.display = enable ? 'flex' : 'none';
+        if (enable) {
+            startClock();
+        } else {
+            stopClock();
+        }
+    }
+
+    function startClock() {
+        if (runtime.clockTimer) clearInterval(runtime.clockTimer);
+        const tick = () => {
+            if (!els.statusClockText) return;
+            const now = new Date();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const date = now.toLocaleDateString();
+            els.statusClockText.textContent = `${time} • ${date}`;
+        };
+        tick();
+        runtime.clockTimer = setInterval(tick, 1000);
+    }
+
+    function stopClock() {
+        if (runtime.clockTimer) clearInterval(runtime.clockTimer);
+        runtime.clockTimer = null;
+    }
+
+    function applyCurrentSectionSetting(show) {
+        const enable = show !== false;
+        if (els.sidebarCurrentSection) els.sidebarCurrentSection.style.display = enable ? 'list-item' : 'none';
+    }
+
+    function beginCloseCurrentGame() {
+        if (!state.currentGame && !runtime.closingGame) return;
+        const game = state.currentGame || runtime.closingGame?.game;
+        state.currentGame = null;
+        if (!game) return;
+        runtime.closingGame = { game, endAt: Date.now() + 10000, progress: 0 };
+        updatePresence(true, null);
+        startCloseTimer();
+        renderPlayHistory();
+    }
+
+    function startCloseTimer() {
+        if (runtime.closeTicker) cancelAnimationFrame(runtime.closeTicker);
+        const tick = () => {
+            if (!runtime.closingGame) return;
+            const total = runtime.closingGame.endAt - (runtime.closingGame.startAt || (runtime.closingGame.endAt - 10000));
+            const remaining = runtime.closingGame.endAt - Date.now();
+            const elapsed = total - remaining;
+            const progress = Math.min(1, Math.max(0, elapsed / total));
+            runtime.closingGame.progress = progress;
+            if (remaining <= 0) {
+                finalizeClosingGame();
+                return;
+            }
+            renderCurrentlyPlaying();
+            runtime.closeTicker = requestAnimationFrame(tick);
+        };
+        runtime.closingGame.startAt = runtime.closingGame.startAt || Date.now();
+        runtime.closeTicker = requestAnimationFrame(tick);
+    }
+
+    function cancelCloseTimer(stopFrame = false) {
+        if (runtime.closeTicker) cancelAnimationFrame(runtime.closeTicker);
+        runtime.closeTicker = null;
+        runtime.closingGame = null;
+        if (stopFrame) stopGameFrame();
+    }
+
+    function finalizeClosingGame() {
+        stopGameFrame();
+        runtime.closingGame = null;
+        if (runtime.closeTicker) cancelAnimationFrame(runtime.closeTicker);
+        runtime.closeTicker = null;
+        renderPlayHistory();
+    }
+
+    function stopGameFrame() {
+        if (els.gameFrame) {
+            els.gameFrame.src = 'about:blank';
+        }
     }
 })();

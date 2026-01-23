@@ -21,8 +21,10 @@ const GAMES_FILE = path.join(DATA_DIR, 'games.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
-const COOKIE_NAME = 'ww_session';
-const GUEST_COOKIE = 'ww_guest';
+const COOKIE_NAME = 'jg_session';
+const GUEST_COOKIE = 'jg_guest';
+const LEGACY_SESSION_COOKIE = 'ww_session';
+const LEGACY_GUEST_COOKIE = 'ww_guest';
 const ONLINE_WINDOW_MS = 60 * 1000; // users must ping within last 60 seconds to count as online
 
 const app = express();
@@ -124,7 +126,9 @@ function defaultSettingsFromConfig(config) {
         cursorEnabled: cursor.enabled !== false,
         cursorSize: Number.isFinite(cursor.size) ? cursor.size : 8,
         cursorColor: cursor.color || '#ffffff',
-        cursorType: ['circle', 'dot', 'none', 'custom'].includes(cursor.type) ? cursor.type : 'circle'
+        cursorType: ['circle', 'dot', 'none', 'custom'].includes(cursor.type) ? cursor.type : 'circle',
+        showClock: d.showClock !== false,
+        showCurrent: d.showCurrent !== false
     };
 }
 
@@ -147,7 +151,7 @@ function sanitizeUser(user) {
     return {
         id: user.id,
         username: user.username,
-        profile: user.profile || {},
+        profile: { ...(user.profile || {}), lastPlayed: Array.isArray(user.profile?.lastPlayed) ? user.profile.lastPlayed : [] },
         favorites: user.favorites || [],
         friends: user.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] },
         settings: user.settings || {},
@@ -161,8 +165,12 @@ function signToken(user) {
     return jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
 }
 
+function getSessionToken(req) {
+    return req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
+}
+
 function requireAuth(req, res, next) {
-    const token = req.cookies[COOKIE_NAME];
+    const token = getSessionToken(req);
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -180,6 +188,8 @@ function setSessionCookie(res, token) {
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7
     });
+    // Clear legacy WaterWall cookie names during the rebrand
+    res.clearCookie(LEGACY_SESSION_COOKIE);
 }
 
 async function getUserById(users, id) {
@@ -217,6 +227,16 @@ function setPresence(user, { online, gameId }) {
     user.presence.lastSeen = new Date().toISOString();
 }
 
+function updateLastPlayed(user, gameId, max = 10) {
+    if (!gameId) return;
+    user.profile = user.profile || {};
+    const list = Array.isArray(user.profile.lastPlayed) ? user.profile.lastPlayed.slice() : [];
+    const idStr = String(gameId);
+    const filtered = list.filter(id => String(id) !== idStr);
+    filtered.unshift(idStr);
+    user.profile.lastPlayed = filtered.slice(0, max);
+}
+
 function decodeSessionToken(token) {
     try {
         return jwt.verify(token, JWT_SECRET);
@@ -245,7 +265,7 @@ function guestOnlineCount(now = Date.now()) {
     await ensureFile(CONFIG_FILE, {});
         await ensureFile(BANNER_FILE, `enabled: true
 id: default
-message: "Welcome to WaterWall!"
+message: "Welcome to Jettic Games!"
 description: "Play and save your favorites."
 background: "#11161f"
 textColor: "#e5e7eb"
@@ -347,7 +367,8 @@ app.post('/api/auth/register', async (req, res) => {
         profile: {
             username,
             accentColor: (await loadConfig()).defaults?.accentColor || '#58a6ff',
-            avatar: null
+            avatar: null,
+            lastPlayed: []
         },
         settings: defaultSettings,
         friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
@@ -385,9 +406,10 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/logout', (req, res) => {
     res.clearCookie(COOKIE_NAME);
+    res.clearCookie(LEGACY_SESSION_COOKIE);
     (async () => {
         const users = await loadUsers();
-        const token = req.cookies[COOKIE_NAME];
+        const token = getSessionToken(req);
         if (token) {
             try {
                 const decoded = jwt.verify(token, JWT_SECRET);
@@ -486,6 +508,8 @@ function validateSettings(input) {
         if (!allowed.includes(input.cursorType)) throw new Error('Invalid cursor type');
         out.cursorType = input.cursorType;
     }
+    if (input.showClock !== undefined) out.showClock = !!input.showClock;
+    if (input.showCurrent !== undefined) out.showCurrent = !!input.showCurrent;
     return out;
 }
 
@@ -493,7 +517,8 @@ app.get('/api/settings', requireAuth, async (req, res) => {
     const users = await loadUsers();
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
-    res.json({ settings: me.settings || defaultSettingsFromConfig(await loadConfig()) });
+    const defaults = await loadConfig().then(defaultSettingsFromConfig);
+    res.json({ settings: { ...defaults, ...(me.settings || {}) } });
 });
 
 app.put('/api/settings', requireAuth, async (req, res) => {
@@ -712,7 +737,7 @@ app.post('/api/online/ping', async (req, res) => {
     const now = Date.now();
     pruneGuestHeartbeats(now);
 
-    const token = req.cookies[COOKIE_NAME];
+    const token = getSessionToken(req);
     const decoded = token ? decodeSessionToken(token) : null;
     let users = null;
     let me = null;
@@ -725,12 +750,13 @@ app.post('/api/online/ping', async (req, res) => {
     if (me) {
         const nextGameId = gameId === undefined ? (me.presence?.gameId || null) : gameId;
         setPresence(me, { online: online !== false, gameId: nextGameId });
+        if (nextGameId) updateLastPlayed(me, nextGameId);
         me.updatedAt = new Date().toISOString();
         await saveUsers(users);
-        const existingGuest = req.cookies[GUEST_COOKIE];
+        const existingGuest = req.cookies[GUEST_COOKIE] || req.cookies[LEGACY_GUEST_COOKIE];
         if (existingGuest) guestHeartbeats.delete(existingGuest);
     } else {
-        let guestId = req.cookies[GUEST_COOKIE] || crypto.randomUUID();
+        let guestId = req.cookies[GUEST_COOKIE] || req.cookies[LEGACY_GUEST_COOKIE] || crypto.randomUUID();
         if (online === false) {
             guestHeartbeats.delete(guestId);
         } else {
@@ -742,11 +768,12 @@ app.post('/api/online/ping', async (req, res) => {
             sameSite: 'lax',
             maxAge: 1000 * 60 * 60 * 24 * 7
         });
+        res.clearCookie(LEGACY_GUEST_COOKIE);
     }
 
     const onlineGuests = guestOnlineCount(now);
     const onlineUsers = users ? users.filter(u => isUserOnline(u, now)).length : null;
-    res.json({ ok: true, onlineGuests, onlineUsers });
+    res.json({ ok: true, onlineGuests, onlineUsers, lastPlayed: me?.profile?.lastPlayed || [] });
 });
 
 // --- Presence
@@ -830,5 +857,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`✅ WaterWall backend running on http://localhost:${PORT}`);
+    console.log(`✅ Jettic Games backend running on http://localhost:${PORT}`);
 });

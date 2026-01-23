@@ -1,7 +1,7 @@
 {
-  "name": "waterwall-backend",
+  "name": "jettic-backend",
   "version": "3.0.0",
-  "description": "Self-hosted Express backend for the WaterWall gaming platform",
+  "description": "Self-hosted Express backend for the Jettic Games platform",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -14,9 +14,9 @@
     "backend",
     "games",
     "proxy",
-    "waterwall"
+    "jettic"
   ],
-  "author": "WaterWall Team",
+  "author": "Jettic Games Team",
   "license": "MIT",
   "engines": {
     "node": ">=18"

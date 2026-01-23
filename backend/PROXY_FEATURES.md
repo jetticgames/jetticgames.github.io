@@ -1,7 +1,7 @@
-# WaterWall Enhanced Proxy Features
+# Jettic Games Enhanced Proxy Features
 
 ## Overview
-The WaterWall proxy has been upgraded to provide full website loading capabilities, going beyond simple HTML proxying to handle all website resources and dynamic content.
+The Jettic Games proxy has been upgraded to provide full website loading capabilities, going beyond simple HTML proxying to handle all website resources and dynamic content.
 
 ## Key Features
 

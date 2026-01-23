@@ -1,5 +1,5 @@
-// Cloudflare Worker script for WaterWall - Full Backend API
-// This worker now serves as a complete backend for the WaterWall platform
+// Cloudflare Worker script for Jettic Games - Full Backend API
+// This worker now serves as a complete backend for the Jettic Games platform
 
 // Application configuration and constants
 const APP_VERSION = '2.0.1';
@@ -8,14 +8,14 @@ const GAMES_CACHE_TTL = 3600; // 1 hour
 const CONFIG_CACHE_TTL = 1800; // 30 minutes
 
 // Comprehensive Admin-Controlled Configuration
-// This configuration can be overridden via backend API and controls ALL aspects of WaterWall
+// This configuration can be overridden via backend API and controls ALL aspects of Jettic Games
 const DEFAULT_CONFIG = {
     version: APP_VERSION,
     
     // Maintenance Mode Control
     maintenanceMode: {
         enabled: false,
-        message: "WaterWall is currently under maintenance. We'll be back online soon!",
+        message: "Jettic Games is currently under maintenance. We'll be back online soon!",
         estimatedTime: "Please check back in a few hours.",
         blockProxy: true // Also disable proxy during maintenance
     },
@@ -127,8 +127,8 @@ const DEFAULT_CONFIG = {
     
     // Messaging & Communication
     messaging: {
-        welcomeMessage: "Welcome to WaterWall! Enjoy our collection of games.",
-        maintenanceMessage: "WaterWall is currently under maintenance. We'll be back online soon!",
+        welcomeMessage: "Welcome to Jettic Games! Enjoy our collection of games.",
+        maintenanceMessage: "Jettic Games is currently under maintenance. We'll be back online soon!",
         errorMessage: "Something went wrong. Please try again later.",
         noGamesMessage: "No games found. Try adjusting your search or category filter.",
         loadingMessage: "Loading games...",
@@ -609,54 +609,54 @@ const GAMES_DATABASE = [
 const ASSET_MAPPINGS = {
     // Game thumbnails
     'thumbnails/cookieclicker.jpg': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/cookieclicker.jpg',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/cookieclicker.jpg',
         contentType: 'image/jpeg',
         maxAge: 604800 // 7 days
     },
     'thumbnails/tetris.webp': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/tetris.webp',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/tetris.webp',
         contentType: 'image/webp',
         maxAge: 604800
     },
     'thumbnails/snake.gif': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/snake.gif',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/snake.gif',
         contentType: 'image/gif',
         maxAge: 604800
     },
     'thumbnails/pacman.avif': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/pacman.avif',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/pacman.avif',
         contentType: 'image/avif',
         maxAge: 604800
     },
     'thumbnails/chess.png': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/chess.png',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/chess.png',
         contentType: 'image/png',
         maxAge: 604800
     },
     
     // Core assets that can be served from backend
     'assets/logo.png': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/logo.png',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/logo.png',
         contentType: 'image/png',
         maxAge: 604800
     },
     'assets/styles.css': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/styles.css',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/styles.css',
         contentType: 'text/css',
         maxAge: 86400 // 1 day for CSS
     },
     'assets/app.js': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/app.js',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/app.js',
         contentType: 'application/javascript',
         maxAge: 3600 // 1 hour for JS (frequent updates)
     },
     'assets/sw.js': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/sw.js',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/sw.js',
         contentType: 'application/javascript',
         maxAge: 3600
     },
     'assets/games.json': {
-        url: 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/games.json',
+        url: 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/games.json',
         contentType: 'application/json',
         maxAge: 300 // 5 minutes for frequently updated content
     }
@@ -664,11 +664,11 @@ const ASSET_MAPPINGS = {
 
 // Legacy thumbnail mappings for backward compatibility
 const THUMBNAIL_MAPPINGS = {
-    'cookieclicker.jpg': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/cookieclicker.jpg',
-    'tetris.webp': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/tetris.webp', 
-    'snake.gif': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/snake.gif',
-    'pacman.avif': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/pacman.avif',
-    'chess.png': 'https://raw.githubusercontent.com/Zonikyo/WaterWall/main/frontend/images/chess.png'
+    'cookieclicker.jpg': 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/cookieclicker.jpg',
+    'tetris.webp': 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/tetris.webp', 
+    'snake.gif': 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/snake.gif',
+    'pacman.avif': 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/pacman.avif',
+    'chess.png': 'https://raw.githubusercontent.com/Wilapsek/Jettic/main/frontend/images/chess.png'
 };
 
 export default {
@@ -719,7 +719,7 @@ export default {
         
         // Default response for unknown routes
         return new Response(JSON.stringify({
-            message: 'WaterWall Backend API',
+            message: 'Jettic Games Backend API',
             version: APP_VERSION,
             endpoints: [
                 'GET /api/health - Health check endpoint',
@@ -1409,7 +1409,7 @@ function rewriteHTML(html, baseUrl, proxyBase) {
             });
         }
         
-        console.log('WaterWall proxy intercepts initialized');
+        console.log('Jettic Games proxy intercepts initialized');
     })();
     </script>`;
     
@@ -1698,8 +1698,8 @@ async function handleConfigAPI(request, env) {
     
     try {
         // Try new admin config system first
-        if (env.WATERWALL_KV) {
-            const adminConfig = await env.WATERWALL_KV.get('admin_config');
+        if (env.JETTIC_KV) {
+            const adminConfig = await env.JETTIC_KV.get('admin_config');
             if (adminConfig) {
                 const parsed = JSON.parse(adminConfig);
                 config = { ...config, ...parsed };
@@ -1775,8 +1775,8 @@ async function handleMaintenanceAPI(request, env) {
         
         try {
             // Try new admin config system first
-            if (env.WATERWALL_KV) {
-                const adminConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const adminConfig = await env.JETTIC_KV.get('admin_config');
                 if (adminConfig) {
                     const parsed = JSON.parse(adminConfig);
                     if (parsed.maintenanceMode) {
@@ -1810,7 +1810,7 @@ async function handleMaintenanceAPI(request, env) {
         try {
             const body = await request.json();
             
-            if (!env.WATERWALL_KV && !env.CONFIG_KV) {
+            if (!env.JETTIC_KV && !env.CONFIG_KV) {
                 return new Response(JSON.stringify({
                     error: 'Configuration storage not available'
                 }), {
@@ -1825,8 +1825,8 @@ async function handleMaintenanceAPI(request, env) {
             // Get current admin config
             let config = { ...DEFAULT_CONFIG };
             
-            if (env.WATERWALL_KV) {
-                const adminConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const adminConfig = await env.JETTIC_KV.get('admin_config');
                 if (adminConfig) {
                     config = { ...config, ...JSON.parse(adminConfig) };
                 }
@@ -1845,8 +1845,8 @@ async function handleMaintenanceAPI(request, env) {
             };
             
             // Save to preferred KV (new admin config system)
-            if (env.WATERWALL_KV) {
-                await env.WATERWALL_KV.put('admin_config', JSON.stringify(config));
+            if (env.JETTIC_KV) {
+                await env.JETTIC_KV.put('admin_config', JSON.stringify(config));
             } else if (env.CONFIG_KV) {
                 await env.CONFIG_KV.put('app_config', JSON.stringify(config));
             }
@@ -2038,8 +2038,8 @@ async function handleAdminConfigAPI(request, env) {
         try {
             let config = DEFAULT_CONFIG;
             
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     const parsed = JSON.parse(storedConfig);
                     config = { ...DEFAULT_CONFIG, ...parsed };
@@ -2078,8 +2078,8 @@ async function handleAdminConfigAPI(request, env) {
             
             // Merge with existing config
             let currentConfig = DEFAULT_CONFIG;
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
                 }
@@ -2088,8 +2088,8 @@ async function handleAdminConfigAPI(request, env) {
             const updatedConfig = { ...currentConfig, ...newConfig };
             
             // Store updated configuration
-            if (env.WATERWALL_KV) {
-                await env.WATERWALL_KV.put('admin_config', JSON.stringify(updatedConfig));
+            if (env.JETTIC_KV) {
+                await env.JETTIC_KV.put('admin_config', JSON.stringify(updatedConfig));
                 console.log('✅ Admin configuration updated');
             }
             
@@ -2122,8 +2122,8 @@ async function handleAdminFeaturesAPI(request, env) {
         try {
             let features = DEFAULT_CONFIG.features;
             
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     const config = JSON.parse(storedConfig);
                     features = config.features || DEFAULT_CONFIG.features;
@@ -2153,8 +2153,8 @@ async function handleAdminFeaturesAPI(request, env) {
             
             // Get current config
             let currentConfig = DEFAULT_CONFIG;
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
                 }
@@ -2164,8 +2164,8 @@ async function handleAdminFeaturesAPI(request, env) {
             currentConfig.features = { ...currentConfig.features, ...newFeatures };
             
             // Store updated configuration
-            if (env.WATERWALL_KV) {
-                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+            if (env.JETTIC_KV) {
+                await env.JETTIC_KV.put('admin_config', JSON.stringify(currentConfig));
                 console.log('✅ Feature toggles updated');
             }
             
@@ -2198,8 +2198,8 @@ async function handleAdminDefaultsAPI(request, env) {
         try {
             let defaults = DEFAULT_CONFIG.defaultUserSettings;
             
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     const config = JSON.parse(storedConfig);
                     defaults = config.defaultUserSettings || DEFAULT_CONFIG.defaultUserSettings;
@@ -2229,8 +2229,8 @@ async function handleAdminDefaultsAPI(request, env) {
             
             // Get current config
             let currentConfig = DEFAULT_CONFIG;
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
                 }
@@ -2240,8 +2240,8 @@ async function handleAdminDefaultsAPI(request, env) {
             currentConfig.defaultUserSettings = { ...currentConfig.defaultUserSettings, ...newDefaults };
             
             // Store updated configuration
-            if (env.WATERWALL_KV) {
-                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+            if (env.JETTIC_KV) {
+                await env.JETTIC_KV.put('admin_config', JSON.stringify(currentConfig));
                 console.log('✅ Default user settings updated');
             }
             
@@ -2274,8 +2274,8 @@ async function handleAdminUIAPI(request, env) {
         try {
             let uiControls = DEFAULT_CONFIG.uiControls;
             
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     const config = JSON.parse(storedConfig);
                     uiControls = config.uiControls || DEFAULT_CONFIG.uiControls;
@@ -2305,8 +2305,8 @@ async function handleAdminUIAPI(request, env) {
             
             // Get current config
             let currentConfig = DEFAULT_CONFIG;
-            if (env.WATERWALL_KV) {
-                const storedConfig = await env.WATERWALL_KV.get('admin_config');
+            if (env.JETTIC_KV) {
+                const storedConfig = await env.JETTIC_KV.get('admin_config');
                 if (storedConfig) {
                     currentConfig = { ...DEFAULT_CONFIG, ...JSON.parse(storedConfig) };
                 }
@@ -2316,8 +2316,8 @@ async function handleAdminUIAPI(request, env) {
             currentConfig.uiControls = { ...currentConfig.uiControls, ...newUIControls };
             
             // Store updated configuration
-            if (env.WATERWALL_KV) {
-                await env.WATERWALL_KV.put('admin_config', JSON.stringify(currentConfig));
+            if (env.JETTIC_KV) {
+                await env.JETTIC_KV.put('admin_config', JSON.stringify(currentConfig));
                 console.log('✅ UI controls updated');
             }
             

@@ -1,4 +1,4 @@
-# WaterWall Backend Deployment Guide
+# Jettic Games Backend Deployment Guide
 
 ## Prerequisites
 

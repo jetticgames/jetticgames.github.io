@@ -6,11 +6,11 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>WaterWall</title>
+    <title>Jettic Games</title>
 
     <script>
-        window.WATERWALL_BACKEND_URL = window.location.origin;
-        console.log('WaterWall v3 loading...');
+        window.JETTIC_BACKEND_URL = window.location.origin;
+        console.log('Jettic Games v3 loading...');
     </script>
 
     <link rel="stylesheet" href="styles.css">
@@ -25,7 +25,7 @@
     <div id="appPageLoader" class="app-page-loader" aria-live="polite" aria-busy="true">
         <div class="apl-full">
             <div class="apl-logo-wrap">
-                <img src="logo.png" alt="WaterWall" class="apl-logo" draggable="false" />
+                <img src="logo.png" alt="Jettic Games" class="apl-logo" draggable="false" />
             </div>
             <div class="apl-spinner" aria-hidden="true"></div>
         </div>
@@ -36,9 +36,9 @@
             <div class="sidebar-header">
                 <div class="logo-container">
                     <div class="logo-icon">
-                        <img src="logo.png" alt="WaterWall Logo" style="width:32px;height:32px;display:block;">
+                        <img src="logo.png" alt="Jettic Games Logo" style="width:32px;height:32px;display:block;">
                     </div>
-                    <span class="logo-text">WaterWall</span>
+                    <span class="logo-text">Jettic Games</span>
                 </div>
                 <div id="profileDropdown" class="profile-dropdown" aria-hidden="true">
                     <ul>
@@ -59,6 +59,24 @@
                     <li class="nav-item" data-page="friends">
                         <a href="#" class="nav-link"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span></a>
                     </li>
+                    <li class="sidebar-section-item" id="sidebarCurrentSection">
+                        <div class="sidebar-section">
+                            <div class="sidebar-section-title">Currently Playing</div>
+                            <ul id="sidebarCurrentPlaying" class="sidebar-mini-list"></ul>
+                        </div>
+                    </li>
+                    <li class="sidebar-section-item" id="sidebarHistorySection">
+                        <div class="sidebar-section">
+                            <div class="sidebar-section-title">Previously Played</div>
+                            <ul id="sidebarHistory" class="sidebar-mini-list"></ul>
+                        </div>
+                    </li>
+                    <li class="sidebar-section-item" id="sidebarOnlineSection">
+                        <div class="sidebar-section">
+                            <div class="sidebar-section-title">Online Friends</div>
+                            <ul id="sidebarOnlineFriends" class="sidebar-mini-list"></ul>
+                        </div>
+                    </li>
                 </ul>
                 <ul class="nav-list nav-bottom">
                     <div class="nav-actions">
@@ -66,7 +84,7 @@
                             <a href="#" class="nav-link" aria-label="Settings"><i class="nav-icon fas fa-gear"></i></a>
                         </li>
                         <li class="nav-item nav-account" id="accountNavItem">
-                            <a href="#" class="nav-link account-link"><span class="nav-avatar" id="accountAvatar"></span><span id="accountLabel">Sign in / Sign up</span></a>
+                            <a href="#" class="nav-link account-link"><span class="nav-avatar" id="accountAvatar"></span><span id="accountLabel">Log in</span></a>
                             <div id="accountDropdown" class="account-dropdown" aria-hidden="true">
                                 <ul>
                                     <li><button type="button" id="accountProfileBtn"><i class="fas fa-id-card"></i><span>Profile</span></button></li>
@@ -87,6 +105,12 @@
                         <div class="stat-item"><i class="stat-icon fas fa-folder"></i><span><span data-stat="categories">0</span> Categories</span></div>
                     </div>
                     <div class="header-actions">
+                        <div class="header-status" id="headerClock" aria-live="polite">
+                            <div class="status-indicator">
+                                <div class="status-dot time-dot"></div>
+                                <span class="status-text" id="statusClockText">--:--</span>
+                            </div>
+                        </div>
                         <div class="header-status">
                             <div class="status-indicator">
                                 <div class="status-dot" id="statusDot"></div>
@@ -122,12 +146,12 @@
                         <div class="notice-box" id="favoritesLoginBox" style="display:none;">
                             <div class="empty-state" id="favoritesLoginNotice">
                                 <div class="empty-state-icon"><i class="fas fa-lock"></i></div>
-                                <h3>Sign in to see favorites</h3>
+                                <h3>Log in to see favorites</h3>
                                 <p>Create an account to save and access your favorite games.</p>
-                                <button type="button" class="update-check-btn" id="favoritesLoginBtn">Sign In</button>
+                                <button type="button" class="update-check-btn" id="favoritesLoginBtn">Log in</button>
                             </div>
                         </div>
-                        <p class="muted-hint" id="favoritesAuthHint" style="display:none;">Sign in to save and view your favorite games.</p>
+                        <p class="muted-hint" id="favoritesAuthHint" style="display:none;">Log in to save and view your favorite games.</p>
                         <div class="games-grid" id="favoritesGrid"></div>
                         <p class="muted-hint" id="favoritesEmpty" style="display:none;">Add games to favorites to see them here.</p>
                     </div>
@@ -145,9 +169,9 @@
                     <div class="notice-box" id="friendsAuthNoticeBox" style="display:block;">
                         <div id="friendsAuthNotice" class="empty-state">
                             <div class="empty-state-icon"><i class="fas fa-user-lock"></i></div>
-                            <h3>Sign in to manage friends</h3>
+                            <h3>Log in to manage friends</h3>
                             <p>Log in to add, accept, and manage your friends list.</p>
-                            <button id="friendsLoginBtn" class="update-check-btn">Sign In</button>
+                            <button id="friendsLoginBtn" class="update-check-btn">Log in</button>
                         </div>
                     </div>
                     <div id="friendsContent" style="display:none;" class="friends-tabs-shell">
@@ -200,28 +224,83 @@
                     </div>
                     <div class="settings-grid">
                         <div class="settings-card">
-                            <h3>Theme</h3>
-                            <label>Accent Color<input type="color" id="settingAccent" value="#58a6ff"></label>
+                            <h3>Visual</h3>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Accent Color</span>
+                                    <span class="setting-hint">Customize your highlight color</span>
+                                </div>
+                                <input type="color" id="settingAccent" value="#58a6ff" aria-label="Accent Color" class="setting-color">
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Particles</span>
+                                    <span class="setting-hint">Animated background dots</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingParticles">
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-inline">
+                                <label>Count<input type="number" id="settingParticleCount" min="0" max="300"></label>
+                                <label>Speed<input type="number" id="settingParticleSpeed" min="0" max="3" step="0.1"></label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Cursor</span>
+                                    <span class="setting-hint">Custom pointer styling</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingCursor">
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-inline">
+                                <label>Size<input type="number" id="settingCursorSize" min="4" max="32"></label>
+                                <label>Color<input type="color" id="settingCursorColor" value="#ffffff"></label>
+                            </div>
                         </div>
+
                         <div class="settings-card">
-                            <h3>Proxy</h3>
-                            <label class="switch-row">Default Proxy<input type="checkbox" id="settingProxyDefault"></label>
+                            <h3>Header & Sidebar</h3>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Date and Time</span>
+                                    <span class="setting-hint">Show the clock in the header</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingShowClock" checked>
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Currently Playing</span>
+                                    <span class="setting-hint">Show your active game in sidebar</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingShowCurrent" checked>
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
+
                         <div class="settings-card">
-                            <h3>Particles</h3>
-                            <label class="switch-row">Enable<input type="checkbox" id="settingParticles"></label>
-                            <label>Count<input type="number" id="settingParticleCount" min="0" max="300"></label>
-                            <label>Speed<input type="number" id="settingParticleSpeed" min="0" max="3" step="0.1"></label>
-                        </div>
-                        <div class="settings-card">
-                            <h3>Cursor</h3>
-                            <label class="switch-row">Enable<input type="checkbox" id="settingCursor"></label>
-                            <label>Size<input type="number" id="settingCursorSize" min="4" max="32"></label>
-                            <label>Color<input type="color" id="settingCursorColor" value="#ffffff"></label>
+                            <h3>Misc</h3>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Default Proxy</span>
+                                    <span class="setting-hint">Load games through proxy automatically</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingProxyDefault">
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                    <div class="settings-actions">
-                        <button class="update-check-btn" id="settingsSaveBtn">Save Settings</button>
+                    <div class="settings-actions single-row">
                         <div id="settingsFeedback" class="form-feedback"></div>
                     </div>
                 </section>
@@ -340,7 +419,7 @@
     </div>
 
         <div id="notificationStack" class="notification-stack" aria-live="polite"></div>
-    <div id="ww-toast" style="display:none;"></div>
+    <div id="jg-toast" style="display:none;"></div>
 
     <script src="app.js?v=3.0.0"></script>
 </body>

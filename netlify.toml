@@ -1,4 +1,4 @@
-# Netlify configuration for WaterWall v2.0
+# Netlify configuration for Jettic Games v2.0
 [build]
   publish = "frontend"
   

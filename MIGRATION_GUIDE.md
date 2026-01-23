@@ -1,10 +1,10 @@
-# WaterWall v2.0 Migration Guide
+# Jettic Games v2.0 Migration Guide
 
-This guide helps you upgrade from WaterWall v1.0 (static frontend) to v2.0 (dynamic full-stack platform).
+This guide helps you upgrade from Jettic Games v1.0 (static frontend) to v2.0 (dynamic full-stack platform).
 
 ## 🔄 Migration Overview
 
-WaterWall v2.0 represents a fundamental shift from a static website to a dynamic full-stack platform:
+Jettic Games v2.0 represents a fundamental shift from a static website to a dynamic full-stack platform:
 
 ### v1.0 → v2.0 Changes
 - **Static** → **Dynamic**: Games and config now served from backend APIs
@@ -103,7 +103,7 @@ const response = await fetch(`${BACKEND_URL}/api/games`);
 **Before (v1.0):**
 ```javascript
 // Local storage only
-localStorage.setItem('ww_maintenance_mode', JSON.stringify({enabled: true}));
+localStorage.setItem('jg_maintenance_mode', JSON.stringify({enabled: true}));
 ```
 
 **After (v2.0):**
@@ -304,4 +304,4 @@ If you encounter issues during migration:
 
 ---
 
-**Migration Success!** Welcome to WaterWall v2.0 - the most advanced unblocked gaming platform. 🌊🎮
+**Migration Success!** Welcome to Jettic Games v2.0 - the most advanced unblocked gaming platform. 🌊🎮

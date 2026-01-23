@@ -1,10 +1,10 @@
-# WaterWall v2.0 Deployment Guide
+# Jettic Games v2.0 Deployment Guide
 
-Complete deployment guide for the WaterWall dynamic gaming platform with full backend integration.
+Complete deployment guide for the Jettic Games dynamic gaming platform with full backend integration.
 
 ## 🏗️ Architecture Overview
 
-WaterWall v2.0 consists of two main components:
+Jettic Games v2.0 consists of two main components:
 - **Frontend**: Static React-like SPA that consumes backend APIs
 - **Backend**: Cloudflare Workers-based API server with KV storage
 
@@ -30,8 +30,8 @@ WaterWall v2.0 consists of two main components:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Zonikyo/WaterWall.git
-cd WaterWall
+git clone https://github.com/Wilapsek/Jettic.git
+cd Jettic
 
 # Run the setup script
 ./deploy.sh
@@ -83,7 +83,7 @@ Follow the detailed steps below for full control over the deployment process.
    
    Edit `wrangler.toml` with your generated namespace IDs:
    ```toml
-   name = "waterwall-backend"
+   name = "jettic-backend"
    main = "worker.js"
    compatibility_date = "2023-05-18"
    
@@ -113,7 +113,7 @@ Follow the detailed steps below for full control over the deployment process.
 
 3. **Note Your Worker URL**
    ```
-   Example: https://waterwall-backend.your-subdomain.workers.dev
+   Example: https://jettic-backend.your-subdomain.workers.dev
    ```
 
 ### Step 4: Verify Backend
@@ -326,7 +326,7 @@ APP_VERSION = "2.0.0-staging"
 
 Create `.github/workflows/deploy.yml`:
 ```yaml
-name: Deploy WaterWall
+name: Deploy Jettic Games
 
 on:
   push:
@@ -369,7 +369,7 @@ Create `deploy.sh`:
 #!/bin/bash
 set -e
 
-echo "🚀 Deploying WaterWall v2.0..."
+echo "🚀 Deploying Jettic Games v2.0..."
 
 # Deploy backend
 echo "📡 Deploying backend..."
@@ -587,4 +587,4 @@ wrangler kv:key list --binding=CONFIG_KV --env=production
 
 ---
 
-**Deployment Complete!** Your WaterWall v2.0 platform is now live with full backend integration. 🌊🎮
+**Deployment Complete!** Your Jettic Games v2.0 platform is now live with full backend integration. 🌊🎮

@@ -1,8 +1,8 @@
-# WaterWall Admin Configuration System
+# Jettic Games Admin Configuration System
 
 ## Overview
 
-WaterWall now features a comprehensive admin-controlled configuration system that allows you to control **every aspect** of the user experience from the backend. This system provides complete control over features, UI elements, default settings, and user behavior.
+Jettic Games now features a comprehensive admin-controlled configuration system that allows you to control **every aspect** of the user experience from the backend. This system provides complete control over features, UI elements, default settings, and user behavior.
 
 ## Features Controlled by Admin
 
@@ -38,7 +38,7 @@ The configuration is stored in Cloudflare KV under the key `admin_config` with t
   "version": "2.0.0",
   "maintenanceMode": {
     "enabled": false,
-    "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "message": "Jettic Games is currently under maintenance. We'll be back online soon!",
     "estimatedTime": "Please check back in a few hours.",
     "blockProxy": true
   },
@@ -118,8 +118,8 @@ The configuration is stored in Cloudflare KV under the key `admin_config` with t
     "enableCompression": true
   },
   "messaging": {
-    "welcomeMessage": "Welcome to WaterWall! Enjoy our collection of games.",
-    "maintenanceMessage": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "welcomeMessage": "Welcome to Jettic Games! Enjoy our collection of games.",
+    "maintenanceMessage": "Jettic Games is currently under maintenance. We'll be back online soon!",
     "errorMessage": "Something went wrong. Please try again later.",
     "noGamesMessage": "No games found. Try adjusting your search or category filter.",
     "loadingMessage": "Loading games...",
@@ -249,16 +249,16 @@ You can also control configuration from the browser console:
 
 ```javascript
 // Get current configuration
-console.log(window.WaterWallAdmin.getConfig());
+console.log(window.JetticAdmin.getConfig());
 
 // Apply new configuration
-window.WaterWallAdmin.applyConfig({
+window.JetticAdmin.applyConfig({
   features: { searchEnabled: false },
   uiControls: { showSearchBar: false }
 });
 
 // Refresh from backend
-window.WaterWallAdmin.refreshConfig();
+window.JetticAdmin.refreshConfig();
 ```
 
 ## Effect of Configuration Changes
@@ -323,4 +323,4 @@ curl https://your-worker.workers.dev/api/admin/config | jq .
 - Check `showSettingsButton` in UI controls
 - Ensure settings page generation is not blocked
 
-This comprehensive admin system gives you complete control over every aspect of WaterWall's user experience!
+This comprehensive admin system gives you complete control over every aspect of Jettic Games' user experience!

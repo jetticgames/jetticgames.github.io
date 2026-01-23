@@ -1,7 +1,7 @@
 <div align="center">
 <img width="707" height="353" alt="The_worlds_most_advanced_unblocked_games_website__1_-removebg-preview" src="https://github.com/user-attachments/assets/0aeebfff-fd11-4366-ad35-44e1e4dab410" />
 
-# WaterWall - Advanced Dynamic Gaming Platform
+# Jettic Games - Advanced Dynamic Gaming Platform
 
 ## Self-hosted rebuild (v3)
 
@@ -45,7 +45,7 @@ Key changes:
 ## 🏗️ Architecture Overview
 
 ```
-WaterWall v2.0 Architecture
+Jettic Games v2.0 Architecture
 ├── Frontend (Static SPA)
 │   ├── Dynamic content loading from backend APIs
 │   ├── Real-time configuration updates
@@ -71,7 +71,7 @@ WaterWall v2.0 Architecture
 ## 📁 Project Structure
 
 ```
-WaterWall/
+Jettic/
 ├── frontend/                 # Enhanced SPA with backend integration
 │   ├── index.html            # Main application shell
 │   ├── app.js               # Core app with backend API integration
@@ -142,7 +142,7 @@ WaterWall/
    npm run deploy:production
    
    # Get your worker URL
-   # Example: https://waterwall-backend.your-subdomain.workers.dev
+   # Example: https://jettic-backend.your-subdomain.workers.dev
    ```
 
 ### Frontend Configuration
@@ -314,5 +314,5 @@ MIT License - Feel free to use this code for your own projects with proper attri
 
 ---
 
-**WaterWall v2.0** - The most advanced unblocked gaming platform with full-stack architecture. 🌊🎮
+**Jettic Games v2.0** - The most advanced unblocked gaming platform with full-stack architecture. 🌊🎮
 </div>

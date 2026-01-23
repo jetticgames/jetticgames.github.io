@@ -1,8 +1,8 @@
-# WaterWall Maintenance Mode v2.0
+# Jettic Games Maintenance Mode v2.0
 
 ## Overview
 
-The maintenance mode feature has been completely redesigned for WaterWall v2.0. It is now a **backend-controlled** feature that allows administrators to remotely manage maintenance status through API endpoints. The system provides both remote backend control and local fallback capabilities for maximum reliability.
+The maintenance mode feature has been completely redesigned for Jettic Games v2.0. It is now a **backend-controlled** feature that allows administrators to remotely manage maintenance status through API endpoints. The system provides both remote backend control and local fallback capabilities for maximum reliability.
 
 ## Features
 
@@ -33,7 +33,7 @@ curl https://your-worker.workers.dev/api/maintenance
 ```json
 {
   "enabled": false,
-  "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+  "message": "Jettic Games is currently under maintenance. We'll be back online soon!",
   "estimatedTime": "Please check back in a few hours."
 }
 ```
@@ -68,14 +68,14 @@ If the backend is unavailable, the system falls back to local storage:
 
 ```javascript
 // Enable maintenance mode (browser console)
-localStorage.setItem('ww_maintenance_mode', JSON.stringify({
+localStorage.setItem('jg_maintenance_mode', JSON.stringify({
     enabled: true,
     message: "Local maintenance mode active",
     estimatedTime: "Please check backend status"
 }));
 
 // Disable maintenance mode (browser console)
-localStorage.setItem('ww_maintenance_mode', JSON.stringify({enabled: false}));
+localStorage.setItem('jg_maintenance_mode', JSON.stringify({enabled: false}));
 ```
 
 ## Architecture
@@ -103,7 +103,7 @@ The maintenance configuration is stored in the backend's KV storage:
 {
   "maintenanceMode": {
     "enabled": false,
-    "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "message": "Jettic Games is currently under maintenance. We'll be back online soon!",
     "estimatedTime": "Please check back in a few hours."
   }
 }
@@ -145,7 +145,7 @@ curl -X PUT -H 'Content-Type: application/json' \
   -d '{
     "enabled": true,
     "message": "We are upgrading our gaming servers for better performance!",
-    "estimatedTime": "Expected completion: 1 hour. Follow @WaterWall for updates."
+    "estimatedTime": "Expected completion: 1 hour. Follow @Jettic for updates."
   }' \
   https://your-worker.workers.dev/api/maintenance
 ```
@@ -273,7 +273,7 @@ wrangler tail --env production --debug
 
 ---
 
-**WaterWall v2.0 Maintenance Mode** - Remote control with local reliability. 🔧🌊
+**Jettic Games v2.0 Maintenance Mode** - Remote control with local reliability. 🔧🌊
 
 ## What Happens During Maintenance Mode
 
@@ -287,7 +287,7 @@ wrangler tail --env production --debug
 ### Technical Details
 - Games are not rendered in the DOM
 - All game loading functions check maintenance status
-- Maintenance state is stored in localStorage (`ww_maintenance_mode`)
+- Maintenance state is stored in localStorage (`jg_maintenance_mode`)
 - Maintenance status is checked once during app initialization
 
 ## Customization
@@ -323,7 +323,7 @@ Use the provided `maintenance-test.html` file to:
 ### Debug Information
 - Check browser console for maintenance-related log messages
 - Look for messages starting with `🔧 Maintenance status:`
-- Verify localStorage key `ww_maintenance_mode` exists and is valid JSON
+- Verify localStorage key `jg_maintenance_mode` exists and is valid JSON
 
 ## Implementation Notes
 
@@ -332,7 +332,7 @@ The maintenance mode data is stored in localStorage as:
 ```json
 {
     "enabled": true,
-    "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "message": "Jettic Games is currently under maintenance. We'll be back online soon!",
     "estimatedTime": "Please check back in a few hours."
 }
 ```

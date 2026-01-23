@@ -2,7 +2,7 @@
 
 ## Overview
 
-WaterWall v2.0 now serves **all frontend assets** from the backend to ensure instant updates without cache clearing hassles. When you update any asset (CSS, JS, images, games data), users get the changes immediately.
+Jettic Games v2.0 now serves **all frontend assets** from the backend to ensure instant updates without cache clearing hassles. When you update any asset (CSS, JS, images, games data), users get the changes immediately.
 
 ## Asset Endpoints
 
@@ -36,7 +36,7 @@ The HTML file now loads CSS and JS from the backend with automatic fallback:
 <!-- Load CSS from backend -->
 <script>
 const BACKEND_URL = window.location.hostname === 'localhost' 
-    ? 'https://waterwallrelayservice.zonikyo.workers.dev'
+    ? 'https://jetticrelayservice.zonikyo.workers.dev'
     : window.location.origin;
 
 function loadBackendCSS() {
@@ -64,7 +64,7 @@ When serving `app.js`, the backend automatically replaces the `BACKEND_URL` cons
 
 ```javascript
 // Original in GitHub:
-const BACKEND_URL = 'https://waterwallrelayservice.zonikyo.workers.dev';
+const BACKEND_URL = 'https://jetticrelayservice.zonikyo.workers.dev';
 
 // Automatically becomes when served from backend:
 const BACKEND_URL = 'https://your-worker.workers.dev';
@@ -131,7 +131,7 @@ const ASSET_MAPPINGS = {
 ```javascript
 // Automatic detection
 const BACKEND_URL = window.location.hostname === 'localhost' 
-    ? 'https://waterwallrelayservice.zonikyo.workers.dev'  // Development
+    ? 'https://jetticrelayservice.zonikyo.workers.dev'  // Development
     : window.location.origin;  // Production (same domain)
 ```
 
@@ -157,4 +157,4 @@ Browser Console shows detailed asset loading:
 ✅ Successfully loaded 5 games from backend assets
 ```
 
-This system ensures your WaterWall updates reach users instantly without any cache clearing hassles!
+This system ensures your Jettic Games updates reach users instantly without any cache clearing hassles!

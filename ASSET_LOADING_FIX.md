@@ -5,8 +5,8 @@ Frontend was trying to load assets from Netlify's `/api/assets/` endpoints which
 
 ## Root Cause
 The asset serving system was designed for when the frontend and backend are on the same domain, but in this setup:
-- **Frontend**: Hosted on Netlify (`waterwallubg.netlify.app`)
-- **Backend**: Hosted on Cloudflare Workers (`waterwallrelayservice.zonikyo.workers.dev`)
+- **Frontend**: Hosted on Netlify (`jetticubg.netlify.app`)
+- **Backend**: Hosted on Cloudflare Workers (`jetticrelayservice.zonikyo.workers.dev`)
 
 ## Solution Applied
 **Hybrid Approach**: Local assets + Backend APIs
@@ -61,7 +61,7 @@ The site should now:
 
 Console should show:
 ```
-🎮 WaterWall loading with local assets and backend APIs
+🎮 Jettic Games loading with local assets and backend APIs
 🔄 Loading app configuration from backend...
 ✅ Successfully loaded 5 games from backend API
 ```
