@@ -1,0 +1,16 @@
+{
+  "requests": [
+    {
+      "id": "d4d481ce-127a-4804-83a7-44e3157c96fe",
+      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
+      "username": "Wilapsek",
+      "title": "Test Title",
+      "url": "https://test.com/",
+      "description": "test description",
+      "category": "test category",
+      "status": "rejected",
+      "createdAt": "2026-01-26T07:17:36.744Z",
+      "updatedAt": "2026-01-26T07:19:03.183Z"
+    }
+  ]
+}

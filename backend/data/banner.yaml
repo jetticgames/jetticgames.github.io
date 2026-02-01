@@ -1,14 +1,14 @@
-enabled: true
 id: default
-message: "Welcome to Jettic Games!"
-description: "This is in early beta. Features are incomplete, and bugs are expected. Please report any issues you encounter."
-background: "#11161f"
-textColor: "#e5e7eb"
-dismissible: true
-dismissCooldownHours: 24
+enabled: true
+message: Welcome to Jettic Games!
+description: This is in early beta. Features are incomplete, and bugs are expected. Please report any issues you encounter.
+background: '#11161f'
+textColor: '#e5e7eb'
+dismissible: false
+dismissCooldownHours: 6
 button:
   enabled: false
-  label: "Visit Store"
-  url: "https://example.com"
-  background: "#1f6feb"
-  textColor: "#ffffff"
+  label: Visit Store
+  url: https://example.com
+  background: '#1f6feb'
+  textColor: '#ffffff'

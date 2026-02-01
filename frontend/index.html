@@ -44,6 +44,8 @@
                     <ul>
                         <li><button type="button" id="openProfileSettingsBtn"><i class="fas fa-id-card"></i><span>Profile</span></button></li>
                         <li><button type="button" id="openSettingsBtn"><i class="fas fa-sliders-h"></i><span>Settings</span></button></li>
+                        <li><button type="button" id="openRequestGameBtn"><i class="fas fa-plus"></i><span>Request a Game</span></button></li>
+                        <li><button type="button" id="openAdminPageBtn" style="display:none;"><i class="fas fa-shield" style="margin-right:8px;"></i><span>Admin</span></button></li>
                         <li><button type="button" id="logoutFromDropdownBtn" class="danger"><i class="fas fa-sign-out-alt"></i><span>Log out</span></button></li>
                     </ul>
                 </div>
@@ -59,23 +61,17 @@
                     <li class="nav-item" data-page="friends">
                         <a href="#" class="nav-link"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span></a>
                     </li>
-                    <li class="sidebar-section-item" id="sidebarCurrentSection">
-                        <div class="sidebar-section">
-                            <div class="sidebar-section-title">Currently Playing</div>
-                            <ul id="sidebarCurrentPlaying" class="sidebar-mini-list"></ul>
-                        </div>
-                    </li>
-                    <li class="sidebar-section-item" id="sidebarHistorySection">
-                        <div class="sidebar-section">
-                            <div class="sidebar-section-title">Previously Played</div>
-                            <ul id="sidebarHistory" class="sidebar-mini-list"></ul>
-                        </div>
-                    </li>
                     <li class="sidebar-section-item" id="sidebarOnlineSection">
                         <div class="sidebar-section">
-                            <div class="sidebar-section-title">Online Friends</div>
                             <ul id="sidebarOnlineFriends" class="sidebar-mini-list"></ul>
                         </div>
+                    </li>
+                    <li class="sidebar-plain" id="sidebarCurrentSection">
+                        <ul id="sidebarCurrentPlaying" class="sidebar-mini-list sidebar-plain-list"></ul>
+                    </li>
+                    <li class="sidebar-section-separator" aria-hidden="true"></li>
+                    <li class="sidebar-plain" id="sidebarHistorySection">
+                        <ul id="sidebarHistory" class="sidebar-mini-list sidebar-plain-list"></ul>
                     </li>
                 </ul>
                 <ul class="nav-list nav-bottom">
@@ -88,11 +84,19 @@
                             <div id="accountDropdown" class="account-dropdown" aria-hidden="true">
                                 <ul>
                                     <li><button type="button" id="accountProfileBtn"><i class="fas fa-id-card"></i><span>Profile</span></button></li>
+                                    <li><button type="button" id="accountRequestBtn"><i class="fas fa-plus"></i><span>Request a Game</span></button></li>
+                                    <li><button type="button" id="accountAdminBtn" style="display:none;"><i class="fas fa-shield" style="margin-right:8px;"></i><span>Admin</span></button></li>
                                     <li><button type="button" id="accountLogoutBtn" class="danger"><i class="fas fa-sign-out-alt"></i><span>Log out</span></button></li>
                                 </ul>
                             </div>
                         </li>
                     </div>
+                    <li class="nav-item nav-legal-link" data-page="privacy">
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-user-shield"></i><span>Privacy Policy</span></a>
+                    </li>
+                    <li class="nav-item nav-legal-link" data-page="terms">
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-file-contract"></i><span>Terms of Service</span></a>
+                    </li>
                 </ul>
             </nav>
         </aside>
@@ -121,6 +125,9 @@
                             <input type="text" id="searchInput" placeholder="Search games...">
                             <button class="search-btn"><i class="fas fa-search"></i></button>
                         </div>
+                        <button id="panicButton" class="panic-quick-btn" style="display:none;" title="Panic redirect">
+                            <i class="fas fa-bolt"></i><span>Panic</span>
+                        </button>
                     </div>
                 </div>
             </header>
@@ -222,7 +229,16 @@
                     <div class="section-header">
                         <h2 class="section-title"><i class="fas fa-sliders-h"></i> Settings</h2>
                     </div>
-                    <div class="settings-grid">
+                    <div class="notice-box" id="settingsLoginBox" style="display:none;">
+                        <div class="empty-state" id="settingsLoginNotice">
+                            <div class="empty-state-icon"><i class="fas fa-lock"></i></div>
+                            <h3>Log in to customize settings</h3>
+                            <p>Create an account to save your preferences.</p>
+                            <button type="button" class="update-check-btn" id="settingsLoginBtn">Log in</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-grid" id="settingsGrid">
                         <div class="settings-card">
                             <h3>Visual</h3>
                             <div class="setting-row">
@@ -299,9 +315,87 @@
                                 </label>
                             </div>
                         </div>
+
+                        <div class="settings-card">
+                            <h3>Panic Button</h3>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Enable Panic</span>
+                                    <span class="setting-hint">Quickly jump to a safe page</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingPanicEnabled">
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Preset</span>
+                                    <span class="setting-hint">Choose a ready-made target</span>
+                                </div>
+                                <select id="settingPanicPreset" class="setting-select"></select>
+                            </div>
+                            <div class="setting-row">
+                                <label class="input-stack">Panic URL
+                                    <input type="url" id="settingPanicUrl" placeholder="https://classroom.google.com" />
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <label class="input-stack">Keybind
+                                    <input type="text" id="settingPanicKeybind" placeholder="Escape or Ctrl+Shift+P" />
+                                </label>
+                            </div>
+                            <p class="muted-hint">Press the keybind or click the panic button in the header to redirect instantly.</p>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3>Tab Disguiser</h3>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Enable Disguise</span>
+                                    <span class="setting-hint">Swap this tab's name and icon</span>
+                                </div>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="settingTabEnabled">
+                                    <span class="ios-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-meta">
+                                    <span class="setting-label">Preset</span>
+                                    <span class="setting-hint">Apply a quick disguise</span>
+                                </div>
+                                <select id="settingTabPreset" class="setting-select"></select>
+                            </div>
+                            <div class="setting-row">
+                                <label class="input-stack">Tab Title
+                                    <input type="text" id="settingTabTitle" placeholder="Classes" />
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <label class="input-stack">Favicon URL
+                                    <input type="url" id="settingTabFavicon" placeholder="https://.../favicon.ico" />
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <label class="input-stack">Fetch From URL
+                                    <div class="fetch-row">
+                                        <input type="url" id="settingTabSource" placeholder="https://classroom.google.com" />
+                                        <button type="button" class="update-check-btn" id="settingTabFetchBtn">Fetch</button>
+                                    </div>
+                                </label>
+                            </div>
+                            <p class="muted-hint">Use a preset or fetch metadata from a site to mimic its title and favicon.</p>
+                        </div>
                     </div>
-                    <div class="settings-actions single-row">
+                    <div class="settings-actions single-row" id="settingsActions">
                         <div id="settingsFeedback" class="form-feedback"></div>
+                        <div id="adminNotifyTests" style="display:none; gap:8px; flex-wrap:wrap; align-items:center;">
+                            <button type="button" class="update-check-btn" id="adminNotifySuccess">Test Success</button>
+                            <button type="button" class="update-check-btn" id="adminNotifyWarning">Test Warning</button>
+                            <button type="button" class="update-check-btn" id="adminNotifyError">Test Error</button>
+                            <button type="button" class="update-check-btn" id="adminNotifyInfo">Test Info</button>
+                        </div>
                     </div>
                 </section>
 
@@ -316,13 +410,373 @@
                             </label>
                             <form id="profileForm" class="profile-form" autocomplete="off">
                                 <label>Username<input type="text" id="profileUsername" minlength="3" maxlength="24" required></label>
+                                <label>Email<input type="email" id="profileEmail" required></label>
                                 <label>Accent Color<input type="color" id="profileColor" value="#58a6ff"></label>
                                 <div class="profile-actions">
-                                    <button type="submit" class="update-check-btn">Save Profile</button>
+                                        <button type="submit" class="update-check-btn">Save Profile</button>
                                     <div class="save-indicator" id="profileSaveIndicator" style="display:none;"></div>
                                 </div>
                             </form>
                         </div>
+                        <div class="profile-row" style="margin-top:14px; gap:14px; flex-wrap:wrap;">
+                            <div class="profile-card" style="flex:1; min-width:260px;">
+                                <h3>Change Email</h3>
+                                <div class="profile-form">
+                                    <label>New Email<input type="email" id="profileNewEmail" placeholder="you@example.com"></label>
+                                    <label>Current Password<input type="password" id="profileEmailPassword" placeholder="Current password"></label>
+                                    <div class="profile-actions">
+                                        <button type="button" class="update-check-btn" id="profileChangeEmailBtn">Update Email</button>
+                                        <div class="form-feedback" id="profileEmailFeedback"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="profile-card" style="flex:1; min-width:260px;">
+                                <h3>Change Password</h3>
+                                <div class="profile-form">
+                                    <label>Current Password<input type="password" id="profileCurrentPassword" placeholder="Current password"></label>
+                                    <label>New Password<input type="password" id="profileNewPassword" placeholder="At least 6 characters"></label>
+                                    <div class="profile-actions">
+                                        <button type="button" class="update-check-btn" id="profileChangePasswordBtn">Update Password</button>
+                                        <div class="form-feedback" id="profilePasswordFeedback"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="profile-card" style="flex:1; min-width:240px;">
+                                <h3 style="color:#f85149;">Delete Account</h3>
+                                <p class="muted-hint" style="margin-bottom:8px;">This will permanently remove your data.</p>
+                                <div class="profile-form">
+                                    <label>Password<input type="password" id="profileDeletePassword" placeholder="Confirm password"></label>
+                                    <div class="profile-actions">
+                                        <button type="button" class="logout-btn danger" id="profileDeleteAccountBtn">Delete Account</button>
+                                        <div class="form-feedback" id="profileDeleteFeedback"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card" id="profilePlaytimeCard">
+                        <div class="section-header" style="margin-bottom:10px; align-items:center;">
+                            <h3 class="section-title">Playtime</h3>
+                            <span class="muted-hint">Tracked per game</span>
+                        </div>
+                        <div id="profilePlaytimeEmpty" class="muted-hint">No playtime tracked yet.</div>
+                        <ul id="profilePlaytimeList" class="friends-list" style="display:flex; flex-direction:column; gap:10px; padding:0;"></ul>
+                    </div>
+                </section>
+
+                    <section id="requestPage" class="page" style="display:none;">
+                        <div class="profile-card">
+                            <h2>Request a Game</h2>
+                            <p class="muted-hint">Suggest a game for the library. An admin will review your request.</p>
+                            <form id="requestForm" class="profile-form" autocomplete="off">
+                                <label>Title<input type="text" id="requestTitle" required maxlength="120" /></label>
+                                <label>Game URL<input type="url" id="requestUrl" required /></label>
+                                <label>Category (optional)<input type="text" id="requestCategory" maxlength="60" /></label>
+                                <label>Description<textarea id="requestDescription" rows="4" maxlength="1000" placeholder="Why should we add this game?"></textarea></label>
+                                <div class="profile-actions">
+                                    <button type="submit" class="update-check-btn">Submit Request</button>
+                                    <div class="save-indicator" id="requestSaveIndicator" style="display:none;"></div>
+                                </div>
+                                <div class="form-feedback" id="requestFeedback"></div>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section id="adminPage" class="page" style="display:none;">
+                        <div class="profile-card">
+                            <div class="section-header" style="margin-bottom:12px;">
+                                <h2 class="section-title"><i class="fas fa-shield" style="color:#e3b341;"></i> Admin</h2>
+                            </div>
+                            <div class="friends-tab-nav" id="adminTabNav">
+                                <button class="friends-tab cat-tab active" data-tab="requests">Requests</button>
+                                <button class="friends-tab cat-tab" data-tab="games">Games</button>
+                                <button class="friends-tab cat-tab" data-tab="users">Users</button>
+                                <button class="friends-tab cat-tab" data-tab="notice">Notice</button>
+                                <button class="friends-tab cat-tab" data-tab="defaults">Defaults</button>
+                                <button class="friends-tab cat-tab" data-tab="analytics">Analytics</button>
+                            </div>
+                            <div class="friends-tab-panels" id="adminTabPanels">
+                                <div class="friends-tab-panel active" data-panel="requests">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Game Requests</h3>
+                                        <button type="button" class="update-check-btn" id="adminRequestsRefresh">Refresh</button>
+                                    </div>
+                                    <input type="search" id="adminRequestsSearch" placeholder="Search requests..." class="admin-search" />
+                                    <div id="adminRequestsError" class="form-feedback" style="color:#f85149;"></div>
+                                    <div id="adminRequestsEmpty" class="muted-hint" style="display:none;">No requests yet.</div>
+                                    <ul id="adminRequestsList" class="friends-list"></ul>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="games">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Games</h3>
+                                        <div style="display:flex; gap:10px; align-items:center;">
+                                            <button type="button" class="update-check-btn" id="adminGamesRefresh">Refresh</button>
+                                            <button type="button" class="update-check-btn" id="adminGameNew">New Game</button>
+                                        </div>
+                                    </div>
+                                        <input type="search" id="adminGamesSearch" placeholder="Search games..." class="admin-search" />
+                                        <div id="adminGameFeedback" class="form-feedback"></div>
+                                        <div id="adminGamesEmpty" class="muted-hint" style="display:none;">No games yet.</div>
+                                        <ul id="adminGamesList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="users">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Users</h3>
+                                        <div style="display:flex; gap:10px; align-items:center;">
+                                            <button type="button" class="update-check-btn" id="adminUsersRefresh">Refresh</button>
+                                            <button type="button" class="update-check-btn" id="adminUserNew">New User</button>
+                                        </div>
+                                    </div>
+                                    <input type="search" id="adminUsersSearch" placeholder="Search users..." class="admin-search" />
+                                    <div id="adminUserFeedback" class="form-feedback"></div>
+                                    <div id="adminUsersEmpty" class="muted-hint" style="display:none;">No users yet.</div>
+                                    <ul id="adminUsersList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="notice" id="adminNoticePanel">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Homepage Notice Bar</h3>
+                                        <button type="button" class="update-check-btn" id="adminNoticeSave">Save</button>
+                                    </div>
+                                    <div id="adminNoticeFeedback" class="form-feedback"></div>
+                                    <form id="adminNoticeForm" class="profile-form admin-notice-grid" autocomplete="off">
+                                        <div class="admin-notice-toggles">
+                                            <label class="toggle-row">Enable
+                                                <label class="ios-toggle">
+                                                    <input type="checkbox" id="adminNoticeEnabled">
+                                                    <span class="ios-toggle-slider"></span>
+                                                </label>
+                                            </label>
+                                            <label class="toggle-row">Dismissible
+                                                <label class="ios-toggle">
+                                                    <input type="checkbox" id="adminNoticeDismissible" checked>
+                                                    <span class="ios-toggle-slider"></span>
+                                                </label>
+                                            </label>
+                                            <label class="toggle-row">Button
+                                                <label class="ios-toggle">
+                                                    <input type="checkbox" id="adminNoticeButtonEnabled">
+                                                    <span class="ios-toggle-slider"></span>
+                                                </label>
+                                            </label>
+                                            <label class="toggle-row">Dismiss Cooldown (hours)
+                                                <input type="number" id="adminNoticeCooldown" min="0" max="168" />
+                                            </label>
+                                        </div>
+                                        <div class="admin-notice-fields">
+                                            <div class="setting-inline">
+                                                <label>Message<input type="text" id="adminNoticeMessage" maxlength="140" placeholder="Banner headline"></label>
+                                                <label>Description<textarea id="adminNoticeDescription" rows="2" maxlength="300" placeholder="Optional subtext"></textarea></label>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Background<input type="text" id="adminNoticeBackground" placeholder="#11161f"></label>
+                                                <label>Text Color<input type="text" id="adminNoticeTextColor" placeholder="#e5e7eb"></label>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Button Label<input type="text" id="adminNoticeButtonLabel" placeholder="Learn more"></label>
+                                                <label>Button URL<input type="url" id="adminNoticeButtonUrl" placeholder="https://..."></label>
+                                            </div>
+                                            <div class="setting-inline">
+                                                <label>Button Background<input type="text" id="adminNoticeButtonBg" placeholder="#1f6feb"></label>
+                                                <label>Button Text Color<input type="text" id="adminNoticeButtonText" placeholder="#ffffff"></label>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="defaults" id="adminDefaultsPanel">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Default Settings & Presets</h3>
+                                        <button type="submit" form="adminDefaultsForm" class="update-check-btn" id="adminDefaultsSaveBtn">Save</button>
+                                    </div>
+                                    <div id="adminDefaultsFeedback" class="form-feedback"></div>
+                                    <form id="adminDefaultsForm" class="profile-form" autocomplete="off">
+                                        <div class="settings-grid" style="margin-top:0; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+                                            <div class="settings-card">
+                                                <h3>Panic Button Defaults</h3>
+                                                <label style="justify-content:space-between;">
+                                                    Enable
+                                                    <label class="ios-toggle">
+                                                        <input type="checkbox" id="adminDefaultPanicEnabled">
+                                                        <span class="ios-toggle-slider"></span>
+                                                    </label>
+                                                </label>
+                                                <label>Preset
+                                                    <select id="adminDefaultPanicPreset" class="setting-select"></select>
+                                                </label>
+                                                <label>Panic URL<input type="url" id="adminDefaultPanicUrl" placeholder="https://classroom.google.com" /></label>
+                                                <label>Keybind<input type="text" id="adminDefaultPanicKeybind" placeholder="Escape" /></label>
+                                            </div>
+
+                                            <div class="settings-card">
+                                                <h3>Tab Disguiser Defaults</h3>
+                                                <label style="justify-content:space-between;">
+                                                    Enable
+                                                    <label class="ios-toggle">
+                                                        <input type="checkbox" id="adminDefaultTabEnabled">
+                                                        <span class="ios-toggle-slider"></span>
+                                                    </label>
+                                                </label>
+                                                <label>Preset
+                                                    <select id="adminDefaultTabPreset" class="setting-select"></select>
+                                                </label>
+                                                <label>Tab Title<input type="text" id="adminDefaultTabTitle" placeholder="Classes" /></label>
+                                                <label>Favicon URL<input type="url" id="adminDefaultTabFavicon" placeholder="https://.../favicon.ico" /></label>
+                                                <label>Source URL<input type="url" id="adminDefaultTabSource" placeholder="https://classroom.google.com" /></label>
+                                            </div>
+                                        </div>
+
+                                        <div class="admin-presets-grid">
+                                            <div class="settings-card" style="margin-top:12px;">
+                                                <div class="section-header" style="margin:0 0 10px 0;">
+                                                    <h3 class="section-title">Panic Button Presets</h3>
+                                                    <button type="button" class="update-check-btn" id="adminDefaultsPanicAdd">Add</button>
+                                                </div>
+                                                <div id="adminDefaultsPanicList"></div>
+                                            </div>
+
+                                            <div class="settings-card" style="margin-top:12px;">
+                                                <div class="section-header" style="margin:0 0 10px 0;">
+                                                    <h3 class="section-title">Tab Disguiser Presets</h3>
+                                                    <button type="button" class="update-check-btn" id="adminDefaultsDisguiseAdd">Add</button>
+                                                </div>
+                                                <div id="adminDefaultsDisguiseList"></div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="analytics" id="adminAnalyticsPanel">
+                                    <div class="section-header analytics-toolbar" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Analytics</h3>
+                                        <div class="analytics-range-control">
+                                            <label for="analyticsRangeSelect" class="analytics-range-label">History</label>
+                                            <select id="analyticsRangeSelect">
+                                                <option value="1h">Last hour</option>
+                                                <option value="24h" selected>Last 24 hours</option>
+                                                <option value="7d">Last 7 days</option>
+                                                <option value="14d">Last 14 days</option>
+                                                <option value="30d">Last 30 days</option>
+                                                <option value="6m">Last 6 months</option>
+                                                <option value="12m">Last 12 months</option>
+                                                <option value="all">All time</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="settings-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                                        <div class="settings-card">
+                                            <div class="analytics-card-header">
+                                                <h3>Player Counts</h3>
+                                                <div class="analytics-card-actions">
+                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
+                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="players">Maximise</button>
+                                                </div>
+                                            </div>
+                                            <div id="analyticsPlayerCounts" class="analytics-card-body">Data unavailable</div>
+                                        </div>
+                                        <div class="settings-card">
+                                            <div class="analytics-card-header">
+                                                <h3>Friend Requests</h3>
+                                                <div class="analytics-card-actions">
+                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
+                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="friends">Maximise</button>
+                                                </div>
+                                            </div>
+                                            <div id="analyticsFriendRequests" class="analytics-card-body">Data unavailable</div>
+                                        </div>
+                                        <div class="settings-card">
+                                            <div class="analytics-card-header">
+                                                <h3>User Accounts</h3>
+                                                <div class="analytics-card-actions">
+                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
+                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="accounts">Maximise</button>
+                                                </div>
+                                            </div>
+                                            <div id="analyticsUserAccounts" class="analytics-card-body">Data unavailable</div>
+                                        </div>
+                                        <div class="settings-card">
+                                            <h3>Outages</h3>
+                                            <p class="analytics-note">Recent downtime or maintenance</p>
+                                            <div id="analyticsOutages" class="analytics-note">Data unavailable</div>
+                                        </div>
+                                    </div>
+                                    <div class="settings-card" style="margin-top:12px;">
+                                        <div class="analytics-card-header">
+                                            <h3>Per-Game Metrics</h3>
+                                            <div class="analytics-search-inline">
+                                                <input type="search" id="analyticsGameSearch" placeholder="Search games..." aria-label="Search games" />
+                                            </div>
+                                        </div>
+                                        <div class="analytics-card-body" id="analyticsGameTable">Data unavailable</div>
+                                    </div>
+                                </div>
+
+                                <div id="analyticsModal" class="analytics-modal" aria-hidden="true" role="dialog" aria-label="Enlarged analytics chart">
+                                    <div class="analytics-modal-overlay" data-analytics-modal-close></div>
+                                    <div class="analytics-modal-content">
+                                        <button type="button" class="analytics-modal-close" id="analyticsModalClose" aria-label="Close">×</button>
+                                        <div id="analyticsModalBody"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                <section id="privacyPage" class="page" style="display:none;">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-user-shield"></i> Privacy Policy</h2>
+                    </div>
+                    <div class="legal-card">
+                        <p>We collect only what we need to run Jettic and keep your account working.</p>
+                        <h3>What we collect</h3>
+                        <ul class="legal-list">
+                            <li>Account details you provide: username, email, password hash.</li>
+                            <li>Gameplay activity: favorites, recently played titles, basic analytics.</li>
+                            <li>Technical data: IP-based region, device/browser info, error logs for reliability.</li>
+                        </ul>
+                        <h3>How we use it</h3>
+                        <ul class="legal-list">
+                            <li>Operate and personalize the service (favorites, presence, recommendations).</li>
+                            <li>Secure the platform (fraud prevention, abuse detection, access controls).</li>
+                            <li>Improve performance and stability through diagnostics.</li>
+                        </ul>
+                        <p>We do not sell your personal information. Limited sharing occurs only with providers that help us deliver hosting, storage, analytics, and support.</p>
+                        <h3>Your choices</h3>
+                        <ul class="legal-list">
+                            <li>Update or delete your account data from your profile or by contacting support.</li>
+                            <li>Control cookies and local storage through your browser settings.</li>
+                            <li>Opt out of marketing or announcements via account preferences where available.</li>
+                        </ul>
+                        <p>For questions or data requests, contact us at support@jettic.gg.</p>
+                    </div>
+                </section>
+
+                <section id="termsPage" class="page" style="display:none;">
+                    <div class="section-header">
+                        <h2 class="section-title"><i class="fas fa-file-contract"></i> Terms of Service</h2>
+                    </div>
+                    <div class="legal-card">
+                        <p>By using Jettic you agree to these terms.</p>
+                        <h3>Usage</h3>
+                        <ul class="legal-list">
+                            <li>You must be allowed to use Jettic under your local laws and any school or workplace rules.</li>
+                            <li>Do not attempt to disrupt, reverse engineer, or misuse the service or other users.</li>
+                            <li>Content you upload or share must not violate others' rights or applicable laws.</li>
+                        </ul>
+                        <h3>Accounts</h3>
+                        <ul class="legal-list">
+                            <li>Keep your login secure; you are responsible for activity under your account.</li>
+                            <li>We may suspend or remove accounts that violate these terms or abuse the platform.</li>
+                        </ul>
+                        <h3>Availability and changes</h3>
+                        <ul class="legal-list">
+                            <li>The service is provided "as is" without guarantees of uptime or specific features.</li>
+                            <li>We may update, limit, or discontinue parts of the service as needed.</li>
+                        </ul>
+                        <p>If you do not agree with these terms, please discontinue use of Jettic.</p>
                     </div>
                 </section>
 
@@ -331,6 +785,13 @@
                         <div class="game-main-area">
                             <div class="game-frame-wrapper">
                                 <iframe id="gameFrame" src="" title="Game"></iframe>
+                                <div id="gameDisabledNotice" class="game-disabled-notice" style="display:none;">
+                                    <div class="disabled-inner">
+                                        <i class="fas fa-triangle-exclamation"></i>
+                                        <h3>This game is under maintenance</h3>
+                                        <p>It will be back soon.</p>
+                                    </div>
+                                </div>
                                 <div id="gameLoadingOverlay" aria-live="polite" style="display:none;">
                                     <div class="loading-inner">
                                         <div class="loading-bar"><div class="loading-bar-fill"></div></div>
@@ -362,6 +823,10 @@
                                 <p id="gameDescription">Select a game to view details.</p>
                             </div>
                         </div>
+                        <aside class="game-ad-rail" id="gameAdRail">
+                            <div class="ad-rail-title">Sponsored</div>
+                            <div id="gameAdSlots" class="ad-slot-stack"></div>
+                        </aside>
                     </div>
                 </section>
             </div>
@@ -373,6 +838,118 @@
         <div id="mainOfflineOverlay" class="main-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h2>You are offline</h2><p>Games and data unavailable while offline.</p></div></div>
     </div>
 
+    <div id="adminGameModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div style="background:#161b22; border:1px solid #30363d; padding:20px 24px; border-radius:12px; width:520px; font-family:inherit; max-height:90vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">Game</h3>
+                <button id="adminGameModalClose" class="close-auth" aria-label="Close" style="position:static; background:transparent; border:none; color:#a0a6ad;"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="adminGameForm" class="profile-form" autocomplete="off">
+                <input type="hidden" id="adminGameId" />
+                <label>Title<input type="text" id="adminGameTitle" required maxlength="120" /></label>
+                <label>Category<input type="text" id="adminGameCategory" maxlength="60" /></label>
+                <label>Embed URL<input type="url" id="adminGameEmbed" required /></label>
+                <label>Thumbnail URL<input type="url" id="adminGameThumb" /></label>
+                <label>Upload Thumbnail<input type="file" id="adminGameThumbUpload" accept="image/*" /></label>
+                <label>Description<textarea id="adminGameDescription" rows="3" maxlength="1000"></textarea></label>
+                <div class="profile-actions">
+                    <button type="submit" class="update-check-btn" id="adminGameSaveBtn">Save Game</button>
+                    <div class="save-indicator" id="adminGameSaveIndicator" style="display:none;"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="adminMaintenanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div style="background:#161b22; border:1px solid #30363d; padding:20px 24px; border-radius:12px; width:360px; font-family:inherit;">
+            <h3 style="margin:0 0 12px; font-size:18px;">Disable game?</h3>
+            <p id="adminMaintenanceConfirmText" style="margin:0 0 18px; font-size:14px; line-height:1.4; color:#a0a6ad;">Put this game into maintenance mode?</p>
+            <div style="display:flex; gap:10px; justify-content:flex-end; align-items:center;">
+                <button id="adminMaintenanceCancelBtn" class="logout-btn">Cancel</button>
+                <button id="adminMaintenanceConfirmBtn" class="logout-btn danger">Disable</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminActionModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div id="adminActionOverlay" style="position:absolute; inset:0;"></div>
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="adminActionTitle">Confirm</h3>
+            </div>
+            <p id="adminActionMessage" class="modal-message"></p>
+            <div id="adminActionInputRow" class="modal-input-row" style="display:none;">
+                <label id="adminActionInputLabel"></label>
+                <input id="adminActionInput" type="text" />
+            </div>
+            <div class="modal-actions">
+                <button class="logout-btn" id="adminActionCancel">Cancel</button>
+                <button class="logout-btn" id="adminActionConfirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminPresetModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div id="adminPresetOverlay" style="position:absolute; inset:0;"></div>
+        <div class="modal-card" style="width:460px;">
+            <div class="modal-header">
+                <h3 id="adminPresetTitle">Edit preset</h3>
+                <button class="close-auth" id="adminPresetClose" aria-label="Cancel"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="adminPresetForm" class="profile-form" autocomplete="off">
+                <label>Name<input type="text" id="adminPresetName" maxlength="80" placeholder="Preset name" required></label>
+                <label>URL<input type="url" id="adminPresetUrl" placeholder="https://example.com" required></label>
+                <label>Favicon URL (optional)<input type="url" id="adminPresetFavicon" placeholder="https://.../favicon.ico"></label>
+                <label>Source URL (optional)<input type="url" id="adminPresetSource" placeholder="https://..."></label>
+                <div class="modal-actions" style="margin-top:12px;">
+                    <button class="logout-btn" type="button" id="adminPresetCloseBtn">Cancel</button>
+                    <button class="logout-btn" type="submit" id="adminPresetSave">Save preset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="adminLoginModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div id="adminLoginOverlay" style="position:absolute; inset:0;"></div>
+        <div class="modal-card" style="width:520px; max-height:80vh; overflow:auto;">
+            <div class="modal-header">
+                <h3 id="adminLoginTitle">Login history</h3>
+                <button class="close-auth" id="adminLoginClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="adminLoginList" class="login-history-list"></div>
+        </div>
+    </div>
+
+    <div id="adminRelationsModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div id="adminRelationsOverlay" style="position:absolute; inset:0;"></div>
+        <div class="modal-card" style="width:520px; max-height:80vh; overflow:auto;">
+            <div class="modal-header">
+                <h3 id="adminRelationsTitle">User relations</h3>
+                <button class="close-auth" id="adminRelationsClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="adminRelationsBody" class="relations-list"></div>
+        </div>
+    </div>
+
+    <div id="adminUserModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div style="background:#161b22; border:1px solid #30363d; padding:20px 24px; border-radius:12px; width:460px; font-family:inherit; max-height:90vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">User</h3>
+                <button id="adminUserModalClose" class="close-auth" aria-label="Close" style="position:static; background:transparent; border:none; color:#a0a6ad;"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="adminUserForm" class="profile-form" autocomplete="off">
+                <input type="hidden" id="adminUserId" />
+                <label>Username<input type="text" id="adminUserUsername" required minlength="3" maxlength="24" /></label>
+                <label>Email<input type="email" id="adminUserEmail" required maxlength="120" /></label>
+                <label>Password (leave blank to keep unchanged)<input type="password" id="adminUserPassword" minlength="6" /></label>
+                <div class="profile-actions">
+                    <button type="submit" class="update-check-btn" id="adminUserSaveBtn">Save User</button>
+                    <div class="save-indicator" id="adminUserSaveIndicator" style="display:none;"></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="authModal" style="display:none;" class="auth-modal-shell">
         <div class="modal-overlay"></div>
         <div class="auth-modal">
@@ -381,7 +958,8 @@
                 <button data-tab="register" class="auth-tab">Register</button>
             </div>
             <form id="authForm" class="auth-form">
-                <label>Username<input type="text" name="username" required minlength="3" maxlength="24" /></label>
+                <label id="authIdentifierLabel">Username or Email<input type="text" name="username" required minlength="3" maxlength="120" /></label>
+                <label class="auth-email" style="display:none;">Email<input type="email" name="email" id="authEmail" minlength="5" maxlength="120" /></label>
                 <label>Password<input type="password" name="password" required minlength="6" /></label>
                 <button type="submit" class="update-check-btn">Continue</button>
                 <p class="auth-feedback" id="authFeedback"></p>
@@ -399,6 +977,18 @@
             <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button id="logoutCancelBtn" class="logout-btn">Cancel</button>
                 <button id="logoutConfirmBtn" class="logout-btn danger">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="bannedModal" style="display:none; position:fixed; inset:0; z-index:12000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.6);">
+        <div style="background:#161b22; border:1px solid #30363d; padding:22px 24px; border-radius:14px; width:360px; font-family:inherit; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,0.6);">
+            <div style="font-size:34px; color:#f85149; margin-bottom:10px;"><i class="fas fa-triangle-exclamation"></i></div>
+            <h3 style="margin:0 0 10px; color:#fff;">Account banned</h3>
+            <p id="bannedReason" style="margin:0 0 16px; color:#a0a6ad; line-height:1.4;">Your account is banned.</p>
+            <div class="profile-actions" style="justify-content:center; gap:10px;">
+                <button type="button" class="logout-btn" id="bannedLogoutBtn">Log Out</button>
+                <button type="button" class="logout-btn danger" id="bannedDeleteBtn">Delete Account</button>
             </div>
         </div>
     </div>

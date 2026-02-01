@@ -14,8 +14,31 @@
         user: null,
         friends: { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] },
         settings: null,
+        settingPresets: { panicButtons: [], tabDisguises: [] },
         currentGame: null,
-        proxyEnabled: false
+        proxyEnabled: false,
+        adminRequests: [],
+        adminGames: [],
+        adminUsers: [],
+        adminLoginCache: {},
+        adminDefaults: null,
+        adminNotice: null,
+        adminAnalytics: null,
+        adminAnalyticsRetention: null,
+        adminAnalyticsRange: '24h',
+        adminAnalyticsSearch: '',
+        adminTab: 'requests'
+    };
+
+    const ANALYTICS_RANGES = {
+        '1h': { label: 'Last hour', minutes: 60 },
+        '24h': { label: 'Last 24 hours', minutes: 24 * 60 },
+        '7d': { label: 'Last 7 days', minutes: 7 * 24 * 60 },
+        '14d': { label: 'Last 14 days', minutes: 14 * 24 * 60 },
+        '30d': { label: 'Last 30 days', minutes: 30 * 24 * 60 },
+        '6m': { label: 'Last 6 months', minutes: 180 * 24 * 60 },
+        '12m': { label: 'Last 12 months', minutes: 365 * 24 * 60 },
+        all: { label: 'All time', minutes: Infinity }
     };
 
     const runtime = {
@@ -31,8 +54,19 @@
         clockTimer: null,
         closingGame: null,
         closeTicker: null,
-        settingsSaveTimer: null
+        playSession: null,
+        adminGameThumbData: null,
+        adminGameRequestId: null,
+        settingsSaveTimer: null,
+        panicHandler: null,
+        defaultTitle: document.title,
+        defaultFavicon: null,
+        lastOnlineState: navigator.onLine !== false,
+        offlineNotified: false
     };
+
+    let actionModalResolver = null;
+    let presetEditContext = null;
 
     const els = {};
 
@@ -58,17 +92,235 @@
         put: (p, b) => api.request(p, { method: 'PUT', body: JSON.stringify(b || {}) })
     };
 
+    async function loadAdminDefaults(force = false) {
+        if (!state.user?.admin) return;
+        if (state.adminDefaults && !force) { renderAdminDefaults(); return; }
+        if (els.adminDefaultsFeedback) els.adminDefaultsFeedback.textContent = '';
+        try {
+            const data = await api.get('/api/admin/defaults');
+            const sanitizedPresets = sanitizePresets(data.presets || {});
+            state.adminDefaults = { ...data, presets: sanitizedPresets };
+            state.settingPresets = sanitizedPresets;
+            renderAdminDefaults();
+        } catch (err) {
+            if (els.adminDefaultsFeedback) els.adminDefaultsFeedback.textContent = err.message || 'Failed to load defaults';
+        }
+    }
+
+    function renderAdminDefaults() {
+        if (!state.adminDefaults) return;
+        const { defaults = {}, presets = {} } = state.adminDefaults;
+        if (els.adminDefaultPanicEnabled) els.adminDefaultPanicEnabled.checked = !!defaults.panicEnabled;
+        if (els.adminDefaultPanicUrl) els.adminDefaultPanicUrl.value = defaults.panicUrl || '';
+        if (els.adminDefaultPanicKeybind) els.adminDefaultPanicKeybind.value = defaults.panicKeybind || '';
+        if (els.adminDefaultPanicPreset) els.adminDefaultPanicPreset.value = defaults.panicPreset || '';
+        if (els.adminDefaultTabEnabled) els.adminDefaultTabEnabled.checked = !!defaults.tabDisguiseEnabled;
+        if (els.adminDefaultTabTitle) els.adminDefaultTabTitle.value = defaults.tabDisguiseTitle || '';
+        if (els.adminDefaultTabFavicon) els.adminDefaultTabFavicon.value = defaults.tabDisguiseFavicon || '';
+        if (els.adminDefaultTabSource) els.adminDefaultTabSource.value = defaults.tabDisguiseSource || '';
+        if (els.adminDefaultTabPreset) els.adminDefaultTabPreset.value = defaults.tabDisguisePreset || '';
+        populatePresetSelect(els.adminDefaultPanicPreset, presets.panicButtons || []);
+        populatePresetSelect(els.adminDefaultTabPreset, presets.tabDisguises || []);
+        renderAdminPresetList('panic', els.adminDefaultsPanicList, presets.panicButtons || []);
+        renderAdminPresetList('disguise', els.adminDefaultsDisguiseList, presets.tabDisguises || []);
+    }
+
+    function sanitizePresets(presets = {}) {
+        const panicButtons = (presets.panicButtons || []).map((p) => ({
+            ...p,
+            label: (p.label || '').trim() || 'Preset',
+            url: (p.url || '').trim(),
+            keybind: (p.keybind || 'Escape').trim() || 'Escape'
+        }));
+        const tabDisguises = (presets.tabDisguises || []).map((p) => ({
+            ...p,
+            label: (p.label || p.title || '').trim() || 'Preset',
+            title: (p.title || p.label || '').trim(),
+            favicon: (p.favicon || '').trim(),
+            sourceUrl: (p.sourceUrl || '').trim()
+        }));
+        return { panicButtons, tabDisguises };
+    }
+
+    function renderAdminPresetList(type, container, items) {
+        if (!container) return;
+        container.classList.add('admin-presets-list');
+        container.innerHTML = '';
+        const list = items || [];
+        list.forEach((item, idx) => {
+            if (type === 'panic') {
+                const card = document.createElement('div');
+                card.className = 'admin-preset-card';
+                const meta = document.createElement('div');
+                meta.className = 'admin-preset-meta';
+                const name = document.createElement('div');
+                name.className = 'admin-preset-name';
+                name.textContent = item.label || 'Preset';
+                const url = document.createElement('a');
+                url.className = 'admin-preset-url';
+                url.textContent = item.url || 'https://';
+                url.href = item.url || '#';
+                url.target = '_blank';
+                url.rel = 'noreferrer noopener';
+                meta.append(name, url);
+
+                const actions = document.createElement('div');
+                actions.className = 'admin-preset-actions';
+                const edit = document.createElement('button');
+                edit.type = 'button';
+                edit.className = 'friend-action-btn';
+                edit.title = 'Edit preset';
+                edit.innerHTML = '<i class="fas fa-pen"></i>';
+                edit.addEventListener('click', () => openPresetEditModal('panic', idx));
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'friend-action-btn danger';
+                del.title = 'Delete preset';
+                del.innerHTML = '<i class="fas fa-trash"></i>';
+                del.addEventListener('click', async () => {
+                    const res = await openActionModal({
+                        title: 'Delete preset',
+                        message: `Delete preset "${item.label || 'Preset'}"?`,
+                        confirmText: 'Delete',
+                        cancelText: 'Cancel',
+                        tone: 'danger'
+                    });
+                    if (!res.confirmed) return;
+                    list.splice(idx, 1);
+                    renderAdminDefaults();
+                });
+                actions.append(edit, del);
+                card.append(meta, actions);
+                container.appendChild(card);
+            } else {
+                const card = document.createElement('div');
+                card.className = 'admin-preset-card';
+                const meta = document.createElement('div');
+                meta.className = 'admin-preset-meta';
+                const name = document.createElement('div');
+                name.className = 'admin-preset-name';
+                name.textContent = item.label || item.title || 'Preset';
+                const source = document.createElement('a');
+                source.className = 'admin-preset-url';
+                source.textContent = item.sourceUrl || 'https://';
+                source.href = item.sourceUrl || '#';
+                source.target = '_blank';
+                source.rel = 'noreferrer noopener';
+                meta.append(name, source);
+                if (item.favicon) {
+                    const fav = document.createElement('div');
+                    fav.className = 'admin-preset-keybind';
+                    fav.textContent = item.favicon;
+                    meta.appendChild(fav);
+                }
+
+                const actions = document.createElement('div');
+                actions.className = 'admin-preset-actions';
+                const edit = document.createElement('button');
+                edit.type = 'button';
+                edit.className = 'friend-action-btn';
+                edit.title = 'Edit disguise preset';
+                edit.innerHTML = '<i class="fas fa-pen"></i>';
+                edit.addEventListener('click', () => openPresetEditModal('disguise', idx));
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'friend-action-btn danger';
+                del.title = 'Delete preset';
+                del.innerHTML = '<i class="fas fa-trash"></i>';
+                del.addEventListener('click', async () => {
+                    const res = await openActionModal({
+                        title: 'Delete preset',
+                        message: `Delete preset "${item.label || item.title || 'Preset'}"?`,
+                        confirmText: 'Delete',
+                        cancelText: 'Cancel',
+                        tone: 'danger'
+                    });
+                    if (!res.confirmed) return;
+                    list.splice(idx, 1);
+                    renderAdminDefaults();
+                });
+                actions.append(edit, del);
+                card.append(meta, actions);
+                container.appendChild(card);
+            }
+        });
+    }
+
+    function addAdminPreset(type) {
+        if (!state.adminDefaults) state.adminDefaults = { defaults: {}, presets: { panicButtons: [], tabDisguises: [] } };
+        const presets = state.adminDefaults.presets || { panicButtons: [], tabDisguises: [] };
+        if (type === 'panic') {
+            presets.panicButtons = presets.panicButtons || [];
+            const id = (crypto?.randomUUID?.() || `panic-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+            presets.panicButtons.push({ id, label: 'Preset', url: '', keybind: 'Escape' });
+        } else {
+            presets.tabDisguises = presets.tabDisguises || [];
+            const id = (crypto?.randomUUID?.() || `disguise-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+            presets.tabDisguises.push({ id, label: 'Preset', title: '', favicon: '', sourceUrl: '' });
+        }
+        state.adminDefaults.presets = presets;
+        renderAdminDefaults();
+    }
+
+    async function saveAdminDefaults() {
+        if (!state.user?.admin) return;
+        if (els.adminDefaultsFeedback) {
+            els.adminDefaultsFeedback.textContent = '';
+            els.adminDefaultsFeedback.style.color = '#58a6ff';
+        }
+        const payload = {
+            defaults: {
+                panicEnabled: !!els.adminDefaultPanicEnabled?.checked,
+                panicUrl: (els.adminDefaultPanicUrl?.value || '').trim(),
+                panicKeybind: (els.adminDefaultPanicKeybind?.value || '').trim(),
+                panicPreset: (els.adminDefaultPanicPreset?.value || '').trim(),
+                tabDisguiseEnabled: !!els.adminDefaultTabEnabled?.checked,
+                tabDisguiseTitle: (els.adminDefaultTabTitle?.value || '').trim(),
+                tabDisguiseFavicon: (els.adminDefaultTabFavicon?.value || '').trim(),
+                tabDisguiseSource: (els.adminDefaultTabSource?.value || '').trim(),
+                tabDisguisePreset: (els.adminDefaultTabPreset?.value || '').trim()
+            },
+            presets: sanitizePresets(state.adminDefaults?.presets)
+        };
+        if (els.adminDefaultsSaveBtn) els.adminDefaultsSaveBtn.disabled = true;
+        try {
+            const res = await api.put('/api/admin/defaults', payload);
+            state.adminDefaults = res;
+            state.settingPresets = res.presets || state.settingPresets;
+            renderAdminDefaults();
+            if (els.adminDefaultsFeedback) {
+                els.adminDefaultsFeedback.textContent = 'Saved defaults';
+                els.adminDefaultsFeedback.style.color = '#58a6ff';
+            }
+        } catch (err) {
+            if (els.adminDefaultsFeedback) {
+                els.adminDefaultsFeedback.textContent = err.message || 'Failed to save defaults';
+                els.adminDefaultsFeedback.style.color = '#f85149';
+            }
+        } finally {
+            if (els.adminDefaultsSaveBtn) els.adminDefaultsSaveBtn.disabled = false;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', init);
 
     function init() {
         cacheElements();
+        const currentIcon = document.querySelector('link[rel~="icon"], link[rel="shortcut icon"]');
+        runtime.defaultFavicon = currentIcon ? currentIcon.getAttribute('href') : null;
         bindNavigation();
         bindAuthModal();
+        bindRequestForm();
+        bindAdminUI();
+        bindProfileForm();
+        bindProfileSecurity();
         bindSettingsForm();
         bindFriendsUI();
         bindFavoritesUI();
         bindGameControls();
         bindLogoutModal();
+        bindBannedModal();
+        window.addEventListener('resize', renderGameAds);
         registerServiceWorker();
         applyClockSetting(true);
         applyCurrentSectionSetting(true);
@@ -76,6 +328,8 @@
             if (document.visibilityState === 'visible') sendOnlinePing();
         });
         window.addEventListener('focus', () => sendOnlinePing());
+        window.addEventListener('offline', () => handleConnectivityChange(false));
+        window.addEventListener('online', () => handleConnectivityChange(true));
         setActiveNav('home');
         showPage('home');
         loadInitial();
@@ -91,6 +345,10 @@
                 friends: document.getElementById('friendsPage'),
                 settings: document.getElementById('settingsPage'),
                 profile: document.getElementById('profilePage'),
+                request: document.getElementById('requestPage'),
+                admin: document.getElementById('adminPage'),
+                privacy: document.getElementById('privacyPage'),
+                terms: document.getElementById('termsPage'),
                 game: document.getElementById('gamePage')
             },
             statsGames: document.querySelector('[data-stat="games"]'),
@@ -138,11 +396,25 @@
             pendingCount: document.getElementById('pendingCount'),
             profileForm: document.getElementById('profileForm'),
             profileUsername: document.getElementById('profileUsername'),
+            profileEmail: document.getElementById('profileEmail'),
             profileColor: document.getElementById('profileColor'),
             avatarInput: document.getElementById('avatarInput'),
             avatarPreview: document.getElementById('avatarPreview'),
             avatarPlaceholder: document.getElementById('avatarPlaceholder'),
             profileSaveIndicator: document.getElementById('profileSaveIndicator'),
+            profileNewEmail: document.getElementById('profileNewEmail'),
+            profileEmailPassword: document.getElementById('profileEmailPassword'),
+            profileEmailFeedback: document.getElementById('profileEmailFeedback'),
+            profileChangeEmailBtn: document.getElementById('profileChangeEmailBtn'),
+            profileCurrentPassword: document.getElementById('profileCurrentPassword'),
+            profileNewPassword: document.getElementById('profileNewPassword'),
+            profilePasswordFeedback: document.getElementById('profilePasswordFeedback'),
+            profileChangePasswordBtn: document.getElementById('profileChangePasswordBtn'),
+            profileDeletePassword: document.getElementById('profileDeletePassword'),
+            profileDeleteFeedback: document.getElementById('profileDeleteFeedback'),
+            profileDeleteAccountBtn: document.getElementById('profileDeleteAccountBtn'),
+            profilePlaytimeList: document.getElementById('profilePlaytimeList'),
+            profilePlaytimeEmpty: document.getElementById('profilePlaytimeEmpty'),
             settingAccent: document.getElementById('settingAccent'),
             settingProxyDefault: document.getElementById('settingProxyDefault'),
             settingParticles: document.getElementById('settingParticles'),
@@ -153,6 +425,16 @@
             settingCursorColor: document.getElementById('settingCursorColor'),
             settingShowClock: document.getElementById('settingShowClock'),
             settingsFeedback: document.getElementById('settingsFeedback'),
+            settingPanicEnabled: document.getElementById('settingPanicEnabled'),
+            settingPanicUrl: document.getElementById('settingPanicUrl'),
+            settingPanicKeybind: document.getElementById('settingPanicKeybind'),
+            settingPanicPreset: document.getElementById('settingPanicPreset'),
+            settingTabEnabled: document.getElementById('settingTabEnabled'),
+            settingTabTitle: document.getElementById('settingTabTitle'),
+            settingTabFavicon: document.getElementById('settingTabFavicon'),
+            settingTabSource: document.getElementById('settingTabSource'),
+            settingTabPreset: document.getElementById('settingTabPreset'),
+            settingTabFetchBtn: document.getElementById('settingTabFetchBtn'),
             gameFrame: document.getElementById('gameFrame'),
             gameTitle: document.getElementById('gameTitle'),
             gameCategory: document.getElementById('gameCategory'),
@@ -169,6 +451,7 @@
             authModal: document.getElementById('authModal'),
             authTabs: Array.from(document.querySelectorAll('.auth-tab')),
             authForm: document.getElementById('authForm'),
+            authEmail: document.getElementById('authEmail'),
             authFeedback: document.getElementById('authFeedback'),
             closeAuthModal: document.getElementById('closeAuthModal'),
             logoutConfirmModal: document.getElementById('logoutConfirmModal'),
@@ -182,8 +465,154 @@
             sidebarCurrentSection: document.getElementById('sidebarCurrentSection'),
             sidebarHistorySection: document.getElementById('sidebarHistorySection'),
             sidebarOnlineSection: document.getElementById('sidebarOnlineSection'),
-            settingShowCurrent: document.getElementById('settingShowCurrent')
+            settingShowCurrent: document.getElementById('settingShowCurrent'),
+            settingsGrid: document.getElementById('settingsGrid'),
+            settingsActions: document.getElementById('settingsActions'),
+            settingsLoginBox: document.getElementById('settingsLoginBox'),
+            settingsLoginBtn: document.getElementById('settingsLoginBtn'),
+            panicButton: document.getElementById('panicButton'),
+            adminNotifyTests: document.getElementById('adminNotifyTests'),
+            adminNotifySuccess: document.getElementById('adminNotifySuccess'),
+            adminNotifyWarning: document.getElementById('adminNotifyWarning'),
+            adminNotifyError: document.getElementById('adminNotifyError'),
+            adminNotifyInfo: document.getElementById('adminNotifyInfo'),
+            analyticsGameSearch: document.getElementById('analyticsGameSearch'),
+            analyticsRangeSelect: document.getElementById('analyticsRangeSelect'),
+            analyticsPlayerCounts: document.getElementById('analyticsPlayerCounts'),
+            analyticsFriendRequests: document.getElementById('analyticsFriendRequests'),
+            analyticsUserAccounts: document.getElementById('analyticsUserAccounts'),
+            analyticsOutages: document.getElementById('analyticsOutages'),
+            analyticsGameTable: document.getElementById('analyticsGameTable'),
+            analyticsModal: document.getElementById('analyticsModal'),
+            analyticsModalBody: document.getElementById('analyticsModalBody'),
+            analyticsModalClose: document.getElementById('analyticsModalClose'),
+            analyticsMaxButtons: Array.from(document.querySelectorAll('[data-analytics-modal]'))
         });
+
+        els.analyticsRangeLabels = Array.from(document.querySelectorAll('[data-analytics-range]'));
+
+        els.openRequestGameBtn = document.getElementById('openRequestGameBtn');
+        els.openAdminPageBtn = document.getElementById('openAdminPageBtn');
+        els.accountRequestBtn = document.getElementById('accountRequestBtn');
+        els.accountAdminBtn = document.getElementById('accountAdminBtn');
+        els.adminRequestsList = document.getElementById('adminRequestsList');
+        els.adminRequestsEmpty = document.getElementById('adminRequestsEmpty');
+        els.adminRequestsError = document.getElementById('adminRequestsError');
+        els.adminRequestsRefresh = document.getElementById('adminRequestsRefresh');
+        els.adminRequestsSearch = document.getElementById('adminRequestsSearch');
+        els.adminTabNav = document.getElementById('adminTabNav');
+        els.adminTabPanels = Array.from(document.querySelectorAll('#adminTabPanels .friends-tab-panel'));
+        els.adminGamesList = document.getElementById('adminGamesList');
+        els.adminGamesEmpty = document.getElementById('adminGamesEmpty');
+        els.adminGamesRefresh = document.getElementById('adminGamesRefresh');
+        els.adminGamesSearch = document.getElementById('adminGamesSearch');
+        els.adminGameNew = document.getElementById('adminGameNew');
+        els.adminGameModal = document.getElementById('adminGameModal');
+        els.adminGameModalClose = document.getElementById('adminGameModalClose');
+        els.adminGameForm = document.getElementById('adminGameForm');
+        els.adminGameId = document.getElementById('adminGameId');
+        els.adminGameTitle = document.getElementById('adminGameTitle');
+        els.adminGameCategory = document.getElementById('adminGameCategory');
+        els.adminGameEmbed = document.getElementById('adminGameEmbed');
+        els.adminGameThumb = document.getElementById('adminGameThumb');
+        els.adminGameDescription = document.getElementById('adminGameDescription');
+        els.adminGameSaveIndicator = document.getElementById('adminGameSaveIndicator');
+        els.adminGameFeedback = document.getElementById('adminGameFeedback');
+        els.adminGameSaveBtn = document.getElementById('adminGameSaveBtn');
+        els.adminMaintenanceConfirmModal = document.getElementById('adminMaintenanceConfirmModal');
+        els.adminMaintenanceConfirmText = document.getElementById('adminMaintenanceConfirmText');
+        els.adminMaintenanceConfirmBtn = document.getElementById('adminMaintenanceConfirmBtn');
+        els.adminMaintenanceCancelBtn = document.getElementById('adminMaintenanceCancelBtn');
+        els.adminUserFeedback = document.getElementById('adminUserFeedback');
+        els.adminUsersList = document.getElementById('adminUsersList');
+        els.adminUsersEmpty = document.getElementById('adminUsersEmpty');
+        els.adminUsersRefresh = document.getElementById('adminUsersRefresh');
+        els.adminUsersSearch = document.getElementById('adminUsersSearch');
+        els.adminUserNew = document.getElementById('adminUserNew');
+        els.adminUserModal = document.getElementById('adminUserModal');
+        els.adminUserModalClose = document.getElementById('adminUserModalClose');
+        els.adminUserForm = document.getElementById('adminUserForm');
+        els.adminUserId = document.getElementById('adminUserId');
+        els.adminUserUsername = document.getElementById('adminUserUsername');
+        els.adminUserEmail = document.getElementById('adminUserEmail');
+        els.adminUserPassword = document.getElementById('adminUserPassword');
+        els.adminUserSaveIndicator = document.getElementById('adminUserSaveIndicator');
+        els.adminUserSaveBtn = document.getElementById('adminUserSaveBtn');
+        els.adminGameThumbUpload = document.getElementById('adminGameThumbUpload');
+        els.adminTabNavButtons = Array.from(document.querySelectorAll('#adminTabNav .friends-tab'));
+        els.adminDefaultsPanel = document.getElementById('adminDefaultsPanel');
+        els.adminDefaultsForm = document.getElementById('adminDefaultsForm');
+        els.adminDefaultsFeedback = document.getElementById('adminDefaultsFeedback');
+        els.adminDefaultsSaveBtn = document.getElementById('adminDefaultsSaveBtn');
+        els.adminDefaultsPanicList = document.getElementById('adminDefaultsPanicList');
+        els.adminDefaultsDisguiseList = document.getElementById('adminDefaultsDisguiseList');
+        els.adminDefaultsPanicAdd = document.getElementById('adminDefaultsPanicAdd');
+        els.adminDefaultsDisguiseAdd = document.getElementById('adminDefaultsDisguiseAdd');
+        els.adminRelationsModal = document.getElementById('adminRelationsModal');
+        els.adminRelationsOverlay = document.getElementById('adminRelationsOverlay');
+        els.adminRelationsClose = document.getElementById('adminRelationsClose');
+        els.adminRelationsBody = document.getElementById('adminRelationsBody');
+        els.adminRelationsTitle = document.getElementById('adminRelationsTitle');
+        if (els.analyticsModal && els.analyticsModal.parentElement !== document.body) {
+            document.body.appendChild(els.analyticsModal);
+        }
+        els.adminDefaultPanicEnabled = document.getElementById('adminDefaultPanicEnabled');
+        els.adminDefaultPanicUrl = document.getElementById('adminDefaultPanicUrl');
+        els.adminDefaultPanicKeybind = document.getElementById('adminDefaultPanicKeybind');
+        els.adminDefaultPanicPreset = document.getElementById('adminDefaultPanicPreset');
+        els.adminDefaultTabEnabled = document.getElementById('adminDefaultTabEnabled');
+        els.adminDefaultTabTitle = document.getElementById('adminDefaultTabTitle');
+        els.adminDefaultTabFavicon = document.getElementById('adminDefaultTabFavicon');
+        els.adminDefaultTabSource = document.getElementById('adminDefaultTabSource');
+        els.adminDefaultTabPreset = document.getElementById('adminDefaultTabPreset');
+        els.adminNoticePanel = document.getElementById('adminNoticePanel');
+        els.adminNoticeForm = document.getElementById('adminNoticeForm');
+        els.adminNoticeFeedback = document.getElementById('adminNoticeFeedback');
+        els.adminNoticeSave = document.getElementById('adminNoticeSave');
+        els.adminNoticeEnabled = document.getElementById('adminNoticeEnabled');
+        els.adminNoticeMessage = document.getElementById('adminNoticeMessage');
+        els.adminNoticeDescription = document.getElementById('adminNoticeDescription');
+        els.adminNoticeBackground = document.getElementById('adminNoticeBackground');
+        els.adminNoticeTextColor = document.getElementById('adminNoticeTextColor');
+        els.adminNoticeDismissible = document.getElementById('adminNoticeDismissible');
+        els.adminNoticeCooldown = document.getElementById('adminNoticeCooldown');
+        els.adminNoticeButtonEnabled = document.getElementById('adminNoticeButtonEnabled');
+        els.adminNoticeButtonLabel = document.getElementById('adminNoticeButtonLabel');
+        els.adminNoticeButtonUrl = document.getElementById('adminNoticeButtonUrl');
+        els.adminNoticeButtonBg = document.getElementById('adminNoticeButtonBg');
+        els.adminNoticeButtonText = document.getElementById('adminNoticeButtonText');
+        els.adminActionModal = document.getElementById('adminActionModal');
+        els.adminActionOverlay = document.getElementById('adminActionOverlay');
+        els.adminActionTitle = document.getElementById('adminActionTitle');
+        els.adminActionMessage = document.getElementById('adminActionMessage');
+        els.adminActionInputRow = document.getElementById('adminActionInputRow');
+        els.adminActionInputLabel = document.getElementById('adminActionInputLabel');
+        els.adminActionInput = document.getElementById('adminActionInput');
+        els.adminActionConfirm = document.getElementById('adminActionConfirm');
+        els.adminActionCancel = document.getElementById('adminActionCancel');
+        els.adminPresetModal = document.getElementById('adminPresetModal');
+        els.adminPresetOverlay = document.getElementById('adminPresetOverlay');
+        els.adminPresetClose = document.getElementById('adminPresetClose');
+        els.adminPresetTitle = document.getElementById('adminPresetTitle');
+        els.adminPresetForm = document.getElementById('adminPresetForm');
+        els.adminPresetName = document.getElementById('adminPresetName');
+        els.adminPresetUrl = document.getElementById('adminPresetUrl');
+        els.adminPresetFavicon = document.getElementById('adminPresetFavicon');
+        els.adminPresetSource = document.getElementById('adminPresetSource');
+        els.adminPresetSave = document.getElementById('adminPresetSave');
+        els.adminPresetCloseBtn = document.getElementById('adminPresetCloseBtn');
+        els.adminLoginModal = document.getElementById('adminLoginModal');
+        els.adminLoginOverlay = document.getElementById('adminLoginOverlay');
+        els.adminLoginTitle = document.getElementById('adminLoginTitle');
+        els.adminLoginList = document.getElementById('adminLoginList');
+        els.adminLoginClose = document.getElementById('adminLoginClose');
+        els.bannedModal = document.getElementById('bannedModal');
+        els.bannedReason = document.getElementById('bannedReason');
+        els.bannedLogoutBtn = document.getElementById('bannedLogoutBtn');
+        els.bannedDeleteBtn = document.getElementById('bannedDeleteBtn');
+        els.gameDisabledNotice = document.getElementById('gameDisabledNotice');
+        els.gameAdRail = document.getElementById('gameAdRail');
+        els.gameAdSlots = document.getElementById('gameAdSlots');
     }
 
     function bindNavigation() {
@@ -206,6 +635,8 @@
 
         els.openProfileSettingsBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('profile'); });
         els.openSettingsBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('settings'); });
+        els.openRequestGameBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('request'); });
+        els.openAdminPageBtn?.addEventListener('click', () => { hideProfileDropdown(); showPage('admin'); });
         els.logoutFromDropdownBtn?.addEventListener('click', () => { hideProfileDropdown(); showLogoutConfirm(); });
 
         document.addEventListener('click', (e) => {
@@ -214,17 +645,218 @@
         });
 
         document.getElementById('accountProfileBtn')?.addEventListener('click', () => { hideAccountDropdown(); showPage('profile'); });
+        document.getElementById('accountRequestBtn')?.addEventListener('click', () => { hideAccountDropdown(); showPage('request'); });
+        document.getElementById('accountAdminBtn')?.addEventListener('click', () => { hideAccountDropdown(); showPage('admin'); });
         document.getElementById('accountLogoutBtn')?.addEventListener('click', () => { hideAccountDropdown(); showLogoutConfirm(); });
     }
 
     function bindAuthModal() {
+        const updateAuthMode = (mode) => {
+            els.authTabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === mode));
+            if (els.authModal) els.authModal.dataset.mode = mode;
+            const emailRow = document.querySelector('.auth-email');
+            if (emailRow) emailRow.style.display = mode === 'register' ? 'block' : 'none';
+            if (els.authEmail) {
+                els.authEmail.required = mode === 'register';
+                if (mode !== 'register') els.authEmail.value = '';
+            }
+        };
         els.authTabs.forEach((tab) => tab.addEventListener('click', () => {
-            els.authTabs.forEach((t) => t.classList.toggle('active', t === tab));
-            els.authModal.dataset.mode = tab.dataset.tab;
+            updateAuthMode(tab.dataset.tab);
         }));
+        updateAuthMode('login');
         els.closeAuthModal?.addEventListener('click', closeAuthModal);
         els.authModal?.querySelector('.modal-overlay')?.addEventListener('click', closeAuthModal);
         els.authForm?.addEventListener('submit', handleAuthSubmit);
+    }
+
+    function bindAdminUI() {
+        els.adminRequestsRefresh?.addEventListener('click', () => loadAdminRequests(true));
+        els.adminGamesRefresh?.addEventListener('click', () => loadAdminGames(true));
+        els.adminUsersRefresh?.addEventListener('click', () => loadAdminUsers(true));
+        els.adminRequestsSearch?.addEventListener('input', () => renderAdminRequests());
+        els.adminGamesSearch?.addEventListener('input', () => renderAdminGames());
+        els.adminUsersSearch?.addEventListener('input', () => renderAdminUsers());
+
+        els.adminGameNew?.addEventListener('click', () => openAdminGameModal());
+        els.adminGameModalClose?.addEventListener('click', closeAdminGameModal);
+        els.adminGameModal?.addEventListener('click', (e) => { if (e.target === els.adminGameModal) closeAdminGameModal(); });
+        els.adminMaintenanceCancelBtn?.addEventListener('click', closeAdminMaintenanceConfirm);
+        els.adminMaintenanceConfirmModal?.addEventListener('click', (e) => { if (e.target === els.adminMaintenanceConfirmModal) closeAdminMaintenanceConfirm(); });
+        els.adminUserNew?.addEventListener('click', () => openAdminUserModal());
+        els.adminUserModalClose?.addEventListener('click', closeAdminUserModal);
+        els.adminUserModal?.addEventListener('click', (e) => { if (e.target === els.adminUserModal) closeAdminUserModal(); });
+        els.adminDefaultsForm?.addEventListener('submit', async (e) => { e.preventDefault(); await saveAdminDefaults(); });
+        els.adminDefaultsPanicAdd?.addEventListener('click', () => addAdminPreset('panic'));
+        els.adminDefaultsDisguiseAdd?.addEventListener('click', () => addAdminPreset('disguise'));
+        els.adminNoticeForm?.addEventListener('submit', async (e) => { e.preventDefault(); await saveAdminNotice(); });
+        els.adminNoticeSave?.addEventListener('click', async (e) => { e.preventDefault(); await saveAdminNotice(); });
+        els.adminActionCancel?.addEventListener('click', handleActionCancel);
+        els.adminActionConfirm?.addEventListener('click', handleActionConfirm);
+        els.adminActionModal?.addEventListener('click', (e) => { if (e.target === els.adminActionModal || e.target === els.adminActionOverlay) handleActionCancel(); });
+        els.adminPresetClose?.addEventListener('click', closePresetEditModal);
+        els.adminPresetCloseBtn?.addEventListener('click', closePresetEditModal);
+        els.adminPresetModal?.addEventListener('click', (e) => { if (e.target === els.adminPresetModal || e.target === els.adminPresetOverlay) closePresetEditModal(); });
+        els.adminPresetForm?.addEventListener('submit', savePresetEdit);
+        els.adminLoginClose?.addEventListener('click', closeLoginHistoryModal);
+        els.adminLoginModal?.addEventListener('click', (e) => { if (e.target === els.adminLoginModal || e.target === els.adminLoginOverlay) closeLoginHistoryModal(); });
+        els.adminRelationsClose?.addEventListener('click', closeAdminRelationsModal);
+        els.adminRelationsModal?.addEventListener('click', (e) => { if (e.target === els.adminRelationsModal || e.target === els.adminRelationsOverlay) closeAdminRelationsModal(); });
+        els.analyticsGameSearch?.addEventListener('input', (e) => {
+            state.adminAnalyticsSearch = (e.target.value || '').trim().toLowerCase();
+            renderAdminAnalytics();
+        });
+        els.analyticsRangeSelect?.addEventListener('change', (e) => {
+            const next = e.target.value;
+            if (!ANALYTICS_RANGES[next]) {
+                e.target.value = state.adminAnalyticsRange;
+                return;
+            }
+            state.adminAnalyticsRange = next;
+            renderAdminAnalytics();
+            loadAdminAnalytics(true);
+        });
+        (els.analyticsMaxButtons || []).forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.analyticsModal;
+                openAnalyticsModal(type);
+            });
+        });
+        els.analyticsModalClose?.addEventListener('click', closeAnalyticsModal);
+        els.analyticsModal?.addEventListener('click', (e) => {
+            if (e.target === els.analyticsModal || e.target.dataset.analyticsModalClose !== undefined) closeAnalyticsModal();
+        });
+
+        els.adminTabNav?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.friends-tab');
+            if (!btn) return;
+            switchAdminTab(btn.dataset.tab);
+        });
+
+        if (els.adminGameForm) {
+            els.adminGameForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!state.user?.admin) return;
+                const payload = {
+                    title: els.adminGameTitle?.value?.trim(),
+                    category: els.adminGameCategory?.value?.trim(),
+                    embed: els.adminGameEmbed?.value?.trim(),
+                    thumbnail: els.adminGameThumb?.value?.trim(),
+                    thumbnailData: runtime.adminGameThumbData,
+                    description: els.adminGameDescription?.value?.trim()
+                };
+                const id = els.adminGameId?.value;
+                setAdminGameSaving(true);
+                setAdminGameFeedback('', false);
+                try {
+                    if (id) {
+                        const { game } = await api.put(`/api/admin/games/${id}`, payload);
+                        upsertAdminGame(game);
+                        showToast('Game updated');
+                    } else {
+                        const { game } = await api.post('/api/admin/games', payload);
+                        upsertAdminGame(game);
+                        showToast('Game added');
+                        if (runtime.adminGameRequestId) {
+                            await updateRequestStatus(runtime.adminGameRequestId, 'converted');
+                        }
+                    }
+                    renderAdminGames();
+                    closeAdminGameModal();
+                } catch (err) {
+                    setAdminGameFeedback(err.message || 'Save failed', true);
+                } finally {
+                    setAdminGameSaving(false);
+                    runtime.adminGameRequestId = null;
+                    runtime.adminGameThumbData = null;
+                }
+            });
+
+            els.adminGameThumbUpload?.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                runtime.adminGameThumbData = null;
+                if (!file) return;
+                if (file.size > 1.5 * 1024 * 1024) {
+                    setAdminGameFeedback('Thumbnail must be under 1.5MB', true);
+                    e.target.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    runtime.adminGameThumbData = reader.result;
+                    setAdminGameFeedback('Thumbnail ready to upload', false);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        els.adminMaintenanceConfirmBtn?.addEventListener('click', handleConfirmDisable);
+                            if (state.user?.banned?.active) showBannedModal(state.user.banned.reason || 'Your account is banned');
+
+        if (els.adminUserForm) {
+            els.adminUserForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!state.user?.admin) return;
+                const username = els.adminUserUsername?.value?.trim();
+                const email = els.adminUserEmail?.value?.trim();
+                const password = els.adminUserPassword?.value || '';
+                const id = els.adminUserId?.value;
+                setAdminUserSaving(true);
+                setAdminUserFeedback('', false);
+                if (!email) {
+                    setAdminUserFeedback('Email is required', true);
+                    setAdminUserSaving(false);
+                    return;
+                }
+                try {
+                    if (id) {
+                        const payload = { username, email };
+                        if (password) payload.password = password;
+                        const { user } = await api.put(`/api/admin/users/${id}`, payload);
+                        upsertAdminUser(user);
+                        showToast('User updated');
+                    } else {
+                        const { user } = await api.post('/api/admin/users', { username, password, email });
+                        upsertAdminUser(user);
+                        showToast('User created');
+                    }
+                    renderAdminUsers();
+                    closeAdminUserModal();
+                } catch (err) {
+                    setAdminUserFeedback(err.message || 'Failed to save user', true);
+                } finally {
+                    setAdminUserSaving(false);
+                }
+            });
+        }
+    }
+
+    function bindRequestForm() {
+        const form = document.getElementById('requestForm');
+        if (!form) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!state.user) return openAuthModal('login');
+            const title = document.getElementById('requestTitle')?.value.trim();
+            const url = document.getElementById('requestUrl')?.value.trim();
+            const category = document.getElementById('requestCategory')?.value.trim();
+            const description = document.getElementById('requestDescription')?.value.trim();
+            const indicator = document.getElementById('requestSaveIndicator');
+            const feedback = document.getElementById('requestFeedback');
+            feedback.textContent = '';
+            if (indicator) indicator.style.display = 'inline-block';
+            try {
+                await api.post('/api/requests', { title, url, category, description });
+                feedback.textContent = 'Request submitted for review';
+                feedback.style.color = '#58a6ff';
+                form.reset();
+            } catch (err) {
+                feedback.textContent = err.message || 'Failed to submit request';
+                feedback.style.color = '#f85149';
+            } finally {
+                if (indicator) indicator.style.display = 'none';
+            }
+        });
     }
 
     function bindSearch() {
@@ -275,7 +907,118 @@
         });
     }
 
+    function bindProfileSecurity() {
+        els.profileChangeEmailBtn?.addEventListener('click', handleProfileEmailChange);
+        els.profileChangePasswordBtn?.addEventListener('click', handleProfilePasswordChange);
+        els.profileDeleteAccountBtn?.addEventListener('click', () => handleDeleteAccount(false, els.profileDeleteAccountBtn));
+    }
+
+    function bindBannedModal() {
+        els.bannedLogoutBtn?.addEventListener('click', async () => {
+            await logout();
+            hideBannedModal();
+        });
+        els.bannedDeleteBtn?.addEventListener('click', () => handleDeleteAccount(true, els.bannedDeleteBtn));
+    }
+
+    function setSecurityFeedback(el, message, isError = false) {
+        if (!el) return;
+        el.textContent = message || '';
+        el.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    function setButtonLoading(btn, isLoading) {
+        if (!btn) return;
+        btn.disabled = !!isLoading;
+        btn.classList.toggle('loading', !!isLoading);
+    }
+
+    async function handleProfileEmailChange() {
+        if (!state.user) return openAuthModal('login');
+        const newEmail = (els.profileNewEmail?.value || '').trim();
+        const currentPassword = els.profileEmailPassword?.value || '';
+        setSecurityFeedback(els.profileEmailFeedback, '');
+        if (!newEmail || !currentPassword) {
+            setSecurityFeedback(els.profileEmailFeedback, 'Enter a new email and your current password', true);
+            return;
+        }
+        setButtonLoading(els.profileChangeEmailBtn, true);
+        try {
+            const { user } = await api.put('/api/profile/email', { newEmail, currentPassword });
+            state.user = normalizeUser(user);
+            populateProfileForm();
+            showToast('Email updated');
+            setSecurityFeedback(els.profileEmailFeedback, 'Email updated');
+            if (els.profileNewEmail) els.profileNewEmail.value = '';
+            if (els.profileEmailPassword) els.profileEmailPassword.value = '';
+        } catch (err) {
+            setSecurityFeedback(els.profileEmailFeedback, err.message || 'Failed to update email', true);
+        } finally {
+            setButtonLoading(els.profileChangeEmailBtn, false);
+        }
+    }
+
+    async function handleProfilePasswordChange() {
+        if (!state.user) return openAuthModal('login');
+        const currentPassword = els.profileCurrentPassword?.value || '';
+        const newPassword = els.profileNewPassword?.value || '';
+        setSecurityFeedback(els.profilePasswordFeedback, '');
+        if (!currentPassword || !newPassword) {
+            setSecurityFeedback(els.profilePasswordFeedback, 'Enter your current and new password', true);
+            return;
+        }
+        setButtonLoading(els.profileChangePasswordBtn, true);
+        try {
+            await api.put('/api/profile/password', { currentPassword, newPassword });
+            showToast('Password updated');
+            setSecurityFeedback(els.profilePasswordFeedback, 'Password updated');
+            if (els.profileCurrentPassword) els.profileCurrentPassword.value = '';
+            if (els.profileNewPassword) els.profileNewPassword.value = '';
+        } catch (err) {
+            setSecurityFeedback(els.profilePasswordFeedback, err.message || 'Failed to update password', true);
+        } finally {
+            setButtonLoading(els.profileChangePasswordBtn, false);
+        }
+    }
+
+    async function handleDeleteAccount(fromBannedModal = false, triggerBtn = null) {
+        if (!state.user) return openAuthModal('login');
+        const password = fromBannedModal ? '' : (els.profileDeletePassword?.value || '').trim();
+        const feedbackEl = fromBannedModal ? null : els.profileDeleteFeedback;
+        if (feedbackEl) setSecurityFeedback(feedbackEl, '');
+        if (!fromBannedModal && !password) {
+            setSecurityFeedback(feedbackEl, 'Enter your password to confirm', true);
+            return;
+        }
+        if (!fromBannedModal) {
+            const confirmRes = await openActionModal({
+                title: 'Delete account',
+                message: 'This will permanently remove your account and data.',
+                confirmText: 'Delete',
+                cancelText: 'Keep account',
+                tone: 'danger'
+            });
+            if (!confirmRes.confirmed) return;
+        }
+        setButtonLoading(triggerBtn || els.profileDeleteAccountBtn, true);
+        try {
+            const body = password ? { currentPassword: password } : {};
+            await api.request('/api/profile', { method: 'DELETE', body: JSON.stringify(body) });
+            showToast('Account deleted');
+            if (els.profileDeletePassword) els.profileDeletePassword.value = '';
+            hideBannedModal();
+            await logout();
+        } catch (err) {
+            if (feedbackEl) setSecurityFeedback(feedbackEl, err.message || 'Failed to delete account', true);
+            else showToast(err.message || 'Failed to delete account', true);
+        } finally {
+            setButtonLoading(triggerBtn || els.profileDeleteAccountBtn, false);
+        }
+    }
+
     function bindSettingsForm() {
+        els.settingsLoginBtn?.addEventListener('click', () => openAuthModal('login'));
+
         const autoSaveInputs = [
             els.settingAccent,
             els.settingProxyDefault,
@@ -286,7 +1029,16 @@
             els.settingCursorSize,
             els.settingCursorColor,
             els.settingShowClock,
-            els.settingShowCurrent
+            els.settingShowCurrent,
+            els.settingPanicEnabled,
+            els.settingPanicUrl,
+            els.settingPanicKeybind,
+            els.settingPanicPreset,
+            els.settingTabEnabled,
+            els.settingTabTitle,
+            els.settingTabFavicon,
+            els.settingTabSource,
+            els.settingTabPreset
         ].filter(Boolean);
 
         autoSaveInputs.forEach((input) => {
@@ -300,6 +1052,34 @@
         els.settingShowCurrent?.addEventListener('change', (e) => {
             applyCurrentSectionSetting(e.target.checked);
         });
+
+        els.settingPanicPreset?.addEventListener('change', (e) => {
+            const id = e.target.value;
+            applyPanicPreset(id);
+            queueSaveSettings();
+        });
+        els.settingTabPreset?.addEventListener('change', (e) => {
+            const id = e.target.value;
+            applyTabPreset(id);
+            queueSaveSettings();
+        });
+        els.settingPanicKeybind?.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            const combo = formatKeybindFromEvent(e);
+            els.settingPanicKeybind.value = combo;
+            queueSaveSettings();
+        });
+        els.settingTabFetchBtn?.addEventListener('click', async () => {
+            await fetchTabMetadata();
+        });
+
+        const wireTest = (btn, title, msg, tone) => {
+            btn?.addEventListener('click', () => pushNotification(title, msg, tone));
+        };
+        wireTest(els.adminNotifySuccess, 'Success', 'This is a success notification test.', 'success');
+        wireTest(els.adminNotifyWarning, 'Warning', 'This is a warning notification test.', 'warning');
+        wireTest(els.adminNotifyError, 'Error', 'This is an error notification test.', 'error');
+        wireTest(els.adminNotifyInfo, 'Info', 'This is an info notification test.', 'info');
 
     }
 
@@ -335,7 +1115,11 @@
                 setTimeout(closeAddFriendModal, 500);
                 await loadFriends();
             } catch (err) {
-                els.addFriendModalFeedback.textContent = err.message || 'Failed to send request';
+                if (err.status === 404) {
+                    els.addFriendModalFeedback.textContent = 'That account does not exist.';
+                } else {
+                    els.addFriendModalFeedback.textContent = err.message || 'Failed to send request';
+                }
                 els.addFriendModalFeedback.style.color = '#f85149';
             }
         });
@@ -412,6 +1196,7 @@
             if (stats) updateStats(stats); else updateStats({ totalGames: state.games.length, categoryCount: state.categories.length });
             if (me?.user) {
                 state.user = normalizeUser(me.user);
+                if (state.user?.admin) state.adminNotice = state.banner;
                 state.favorites = new Set((me.user.favorites || []).map(String));
                 state.settings = me.user.settings || null;
                 await loadSettingsIfNeeded();
@@ -421,6 +1206,7 @@
                 updatePresence(true, null);
                 refreshUserUI();
                 renderPlayHistory();
+                if (state.user?.banned?.active) showBannedModal(state.user.banned.reason || 'Your account is banned');
             } else {
                 refreshUserUI();
             }
@@ -458,6 +1244,7 @@
     }
 
     function sendOnlinePing(gameIdOverride) {
+        syncPlaySession();
         const payload = { online: true };
         if (gameIdOverride !== undefined) {
             payload.gameId = gameIdOverride;
@@ -467,6 +1254,7 @@
         return api.post('/api/online/ping', payload)
             .then((res) => {
                 if (Array.isArray(res?.lastPlayed)) updateLastPlayedState(res.lastPlayed);
+                if (res?.playtime) setPlaytimeMap(res.playtime);
                 return res;
             })
             .catch(() => {});
@@ -477,6 +1265,45 @@
         return sendOnlinePing(gameId);
     }
 
+    function startPlaySession(gameId) {
+        if (!state.user || !gameId) { runtime.playSession = null; return; }
+        runtime.playSession = { gameId: String(gameId), lastMark: Date.now() };
+    }
+
+    function syncPlaySession(force = false) {
+        const session = runtime.playSession;
+        if (!state.user || !session) return;
+        const now = Date.now();
+        const delta = Math.max(0, now - session.lastMark);
+        if (!force && delta < 1000) return;
+        session.lastMark = now;
+        sendPlaytimeDelta(session.gameId, delta);
+    }
+
+    function finalizePlaySession(force = false) {
+        const session = runtime.playSession;
+        if (!session) return;
+        const now = Date.now();
+        const delta = Math.max(0, now - session.lastMark);
+        runtime.playSession = null;
+        if (!state.user) return;
+        if (!force && delta < 500) return;
+        sendPlaytimeDelta(session.gameId, delta);
+    }
+
+    function sendPlaytimeDelta(gameId, deltaMs) {
+        const delta = Number(deltaMs);
+        if (!state.user || !gameId || !Number.isFinite(delta) || delta <= 0) return;
+        addLocalPlaytime(gameId, delta);
+        renderPlayHistory();
+        api.post('/api/playtime', { gameId: String(gameId), deltaMs: delta })
+            .then((res) => {
+                if (res?.playtime) setPlaytimeMap(res.playtime);
+                if (Array.isArray(res?.lastPlayed)) updateLastPlayedState(res.lastPlayed);
+            })
+            .catch(() => {});
+    }
+
     function updateStats(stats) {
         if (!stats) return;
         if (els.statsGames) els.statsGames.textContent = stats.totalGames ?? stats.games ?? '—';
@@ -485,24 +1312,30 @@
 
     async function loadSettingsIfNeeded() {
         if (!state.user) return;
-        if (state.settings) { applySettingsToUI(state.settings); return; }
+            const hasPresets = Array.isArray(state.settingPresets?.panicButtons) && state.settingPresets.panicButtons.length;
+            if (state.settings && hasPresets) { applySettingsToUI(state.settings); return; }
         try {
-            const { settings } = await api.get('/api/settings');
-            state.settings = settings;
-            applySettingsToUI(settings);
+            const data = await api.get('/api/settings');
+            state.settings = data.settings;
+            state.settingPresets = data.presets || state.settingPresets;
+            applySettingsToUI(data.settings);
         } catch (_) {}
     }
 
-    function buildCategories(games) {
+    function getCategories(games = []) {
         const cats = new Set(['all']);
         games.forEach((g) => { if (g.category) cats.add(g.category); });
         return Array.from(cats);
     }
 
+    function buildCategories(games = []) {
+        return getCategories(games);
+    }
+
     function renderHomeBanner(banner) {
         if (!els.homeBanner) return;
         els.homeBanner.innerHTML = '';
-        if (!banner || !banner.message) {
+        if (!banner || banner.enabled === false || !banner.message) {
             els.homeBanner.style.display = 'none';
             return;
         }
@@ -635,6 +1468,7 @@
             <div class="game-thumb">
                 <img src="${thumb}" alt="${game.title}" loading="lazy" />
                 <div class="game-card-overlay"></div>
+                ${game.disabled ? '<div class="game-badge danger">Maintenance</div>' : ''}
             </div>
             <div class="game-card-content">
                 <div class="game-card-title">${game.title}</div>
@@ -736,6 +1570,7 @@
     async function openGame(gameId) {
         const game = state.games.find((g) => String(g.id) === String(gameId));
         if (!game) return;
+        finalizePlaySession(true);
         cancelCloseTimer(true);
         state.currentGame = game;
         els.gameTitle.textContent = game.title;
@@ -745,6 +1580,7 @@
         updateGameFavoriteButton(game.id);
         state.proxyEnabled = state.settings?.proxyDefault || false;
         updateProxyUI();
+        startPlaySession(game.id);
         updatePresence(true, game.id);
         renderGameFriends(game.id);
         updateLocalLastPlayed(game.id);
@@ -753,6 +1589,15 @@
 
     function loadGameFrame(game) {
         if (!els.gameFrame) return;
+        const disabled = !!game.disabled;
+        if (els.gameDisabledNotice) els.gameDisabledNotice.style.display = disabled ? 'flex' : 'none';
+
+        if (disabled) {
+            els.gameFrame.src = 'about:blank';
+            els.gameLoadingOverlay.style.display = 'none';
+            return;
+        }
+
         els.gameLoadingOverlay.style.display = 'flex';
         els.loadingStatusText.textContent = 'Loading game...';
         els.loadingHintText.textContent = state.proxyEnabled ? 'Proxy enabled' : 'Direct load';
@@ -805,11 +1650,449 @@
             runtime.friendsPlayingMap = buildFriendsPlayingMap(data);
             renderFriends();
         } catch (err) {
+            if (err.status === 401 || err.status === 404) {
+                await logout();
+                showToast('Session expired. Please sign in again.', true);
+                return;
+            }
             showToast(err.message || 'Friends unavailable', true);
             els.friendsContent.style.display = 'none';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = state.user ? 'none' : 'block';
             if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = state.user ? 'none' : 'block';
         }
+    }
+
+    async function loadAdminRequests(force = false) {
+        if (!state.user?.admin) return;
+        if (!force && state.adminRequests?.length) { renderAdminRequests(); return; }
+        if (els.adminRequestsError) els.adminRequestsError.textContent = '';
+        try {
+            const { requests = [] } = await api.get('/api/requests');
+            state.adminRequests = requests;
+            renderAdminRequests();
+        } catch (err) {
+            if (els.adminRequestsError) els.adminRequestsError.textContent = err.message || 'Failed to load requests';
+        }
+    }
+
+    async function loadAdminGames(force = false) {
+        if (!state.user?.admin) return;
+        if (!force && state.adminGames?.length) { renderAdminGames(); return; }
+        try {
+            const { games = [] } = await api.get('/api/admin/games');
+            state.adminGames = games;
+            renderAdminGames();
+        } catch (err) {
+            setAdminGameFeedback(err.message || 'Failed to load games', true);
+        }
+    }
+
+    async function loadAdminUsers(force = false) {
+        if (!state.user?.admin) return;
+        if (!force && state.adminUsers?.length) { renderAdminUsers(); return; }
+        try {
+            const { users = [] } = await api.get('/api/admin/users');
+            state.adminUsers = users;
+            renderAdminUsers();
+        } catch (err) {
+            setAdminUserFeedback(err.message || 'Failed to load users', true);
+        }
+    }
+
+    async function loadAdminNotice(force = false) {
+        if (!state.user?.admin) return;
+        if (state.adminNotice && !force) { populateAdminNoticeForm(state.adminNotice); return; }
+        setAdminNoticeFeedback('');
+        try {
+            const { banner } = await api.get('/api/admin/banner');
+            state.adminNotice = banner || null;
+            populateAdminNoticeForm(state.adminNotice);
+        } catch (err) {
+            setAdminNoticeFeedback(err.message || 'Failed to load notice', true);
+        }
+    }
+
+    function computeAnalyticsLimit(rangeKey) {
+        const range = ANALYTICS_RANGES[rangeKey] || ANALYTICS_RANGES['24h'];
+        const minutes = range.minutes;
+        const retention = state.adminAnalyticsRetention || Infinity;
+        if (!Number.isFinite(minutes)) return Math.min(retention, ANALYTICS_RANGES['12m'].minutes); // cap "all" to 12m server retention
+        return Math.min(minutes, retention);
+    }
+
+    async function loadAdminAnalytics(force = false) {
+        if (!state.user?.admin) return;
+        const limit = Math.max(1, Math.floor(computeAnalyticsLimit(state.adminAnalyticsRange)) || 1);
+        if (state.adminAnalytics && !force) { renderAdminAnalytics(); return; }
+        setAnalyticsPlaceholders('Loading analytics...');
+        try {
+            const data = await api.get(`/api/admin/analytics?limit=${limit}&t=${Date.now()}`);
+            state.adminAnalyticsRetention = data.retentionMinutes || null;
+            state.adminAnalytics = data;
+            renderAdminAnalytics();
+        } catch (err) {
+            setAnalyticsPlaceholders(err.message || 'Failed to load analytics');
+        }
+    }
+
+    function entriesInWindow(entries = [], minutes = 60) {
+        const cutoff = Date.now() - minutes * 60 * 1000;
+        return entries
+            .map((e) => ({ ...e, __ts: Date.parse(e.time || e.timestamp || e.date || '') }))
+            .filter((e) => Number.isFinite(e.__ts) && e.__ts >= cutoff)
+            .sort((a, b) => a.__ts - b.__ts);
+    }
+
+    function sumFields(entries = [], fields = [], minutes = 60) {
+        const windowed = entriesInWindow(entries, minutes);
+        return windowed.reduce((acc, entry) => {
+            fields.forEach((f) => {
+                acc[f] = (acc[f] || 0) + (Number(entry[f]) || 0);
+            });
+            return acc;
+        }, {});
+    }
+
+    function averageField(entries = [], field = 'players', minutes = 60) {
+        const windowed = entriesInWindow(entries, minutes);
+        if (!windowed.length) return 0;
+        const total = windowed.reduce((acc, e) => acc + (Number(e[field]) || 0), 0);
+        return Math.round(total / windowed.length);
+    }
+
+    function peakField(entries = [], field = 'players', minutes = 1440) {
+        const windowed = entriesInWindow(entries, minutes);
+        if (!windowed.length) return 0;
+        return windowed.reduce((max, e) => Math.max(max, Number(e[field]) || 0), 0);
+    }
+
+    function niceCeil(value = 0) {
+        if (value <= 10) return Math.ceil(value || 0);
+        const magnitude = 10 ** Math.floor(Math.log10(value));
+        const scaled = value / magnitude;
+        const nice = scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 5 ? 5 : 10;
+        return nice * magnitude;
+    }
+
+    function formatWindowLabel(minutes) {
+        if (!Number.isFinite(minutes)) return 'all time';
+        const days = minutes / (24 * 60);
+        if (minutes % (24 * 60) === 0 && days >= 1) {
+            return `${Math.round(days)}d`;
+        }
+        if (minutes % 60 === 0 && minutes >= 60) {
+            return `${Math.round(minutes / 60)}h`;
+        }
+        return `${Math.round(minutes)}m`;
+    }
+
+    function formatTickLabel(ts, spanMinutes) {
+        const d = new Date(ts);
+        if (spanMinutes <= 180) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (spanMinutes <= 24 * 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (spanMinutes <= 7 * 24 * 60) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        if (spanMinutes <= 60 * 24 * 60) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+    }
+
+    function formatTickValue(val) {
+        if (!Number.isFinite(val)) return '0';
+        const rounded = Number(val.toFixed(2));
+        return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`.replace(/\.0+$/, '');
+    }
+
+    function buildLineChart(entries = [], series = [], { minutes = 1440, height = 140 } = {}) {
+        const windowed = entriesInWindow(entries, minutes);
+        if (!windowed.length) return '<div class="analytics-subtext">No data captured yet.</div>';
+        if (windowed.length === 1) {
+            const clone = { ...windowed[0], __ts: windowed[0].__ts + 60000 };
+            windowed.push(clone);
+        }
+        const minTs = windowed[0].__ts;
+        const maxTs = windowed[windowed.length - 1].__ts;
+        const tsRange = Math.max(1, maxTs - minTs);
+        const maxVal = Math.max(
+            1,
+            ...series.map((s) => windowed.reduce((m, e) => Math.max(m, Number(e[s.key]) || 0), 0))
+        );
+        const scaleMax = Math.max(1, niceCeil(maxVal));
+        const yTickCount = 4; // minimum of 5 labels (includes zero)
+        const xTickCount = 3;
+        const tickStep = scaleMax / yTickCount;
+        const ticks = Array.from({ length: yTickCount + 1 }, (_, i) => {
+            if (i === yTickCount) return 0;
+            const val = Math.max(0, scaleMax - tickStep * i);
+            return Number(val.toFixed(2));
+        });
+        const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => minTs + (tsRange * i) / xTickCount);
+        const gridLines = ticks.map((val) => {
+            const y = height - (val / scaleMax) * height;
+            return `<line x1="0" y1="${y.toFixed(2)}" x2="100" y2="${y.toFixed(2)}" stroke="var(--border-primary)" stroke-width="0.5" opacity="0.35"></line>`;
+        }).join('');
+        const vGridLines = xTicks.map((ts) => {
+            const x = ((ts - minTs) / tsRange) * 100;
+            return `<line x1="${x.toFixed(2)}" y1="0" x2="${x.toFixed(2)}" y2="${height}" stroke="var(--border-primary)" stroke-width="0.5" opacity="0.25"></line>`;
+        }).join('');
+        const paths = series.map((s) => {
+            const points = windowed.map((e) => {
+                const val = Math.max(0, Number(e[s.key]) || 0);
+                const x = ((e.__ts - minTs) / tsRange) * 100;
+                const y = height - (val / scaleMax) * height;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+            }).join(' ');
+            return `<polyline fill="none" stroke="${s.color}" stroke-width="2" points="${points}"></polyline>`;
+        }).join('');
+        const legend = series.map((s) => `
+            <div class="analytics-legend-item">
+                <span class="analytics-legend-swatch" style="background:${s.color};"></span>${s.label}
+            </div>`).join('');
+        const axis = ticks.map((t) => `<span class="analytics-y-label">${formatTickValue(t)}</span>`).join('');
+        const xAxis = xTicks.map((ts) => `<span class="analytics-x-label">${formatTickLabel(ts, minutes)}</span>`).join('');
+        return `
+            <div class="analytics-chart">
+                <div class="analytics-chart-plot">
+                    <div class="analytics-y-axis">${axis}</div>
+                    <div class="analytics-chart-svg">
+                        <svg viewBox="0 0 100 ${height}" preserveAspectRatio="none" role="img" aria-label="trend chart">
+                            ${gridLines}
+                            ${vGridLines}
+                            ${paths}
+                        </svg>
+                        <div class="analytics-x-axis">${xAxis}</div>
+                    </div>
+                </div>
+                <div class="analytics-legend">${legend}</div>
+            </div>
+        `;
+    }
+
+    function getActiveAnalyticsRange() {
+        return ANALYTICS_RANGES[state.adminAnalyticsRange] || ANALYTICS_RANGES['24h'];
+    }
+
+    function composePlayersChart(data, range, height = 140) {
+        const players = Array.isArray(data.players) ? data.players : [];
+        const latestPlayers = players.length ? players[players.length - 1] : null;
+        if (!latestPlayers) return '<div class="analytics-subtext">No player data captured yet.</div>';
+        const avgWindow = Number.isFinite(range.minutes) ? Math.min(range.minutes, 60) : 60;
+        const avgLabel = formatWindowLabel(avgWindow);
+        const avgRange = averageField(players, 'players', avgWindow);
+        const peakRange = peakField(players, 'players', range.minutes);
+        const line1 = `${latestPlayers.players || 0} total • Users ${latestPlayers.onlineUsers || 0} • Guests ${latestPlayers.onlineGuests || 0}`;
+        const line2 = `${range.label} peak ${peakRange} • Avg (${avgLabel}) ${avgRange}`;
+        const chart = buildLineChart(players, [
+            { key: 'players', label: 'Total', color: 'var(--accent-color)' },
+            { key: 'onlineUsers', label: 'Users', color: '#7ee787' },
+            { key: 'onlineGuests', label: 'Guests', color: '#f2cc60' }
+        ], { minutes: range.minutes, height });
+        return `
+            <div class="analytics-chart-text">
+                <div>${line1}</div>
+                <div class="analytics-subtext">${line2}</div>
+            </div>
+            ${chart}
+        `;
+    }
+
+    function composeFriendsChart(data, range, height = 140) {
+        const totals = sumFields(data.friends || [], ['sent', 'accepted', 'rejected'], range.minutes);
+        const line1 = `Sent ${totals.sent || 0} • Accepted ${totals.accepted || 0} • Rejected ${totals.rejected || 0}`;
+        const line2 = range.label;
+        const chart = buildLineChart(data.friends || [], [
+            { key: 'sent', label: 'Sent', color: 'var(--accent-color)' },
+            { key: 'accepted', label: 'Accepted', color: '#7ee787' },
+            { key: 'rejected', label: 'Rejected', color: '#f2cc60' }
+        ], { minutes: range.minutes, height });
+        return `
+            <div class="analytics-chart-text">
+                <div>${line1}</div>
+                <div class="analytics-subtext">${line2}</div>
+            </div>
+            ${chart}
+        `;
+    }
+
+    function composeAccountsChart(data, range, height = 140) {
+        const totals = sumFields(data.accounts || [], ['signups', 'deletions', 'bans', 'unbans'], range.minutes);
+        const line1 = `Signups ${totals.signups || 0} • Deletions ${totals.deletions || 0}`;
+        const line2 = `${range.label} • Bans ${totals.bans || 0} • Unbans ${totals.unbans || 0}`;
+        const chart = buildLineChart(data.accounts || [], [
+            { key: 'signups', label: 'Signups', color: 'var(--accent-color)' },
+            { key: 'deletions', label: 'Deletions', color: '#f85149' },
+            { key: 'bans', label: 'Bans', color: '#d29922' },
+            { key: 'unbans', label: 'Unbans', color: '#7ee787' }
+        ], { minutes: range.minutes, height });
+        return `
+            <div class="analytics-chart-text">
+                <div>${line1}</div>
+                <div class="analytics-subtext">${line2}</div>
+            </div>
+            ${chart}
+        `;
+    }
+
+    function setAnalyticsPlaceholders(text = 'Data unavailable') {
+        [
+            els.analyticsPlayerCounts,
+            els.analyticsFriendRequests,
+            els.analyticsUserAccounts,
+            els.analyticsOutages,
+            els.analyticsGameTable
+        ].forEach((el) => { if (el) el.textContent = text; });
+    }
+
+    function openAnalyticsModal(type) {
+        if (!els.analyticsModal || !els.analyticsModalBody) return;
+        const data = state.adminAnalytics || {};
+        const range = getActiveAnalyticsRange();
+        let content = '';
+        if (type === 'players') content = composePlayersChart(data, range, 230);
+        else if (type === 'friends') content = composeFriendsChart(data, range, 230);
+        else if (type === 'accounts') content = composeAccountsChart(data, range, 230);
+        else content = '<div class="analytics-subtext">Select a chart to enlarge.</div>';
+        els.analyticsModalBody.innerHTML = content;
+        els.analyticsModal.style.display = 'flex';
+        els.analyticsModal.classList.add('open');
+        els.analyticsModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeAnalyticsModal() {
+        if (!els.analyticsModal) return;
+        els.analyticsModal.classList.remove('open');
+        els.analyticsModal.setAttribute('aria-hidden', 'true');
+        els.analyticsModal.style.display = 'none';
+    }
+
+    function renderAdminAnalytics() {
+        const data = state.adminAnalytics || {};
+        if (!data.enabled) {
+            setAnalyticsPlaceholders('Analytics disabled in config');
+            return;
+        }
+
+        const range = getActiveAnalyticsRange();
+        const rangeMinutes = range.minutes;
+        const rangeLabel = range.label;
+
+        if (els.analyticsRangeSelect && els.analyticsRangeSelect.value !== state.adminAnalyticsRange) {
+            els.analyticsRangeSelect.value = state.adminAnalyticsRange;
+        }
+        (els.analyticsRangeLabels || []).forEach((el) => { el.textContent = rangeLabel; });
+
+        if (els.analyticsPlayerCounts) els.analyticsPlayerCounts.innerHTML = composePlayersChart(data, range, 140);
+        if (els.analyticsFriendRequests) els.analyticsFriendRequests.innerHTML = composeFriendsChart(data, range, 140);
+        if (els.analyticsUserAccounts) els.analyticsUserAccounts.innerHTML = composeAccountsChart(data, range, 140);
+
+        if (els.analyticsOutages) {
+            els.analyticsOutages.textContent = 'Outage tracking is handled by external monitoring.';
+        }
+
+        if (els.analyticsGameTable) {
+            const latestSnapshot = Array.isArray(data.games) && data.games.length ? data.games[data.games.length - 1] : null;
+            if (!latestSnapshot?.games?.length) {
+                els.analyticsGameTable.textContent = 'No game metrics captured yet.';
+            } else {
+                const term = (state.adminAnalyticsSearch || '').toLowerCase();
+                const games = latestSnapshot.games.filter((g) => !term || (g.title || '').toLowerCase().includes(term));
+                if (!games.length) {
+                    els.analyticsGameTable.textContent = 'No games match this search.';
+                    return;
+                }
+                const cards = games
+                    .slice()
+                    .sort((a, b) => (Number(b.players) || 0) - (Number(a.players) || 0) || (Number(b.favorites) || 0) - (Number(a.favorites) || 0))
+                    .map((g) => `
+                        <div class="analytics-game-card${g.disabled ? ' disabled' : ''}">
+                            <div class="analytics-game-thumb" ${g.thumbnail ? `style="background-image:url('${escapeAttr(g.thumbnail)}');"` : ''}></div>
+                            <div class="analytics-game-meta">
+                                <div class="analytics-game-title">${escapeHtml(g.title || `Game ${g.id}`)}</div>
+                                <div class="analytics-game-stats"><span>Players ${g.players || 0}</span><span>Favs ${g.favorites || 0}</span></div>
+                            </div>
+                        </div>
+                    `).join('');
+                const updated = latestSnapshot.time ? new Date(latestSnapshot.time).toLocaleString() : 'recently';
+                els.analyticsGameTable.innerHTML = `
+                    <div class="analytics-game-grid">${cards}</div>
+                    <div class="muted-hint" style="text-align:left;">Snapshot updated ${updated}</div>
+                `;
+            }
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function escapeAttr(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function upsertAdminGame(game) {
+        const idx = state.adminGames.findIndex((g) => String(g.id) === String(game.id));
+        if (idx === -1) state.adminGames.push(game); else state.adminGames[idx] = game;
+        state.games = state.games.map((g) => String(g.id) === String(game.id) ? game : g);
+        filterAndRender();
+        if (state.currentGame && String(state.currentGame.id) === String(game.id)) {
+            state.currentGame = game;
+            loadGameFrame(game);
+        }
+    }
+
+    function upsertAdminUser(user) {
+        const idx = state.adminUsers.findIndex((u) => u.id === user.id);
+        if (idx === -1) state.adminUsers.push(user); else state.adminUsers[idx] = user;
+        if (state.user && state.user.id === user.id) {
+            state.user = normalizeUser(user);
+            refreshUserUI();
+        }
+    }
+
+    async function updateRequestStatus(id, status) {
+        if (!state.user?.admin) return;
+        try {
+            const { request } = await api.put(`/api/requests/${id}`, { status });
+            state.adminRequests = state.adminRequests.map((r) => (r.id === id ? request : r));
+            renderAdminRequests();
+            showToast(`Marked ${request.title} as ${status}`);
+        } catch (err) {
+            showToast(err.message || 'Failed to update request', true);
+        }
+    }
+
+    async function deleteRequest(id) {
+        if (!state.user?.admin) return;
+        try {
+            await api.request(`/api/requests/${id}`, { method: 'DELETE' });
+            state.adminRequests = state.adminRequests.filter((r) => r.id !== id);
+            renderAdminRequests();
+            showToast('Request deleted');
+        } catch (err) {
+            showToast(err.message || 'Failed to delete request', true);
+        }
+    }
+
+    function openAdminGameModalFromRequest(req) {
+        if (!req) return;
+        resetAdminGameForm();
+        runtime.adminGameRequestId = req.id;
+        if (els.adminGameTitle) els.adminGameTitle.value = req.title || '';
+        if (els.adminGameCategory) els.adminGameCategory.value = req.category || '';
+        if (els.adminGameEmbed) els.adminGameEmbed.value = req.url || '';
+        if (els.adminGameDescription) els.adminGameDescription.value = req.description || '';
+        if (els.adminGameThumb) els.adminGameThumb.value = '';
+        if (els.adminGameThumbUpload) els.adminGameThumbUpload.value = '';
+        runtime.adminGameThumbData = null;
+        if (els.adminGameModal) els.adminGameModal.style.display = 'flex';
+        els.adminGameTitle?.focus();
+        setAdminGameFeedback('Review details, add thumbnail, then save to convert.', false);
     }
 
     function snapshotFriends(data = {}) {
@@ -922,6 +2205,725 @@
         renderOnlineFriends();
     }
 
+    function renderAdminRequests() {
+        if (!els.adminRequestsList) return;
+        const list = Array.isArray(state.adminRequests) ? state.adminRequests.slice() : [];
+        const query = (els.adminRequestsSearch?.value || '').trim().toLowerCase();
+        const filtered = (query
+            ? list.filter((req) => (req.title || '').toLowerCase().includes(query) || (req.username || '').toLowerCase().includes(query) || (req.description || '').toLowerCase().includes(query))
+            : list).sort((a, b) => {
+            if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+            return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+        });
+
+        els.adminRequestsList.innerHTML = '';
+        if (!filtered.length) {
+            if (els.adminRequestsEmpty) els.adminRequestsEmpty.style.display = 'block';
+            return;
+        }
+        if (els.adminRequestsEmpty) els.adminRequestsEmpty.style.display = 'none';
+
+        const frag = document.createDocumentFragment();
+        filtered.forEach((req) => {
+            const li = document.createElement('li');
+            li.className = 'friend-row';
+
+            const meta = document.createElement('div');
+            meta.className = 'friend-meta';
+            const name = document.createElement('div');
+            name.className = 'friend-name';
+            name.textContent = req.title;
+            const status = document.createElement('div');
+            status.className = 'friend-status';
+            status.textContent = `${req.username || 'Unknown'} • ${req.status}`;
+            meta.append(name, status);
+
+            const desc = document.createElement('div');
+            desc.className = 'muted-hint';
+            desc.textContent = req.description || '';
+
+            const actionsWrap = document.createElement('div');
+            actionsWrap.className = 'friend-actions';
+            actionsWrap.style.display = 'flex';
+            actionsWrap.style.gap = '8px';
+
+            const makeBtn = (label, icon, statusValue, tone) => {
+                const btn = document.createElement('button');
+                btn.className = 'friend-action-btn';
+                if (tone === 'danger') btn.classList.add('danger');
+                if (tone === 'positive') btn.classList.add('positive');
+                btn.innerHTML = `<i class="fas ${icon}"></i>`;
+                btn.title = label;
+                btn.addEventListener('click', () => updateRequestStatus(req.id, statusValue));
+                return btn;
+            };
+
+            if (req.status !== 'approved') actionsWrap.appendChild(makeBtn('Approve', 'fa-check', 'approved', 'positive'));
+            if (req.status !== 'rejected') actionsWrap.appendChild(makeBtn('Reject', 'fa-xmark', 'rejected', 'danger'));
+            if (req.status !== 'pending') actionsWrap.appendChild(makeBtn('Mark pending', 'fa-undo', 'pending'));
+
+            const convertBtn = document.createElement('button');
+            convertBtn.className = 'friend-action-btn positive';
+            convertBtn.innerHTML = '<i class="fas fa-gamepad"></i>';
+            convertBtn.title = 'Convert to game';
+            convertBtn.addEventListener('click', () => openAdminGameModalFromRequest(req));
+            actionsWrap.appendChild(convertBtn);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'friend-action-btn danger';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.title = 'Delete request';
+            deleteBtn.addEventListener('click', () => deleteRequest(req.id));
+            actionsWrap.appendChild(deleteBtn);
+
+            if (req.url) {
+                const link = document.createElement('a');
+                link.href = req.url;
+                link.textContent = 'Open URL';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.style.marginLeft = '12px';
+                link.className = 'muted-hint';
+                li.append(meta, desc, link);
+            } else {
+                li.append(meta, desc);
+            }
+            if (actionsWrap.childElementCount) li.appendChild(actionsWrap);
+            frag.appendChild(li);
+        });
+        els.adminRequestsList.appendChild(frag);
+    }
+
+    function renderAdminGames() {
+        if (!els.adminGamesList) return;
+        els.adminGamesList.innerHTML = '';
+        const list = Array.isArray(state.adminGames) ? state.adminGames.slice() : [];
+        const query = (els.adminGamesSearch?.value || '').trim().toLowerCase();
+        const filtered = query
+            ? list.filter((game) => (game.title || '').toLowerCase().includes(query) || (game.category || '').toLowerCase().includes(query))
+            : list;
+        filtered.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+        if (!filtered.length) {
+            if (els.adminGamesEmpty) els.adminGamesEmpty.style.display = 'block';
+            return;
+        }
+        if (els.adminGamesEmpty) els.adminGamesEmpty.style.display = 'none';
+
+        const frag = document.createDocumentFragment();
+        filtered.forEach((game) => {
+            const li = document.createElement('li');
+            li.className = 'friend-row';
+
+            const meta = document.createElement('div');
+            meta.className = 'friend-meta';
+            const name = document.createElement('div');
+            name.className = 'friend-name';
+            name.textContent = game.title;
+            const status = document.createElement('div');
+            status.className = 'friend-status';
+            const disabledText = game.disabled ? 'Maintenance' : 'Active';
+            status.textContent = `${capitalize(game.category || 'Other')} • ${disabledText}`;
+            meta.append(name, status);
+
+            const actions = document.createElement('div');
+            actions.className = 'friend-actions';
+            actions.style.display = 'flex';
+            actions.style.gap = '8px';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'friend-action-btn positive';
+            editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+            editBtn.title = 'Edit';
+            editBtn.addEventListener('click', () => openAdminGameModal(game));
+
+            const disableBtn = document.createElement('button');
+            disableBtn.className = 'friend-action-btn';
+            disableBtn.innerHTML = game.disabled ? '<i class="fas fa-power-off"></i>' : '<i class="fas fa-ban"></i>';
+            disableBtn.title = game.disabled ? 'Enable' : 'Disable';
+            disableBtn.addEventListener('click', () => {
+                if (game.disabled) {
+                    enableGame(game);
+                } else {
+                    openAdminMaintenanceConfirm(game);
+                }
+            });
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'friend-action-btn danger';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.title = 'Delete';
+            delBtn.addEventListener('click', () => deleteGame(game));
+
+            actions.append(editBtn, disableBtn, delBtn);
+
+            li.append(meta, actions);
+            frag.appendChild(li);
+        });
+        els.adminGamesList.appendChild(frag);
+    }
+
+        function setAdminNoticeFeedback(msg, isError = false) {
+            if (!els.adminNoticeFeedback) return;
+            els.adminNoticeFeedback.textContent = msg || '';
+            els.adminNoticeFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+        }
+
+        function populateAdminNoticeForm(banner) {
+            const data = banner || { enabled: false, button: {} };
+            if (els.adminNoticeEnabled) els.adminNoticeEnabled.checked = data.enabled !== false;
+            if (els.adminNoticeMessage) els.adminNoticeMessage.value = data.message || '';
+            if (els.adminNoticeDescription) els.adminNoticeDescription.value = data.description || '';
+            if (els.adminNoticeBackground) els.adminNoticeBackground.value = data.background || '#11161f';
+            if (els.adminNoticeTextColor) els.adminNoticeTextColor.value = data.textColor || '#e5e7eb';
+            if (els.adminNoticeDismissible) els.adminNoticeDismissible.checked = data.dismissible !== false;
+            if (els.adminNoticeCooldown) els.adminNoticeCooldown.value = Number.isFinite(data.dismissCooldownHours) ? data.dismissCooldownHours : 24;
+            const btn = data.button || {};
+            if (els.adminNoticeButtonEnabled) els.adminNoticeButtonEnabled.checked = btn.enabled !== false && !!btn.url;
+            if (els.adminNoticeButtonLabel) els.adminNoticeButtonLabel.value = btn.label || 'Learn more';
+            if (els.adminNoticeButtonUrl) els.adminNoticeButtonUrl.value = btn.url || '';
+            if (els.adminNoticeButtonBg) els.adminNoticeButtonBg.value = btn.background || '#1f6feb';
+            if (els.adminNoticeButtonText) els.adminNoticeButtonText.value = btn.textColor || '#ffffff';
+        }
+
+        function buildAdminNoticePayload() {
+            const cooldownHours = Math.max(0, Number(els.adminNoticeCooldown?.value || 24));
+            return {
+                enabled: !!els.adminNoticeEnabled?.checked,
+                message: (els.adminNoticeMessage?.value || '').trim(),
+                description: (els.adminNoticeDescription?.value || '').trim(),
+                background: (els.adminNoticeBackground?.value || '').trim() || '#11161f',
+                textColor: (els.adminNoticeTextColor?.value || '').trim() || '#e5e7eb',
+                dismissible: !!els.adminNoticeDismissible?.checked,
+                dismissCooldownHours: Number.isFinite(cooldownHours) ? cooldownHours : 24,
+                button: {
+                    enabled: !!els.adminNoticeButtonEnabled?.checked,
+                    label: (els.adminNoticeButtonLabel?.value || '').trim(),
+                    url: (els.adminNoticeButtonUrl?.value || '').trim(),
+                    background: (els.adminNoticeButtonBg?.value || '').trim(),
+                    textColor: (els.adminNoticeButtonText?.value || '').trim()
+                }
+            };
+        }
+
+        async function saveAdminNotice() {
+            if (!state.user?.admin) return;
+            setAdminNoticeFeedback('Saving...', false);
+            setButtonLoading(els.adminNoticeSave, true);
+            try {
+                const payload = buildAdminNoticePayload();
+                const { banner } = await api.put('/api/admin/banner', payload);
+                state.adminNotice = banner;
+                state.banner = banner;
+                renderHomeBanner(state.banner);
+                setAdminNoticeFeedback('Saved', false);
+            } catch (err) {
+                setAdminNoticeFeedback(err.message || 'Failed to save notice', true);
+            } finally {
+                setButtonLoading(els.adminNoticeSave, false);
+            }
+        }
+
+    function renderAdminUsers() {
+        if (!els.adminUsersList) return;
+        els.adminUsersList.innerHTML = '';
+        const list = Array.isArray(state.adminUsers) ? state.adminUsers.slice() : [];
+        const query = (els.adminUsersSearch?.value || '').trim().toLowerCase();
+        const filtered = query
+            ? list.filter((u) => (u.username || '').toLowerCase().includes(query) || (u.email || '').toLowerCase().includes(query))
+            : list;
+        filtered.sort((a, b) => a.username.localeCompare(b.username));
+        if (!filtered.length) {
+            if (els.adminUsersEmpty) els.adminUsersEmpty.style.display = 'block';
+            return;
+        }
+        if (els.adminUsersEmpty) els.adminUsersEmpty.style.display = 'none';
+
+        const frag = document.createDocumentFragment();
+        filtered.forEach((user) => {
+            const li = document.createElement('li');
+            li.className = 'friend-row';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'friend-avatar admin-user-avatar';
+            if (user.profile?.avatar) {
+                avatar.style.backgroundImage = `url(${user.profile.avatar})`;
+            } else {
+                avatar.style.background = user.profile?.accentColor || user.accentColor || '#58a6ff';
+                avatar.textContent = (user.username || '?')[0].toUpperCase();
+            }
+
+            const meta = document.createElement('div');
+            meta.className = 'friend-meta';
+            const name = document.createElement('div');
+            name.className = 'friend-name';
+            const nameText = document.createElement('span');
+            nameText.textContent = user.username;
+            const online = document.createElement('span');
+            online.className = `admin-user-online ${user.online ? '' : 'admin-user-offline'}`;
+            online.innerHTML = `<span class="dot"></span>${user.online ? 'Online' : 'Offline'}`;
+            name.append(nameText, online);
+            const status = document.createElement('div');
+            status.className = 'friend-status';
+            const statusParts = [user.admin ? 'Admin' : 'User'];
+            if (user.banned?.active) statusParts.push('Banned');
+            status.textContent = `${statusParts.join(' • ')} • ${user.email || 'No email'}`;
+
+            meta.append(name, status);
+
+            const actions = document.createElement('div');
+            actions.className = 'friend-actions';
+            actions.style.display = 'flex';
+            actions.style.gap = '8px';
+
+            const loginBadge = document.createElement('div');
+            loginBadge.className = 'admin-user-logins';
+            loginBadge.textContent = user.banned?.active ? (user.banned.reason || 'Banned') : getUserLoginPreview(user);
+            loginBadge.addEventListener('click', () => loadUserLogins(user, loginBadge));
+            actions.appendChild(loginBadge);
+            refreshLoginPreview(user, loginBadge);
+
+            const relationsBtn = document.createElement('button');
+            relationsBtn.className = 'friend-action-btn';
+            relationsBtn.innerHTML = '<i class="fas fa-users"></i>';
+            relationsBtn.title = 'View relations';
+            relationsBtn.addEventListener('click', () => openAdminRelationsModal(user));
+
+            const adminBtn = document.createElement('button');
+            adminBtn.className = 'friend-action-btn';
+            adminBtn.innerHTML = user.admin ? '<i class="fas fa-shield"></i>' : '<i class="fas fa-user-shield"></i>';
+            adminBtn.title = user.admin ? 'Remove admin' : 'Make admin';
+            adminBtn.addEventListener('click', () => setUserAdmin(user, !user.admin));
+
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'friend-action-btn positive';
+            renameBtn.innerHTML = '<i class="fas fa-pen"></i>';
+            renameBtn.title = 'Rename';
+            renameBtn.addEventListener('click', () => openAdminUserModal(user));
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className = 'friend-action-btn';
+            resetBtn.innerHTML = '<i class="fas fa-key"></i>';
+            resetBtn.title = 'Reset password';
+            resetBtn.addEventListener('click', () => resetUserPassword(user));
+
+            const resetAvatarBtn = document.createElement('button');
+            resetAvatarBtn.className = 'friend-action-btn';
+            resetAvatarBtn.innerHTML = '<i class="fas fa-image"></i>';
+            resetAvatarBtn.title = 'Reset profile image';
+            resetAvatarBtn.addEventListener('click', () => resetUserAvatar(user));
+
+            const banBtn = document.createElement('button');
+            banBtn.className = 'friend-action-btn';
+            banBtn.innerHTML = user.banned?.active ? '<i class="fas fa-unlock"></i>' : '<i class="fas fa-ban"></i>';
+            banBtn.title = user.banned?.active ? 'Unban user' : 'Ban user';
+            banBtn.addEventListener('click', () => toggleUserBan(user, !user.banned?.active));
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'friend-action-btn danger';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.title = 'Delete';
+            delBtn.addEventListener('click', () => deleteUser(user));
+
+            actions.append(loginBadge, relationsBtn, adminBtn, renameBtn, resetBtn, resetAvatarBtn, banBtn, delBtn);
+
+            li.append(avatar, meta, actions);
+            frag.appendChild(li);
+        });
+        els.adminUsersList.appendChild(frag);
+    }
+
+    function renderRelationsGroup(title, list) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relations-group';
+        const heading = document.createElement('h4');
+        heading.textContent = `${title} (${list.length})`;
+        const chips = document.createElement('div');
+        chips.className = 'relations-chips';
+        if (!list.length) {
+            const empty = document.createElement('span');
+            empty.className = 'relations-chip';
+            empty.textContent = 'None';
+            chips.appendChild(empty);
+        } else {
+            list.forEach((u) => {
+                const chip = document.createElement('span');
+                chip.className = `relations-chip ${u.presence?.online ? 'online' : ''}`;
+                chip.innerHTML = `<span class="status-dot"></span>${u.username || 'Unknown'}`;
+                chips.appendChild(chip);
+            });
+        }
+        wrapper.append(heading, chips);
+        return wrapper;
+    }
+
+    async function openAdminRelationsModal(user) {
+        if (!user?.id || !els.adminRelationsModal || !els.adminRelationsBody) return;
+        els.adminRelationsTitle.textContent = `Relations for ${user.username || 'User'}`;
+        els.adminRelationsBody.innerHTML = '<div class="muted-hint" style="text-align:left; padding:0;">Loading...</div>';
+        els.adminRelationsModal.style.display = 'flex';
+        try {
+            const data = await api.get(`/api/admin/users/${user.id}/relations`);
+            els.adminRelationsBody.innerHTML = '';
+            const groups = [
+                ['Friends', data.friends || []],
+                ['Incoming Requests', data.incoming || []],
+                ['Outgoing Requests', data.outgoing || []],
+                ['Blocked', data.blocked || []]
+            ];
+            groups.forEach(([title, list]) => {
+                els.adminRelationsBody.appendChild(renderRelationsGroup(title, list));
+            });
+        } catch (err) {
+            els.adminRelationsBody.innerHTML = `<div class="muted-hint" style="text-align:left; padding:0; color:#f85149;">${escapeHtml(err.message || 'Failed to load relations')}</div>`;
+        }
+    }
+
+    function closeAdminRelationsModal() {
+        if (!els.adminRelationsModal) return;
+        els.adminRelationsModal.style.display = 'none';
+    }
+
+    function switchAdminTab(tab) {
+        if (!tab) return;
+        state.adminTab = tab;
+        els.adminTabNavButtons?.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+        els.adminTabPanels?.forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+        if (tab === 'requests') loadAdminRequests(true);
+        if (tab === 'games') loadAdminGames(true);
+        if (tab === 'users') loadAdminUsers(true);
+        if (tab === 'notice') loadAdminNotice(true);
+        if (tab === 'defaults') loadAdminDefaults(true);
+        if (tab === 'analytics') loadAdminAnalytics(true);
+    }
+
+    function resetAdminGameForm() {
+        if (!els.adminGameForm) return;
+        els.adminGameForm.reset();
+        if (els.adminGameId) els.adminGameId.value = '';
+        if (els.adminGameThumbUpload) els.adminGameThumbUpload.value = '';
+        runtime.adminGameThumbData = null;
+        runtime.adminGameRequestId = null;
+        setAdminGameFeedback('', false);
+    }
+
+    function fillAdminGameForm(game) {
+        if (!els.adminGameForm || !game) return;
+        els.adminGameId.value = game.id;
+        els.adminGameTitle.value = game.title || '';
+        els.adminGameCategory.value = game.category || '';
+        els.adminGameEmbed.value = game.embed || '';
+        els.adminGameThumb.value = game.thumbnail || '';
+        els.adminGameDescription.value = game.description || '';
+    }
+
+    function openAdminGameModal(game = null) {
+        resetAdminGameForm();
+        if (game) fillAdminGameForm(game);
+        if (els.adminGameModal) els.adminGameModal.style.display = 'flex';
+        els.adminGameTitle?.focus();
+    }
+
+    function closeAdminGameModal() {
+        if (els.adminGameModal) els.adminGameModal.style.display = 'none';
+        setAdminGameSaving(false);
+        runtime.adminGameThumbData = null;
+        runtime.adminGameRequestId = null;
+    }
+
+    function openAdminMaintenanceConfirm(game) {
+        if (!game) return;
+        state.adminMaintenanceTarget = game;
+        if (els.adminMaintenanceConfirmText) {
+            els.adminMaintenanceConfirmText.textContent = `Put "${game.title}" into maintenance mode?`;
+        }
+        if (els.adminMaintenanceConfirmModal) els.adminMaintenanceConfirmModal.style.display = 'flex';
+    }
+
+    function closeAdminMaintenanceConfirm() {
+        state.adminMaintenanceTarget = null;
+        if (els.adminMaintenanceConfirmModal) els.adminMaintenanceConfirmModal.style.display = 'none';
+        setAdminMaintenanceSaving(false);
+    }
+
+    function resetAdminUserForm() {
+        if (!els.adminUserForm) return;
+        els.adminUserForm.reset();
+        if (els.adminUserId) els.adminUserId.value = '';
+        if (els.adminUserEmail) els.adminUserEmail.value = '';
+        setAdminUserFeedback('', false);
+    }
+
+    function fillAdminUserForm(user) {
+        if (!els.adminUserForm || !user) return;
+        els.adminUserId.value = user.id;
+        els.adminUserUsername.value = user.username || '';
+        if (els.adminUserEmail) els.adminUserEmail.value = user.email || '';
+        els.adminUserPassword.value = '';
+    }
+
+    function openAdminUserModal(user = null) {
+        resetAdminUserForm();
+        if (user) fillAdminUserForm(user);
+        if (els.adminUserModal) els.adminUserModal.style.display = 'flex';
+        (els.adminUserUsername || els.adminUserPassword)?.focus?.();
+    }
+
+    function closeAdminUserModal() {
+        if (els.adminUserModal) els.adminUserModal.style.display = 'none';
+        setAdminUserSaving(false);
+    }
+
+    function setAdminGameSaving(isSaving) {
+        if (els.adminGameSaveIndicator) els.adminGameSaveIndicator.style.display = isSaving ? 'inline-block' : 'none';
+        if (els.adminGameForm) els.adminGameForm.querySelectorAll('input, textarea, button').forEach((el) => { el.disabled = isSaving; });
+    }
+
+    function setAdminGameFeedback(msg, isError) {
+        if (!els.adminGameFeedback) return;
+        els.adminGameFeedback.textContent = msg;
+        els.adminGameFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    function setAdminMaintenanceSaving(isSaving) {
+        const toggle = (btn) => {
+            if (!btn) return;
+            if (isSaving) btn.setAttribute('disabled', 'true');
+            else btn.removeAttribute('disabled');
+        };
+        toggle(els.adminMaintenanceConfirmBtn);
+        toggle(els.adminMaintenanceCancelBtn);
+    }
+
+    async function handleConfirmDisable() {
+        if (!state.user?.admin || !state.adminMaintenanceTarget) return;
+        const game = state.adminMaintenanceTarget;
+        setAdminMaintenanceSaving(true);
+        try {
+            const { game: updated } = await api.put(`/api/admin/games/${game.id}/disable`, { disabled: true, message: '' });
+            upsertAdminGame(updated);
+            renderAdminGames();
+            showToast('Game disabled');
+            closeAdminMaintenanceConfirm();
+        } catch (err) {
+            showToast(err.message || 'Failed to disable game', true);
+            setAdminMaintenanceSaving(false);
+        }
+    }
+
+    function setAdminUserSaving(isSaving) {
+        if (els.adminUserSaveIndicator) els.adminUserSaveIndicator.style.display = isSaving ? 'inline-block' : 'none';
+        if (els.adminUserForm) els.adminUserForm.querySelectorAll('input, button').forEach((el) => { el.disabled = isSaving; });
+    }
+
+    function setAdminUserFeedback(msg, isError) {
+        if (!els.adminUserFeedback) return;
+        els.adminUserFeedback.textContent = msg;
+        els.adminUserFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    async function enableGame(game) {
+        if (!game || !state.user?.admin) return;
+        try {
+            const { game: updated } = await api.put(`/api/admin/games/${game.id}/disable`, { disabled: false, message: '' });
+            upsertAdminGame(updated);
+            renderAdminGames();
+            showToast('Game enabled');
+        } catch (err) {
+            showToast(err.message || 'Failed to enable game', true);
+        }
+    }
+
+    async function deleteGame(game) {
+        if (!game || !state.user?.admin) return;
+        const res = await openActionModal({
+            title: 'Delete game',
+            message: `Delete "${game.title}"? This cannot be undone.`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            tone: 'danger'
+        });
+        if (!res.confirmed) return;
+        try {
+            await api.request(`/api/admin/games/${game.id}`, { method: 'DELETE' });
+            state.adminGames = state.adminGames.filter((g) => String(g.id) !== String(game.id));
+            state.games = state.games.filter((g) => String(g.id) !== String(game.id));
+            renderAdminGames();
+            filterAndRender();
+            showToast('Game deleted');
+        } catch (err) {
+            showToast(err.message || 'Failed to delete game', true);
+        }
+    }
+
+    async function setUserAdmin(user, isAdmin) {
+        try {
+            const { user: updated } = await api.put(`/api/admin/users/${user.id}`, { admin: isAdmin });
+            upsertAdminUser(updated);
+            renderAdminUsers();
+            showToast(isAdmin ? 'Admin granted' : 'Admin removed');
+        } catch (err) {
+            showToast(err.message || 'Failed to update user', true);
+        }
+    }
+
+    async function resetUserPassword(user) {
+        const res = await openActionModal({
+            title: 'Reset password',
+            message: `Set a new password for ${user.username}.`,
+            inputLabel: 'New password',
+            inputPlaceholder: 'Minimum 6 characters',
+            inputType: 'password',
+            confirmText: 'Save password',
+            cancelText: 'Cancel',
+            tone: 'positive'
+        });
+        const next = res?.value?.trim();
+        if (!res.confirmed || !next) return;
+        try {
+            const { user: updated } = await api.put(`/api/admin/users/${user.id}`, { password: next });
+            upsertAdminUser(updated);
+            renderAdminUsers();
+            showToast('Password reset');
+        } catch (err) {
+            showToast(err.message || 'Failed to reset password', true);
+        }
+    }
+
+    async function deleteUser(user) {
+        if (user?.id && state.user?.id === user.id) {
+            showToast('You cannot delete your own account here.', true);
+            return;
+        }
+        const res = await openActionModal({
+            title: 'Delete user',
+            message: `Delete ${user.username}? This cannot be undone.`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            tone: 'danger'
+        });
+        if (!res.confirmed) return;
+        try {
+            await api.request(`/api/admin/users/${user.id}`, { method: 'DELETE' });
+            state.adminUsers = state.adminUsers.filter((u) => u.id !== user.id);
+            renderAdminUsers();
+            showToast('User deleted');
+        } catch (err) {
+            showToast(err.message || 'Failed to delete user', true);
+        }
+    }
+
+    async function resetUserAvatar(user) {
+        if (!state.user?.admin || !user?.id) return;
+        const res = await openActionModal({
+            title: 'Reset profile image',
+            message: `Remove ${user.username}'s profile image?`,
+            confirmText: 'Reset image',
+            cancelText: 'Cancel',
+            tone: 'positive'
+        });
+        if (!res.confirmed) return;
+        try {
+            const { user: updated } = await api.put(`/api/admin/users/${user.id}`, { profile: { avatar: '' } });
+            upsertAdminUser(updated);
+            renderAdminUsers();
+            showToast('Profile image reset');
+        } catch (err) {
+            showToast(err.message || 'Failed to reset avatar', true);
+        }
+    }
+
+    async function toggleUserBan(user, active) {
+        if (!state.user?.admin || !user) return;
+        if (user.id === state.user?.id) {
+            showToast('You cannot ban yourself.', true);
+            return;
+        }
+        let reason = '';
+        if (active) {
+            const res = await openActionModal({
+                title: 'Ban user',
+                message: `Ban ${user.username}? They will lose access immediately.`,
+                inputLabel: 'Reason (optional)',
+                inputPlaceholder: 'Misuse, abuse, etc.',
+                confirmText: 'Ban user',
+                cancelText: 'Cancel',
+                tone: 'danger'
+            });
+            if (!res.confirmed) return;
+            reason = res.value || '';
+        } else {
+            const res = await openActionModal({
+                title: 'Unban user',
+                message: `Allow ${user.username} to sign in again?`,
+                confirmText: 'Unban',
+                cancelText: 'Cancel',
+                tone: 'positive'
+            });
+            if (!res.confirmed) return;
+        }
+        try {
+            const { user: updated } = await api.put(`/api/admin/users/${user.id}/ban`, { active, reason });
+            upsertAdminUser(updated);
+            renderAdminUsers();
+            if (updated.id === state.user?.id) {
+                if (updated.banned?.active) showBannedModal(updated.banned.reason || 'Your account is banned');
+                else hideBannedModal();
+            }
+            showToast(active ? 'User banned' : 'User unbanned');
+        } catch (err) {
+            setAdminUserFeedback(err.message || 'Failed to update ban', true);
+        }
+    }
+
+    async function fetchUserLoginHistory(userId) {
+        if (!userId) return [];
+        if (state.adminLoginCache?.[userId]) return state.adminLoginCache[userId];
+        const { loginHistory = [] } = await api.get(`/api/admin/users/${userId}/logins`);
+        state.adminLoginCache[userId] = loginHistory;
+        return loginHistory;
+    }
+
+    function buildLoginPreview(history = []) {
+        if (!history.length) return 'Last login: —';
+        const first = history[0];
+        const ip = first?.ip || 'Unknown IP';
+        const ts = first?.lastAt ? new Date(first.lastAt).toLocaleString() : 'Unknown time';
+        return `Last login from ${ip} • ${ts}`;
+    }
+
+    function getUserLoginPreview(user) {
+        if (!user) return 'Last login: —';
+        const cached = state.adminLoginCache?.[user.id];
+        return buildLoginPreview(cached || []);
+    }
+
+    async function refreshLoginPreview(user, targetEl) {
+        if (!user?.id || !targetEl) return;
+        targetEl.textContent = 'Loading last login...';
+        try {
+            const history = await fetchUserLoginHistory(user.id);
+            targetEl.textContent = buildLoginPreview(history);
+        } catch (err) {
+            targetEl.textContent = err.message || 'Failed to load logins';
+        }
+    }
+
+    async function loadUserLogins(user, targetEl) {
+        if (!state.user?.admin || !user?.id) return;
+        if (targetEl) targetEl.textContent = 'Loading logins...';
+        try {
+            const history = await fetchUserLoginHistory(user.id);
+            const preview = buildLoginPreview(history);
+            if (targetEl) targetEl.textContent = preview;
+            openLoginHistoryModal(`Login history • ${user.username}`);
+            renderLoginHistoryList(history);
+            renderAdminUsers();
+        } catch (err) {
+            if (targetEl) targetEl.textContent = err.message || 'Failed to load logins';
+            else showToast(err.message || 'Failed to load logins', true);
+        }
+    }
+
     function renderUserList(container, list = [], options = {}) {
         if (!container) return;
         const { emptyText = 'Nothing here yet.', statusText = '', actions = [] } = options;
@@ -1031,12 +3033,166 @@
         if (els.settingCursorColor) els.settingCursorColor.value = settings.cursorColor || '#ffffff';
         if (els.settingShowClock) els.settingShowClock.checked = settings.showClock !== false;
         if (els.settingShowCurrent) els.settingShowCurrent.checked = settings.showCurrent !== false;
+        populatePresetSelect(els.settingPanicPreset, state.settingPresets?.panicButtons || []);
+        populatePresetSelect(els.settingTabPreset, state.settingPresets?.tabDisguises || []);
+        if (els.settingPanicEnabled) els.settingPanicEnabled.checked = !!settings.panicEnabled;
+        if (els.settingPanicUrl) els.settingPanicUrl.value = settings.panicUrl || '';
+        if (els.settingPanicKeybind) els.settingPanicKeybind.value = settings.panicKeybind || '';
+        if (els.settingPanicPreset) els.settingPanicPreset.value = settings.panicPreset || '';
+        if (els.settingTabEnabled) els.settingTabEnabled.checked = !!settings.tabDisguiseEnabled;
+        if (els.settingTabTitle) els.settingTabTitle.value = settings.tabDisguiseTitle || '';
+        if (els.settingTabFavicon) els.settingTabFavicon.value = settings.tabDisguiseFavicon || '';
+        if (els.settingTabSource) els.settingTabSource.value = settings.tabDisguiseSource || '';
+        if (els.settingTabPreset) els.settingTabPreset.value = settings.tabDisguisePreset || '';
         applySettingsBehavior(settings);
     }
 
     function applyAccent(color) {
         if (!color) return;
         document.documentElement.style.setProperty('--accent-color', color);
+    }
+
+    function populatePresetSelect(selectEl, items = []) {
+        if (!selectEl) return;
+        const current = selectEl.value;
+        selectEl.innerHTML = '<option value="">Custom</option>';
+        items.forEach((item) => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.label || item.id;
+            selectEl.appendChild(opt);
+        });
+        selectEl.value = current || selectEl.value;
+    }
+
+    function getPresetById(list = [], id) {
+        return list.find((p) => String(p.id) === String(id));
+    }
+
+    function formatKeybindFromEvent(e) {
+        const parts = [];
+        if (e.ctrlKey) parts.push('Ctrl');
+        if (e.metaKey) parts.push('Meta');
+        if (e.altKey) parts.push('Alt');
+        if (e.shiftKey) parts.push('Shift');
+        const key = e.key && e.key.length === 1 ? e.key.toUpperCase() : (e.key || '').replace('Arrow', '');
+        if (key && !['Control', 'Meta', 'Alt', 'Shift'].includes(key)) parts.push(key);
+        return parts.join('+') || 'Escape';
+    }
+
+    function parseKeybindString(str) {
+        const parts = (str || '').split('+').map((p) => p.trim().toLowerCase()).filter(Boolean);
+        const combo = { ctrl: false, meta: false, alt: false, shift: false, key: '' };
+        parts.forEach((p) => {
+            if (p === 'ctrl' || p === 'control') combo.ctrl = true;
+            else if (p === 'meta' || p === 'cmd' || p === 'command') combo.meta = true;
+            else if (p === 'alt' || p === 'option') combo.alt = true;
+            else if (p === 'shift') combo.shift = true;
+            else combo.key = p;
+        });
+        return combo;
+    }
+
+    function matchesKeybind(event, combo) {
+        if (!combo) return false;
+        if (!!combo.ctrl !== !!event.ctrlKey) return false;
+        if (!!combo.meta !== !!event.metaKey) return false;
+        if (!!combo.alt !== !!event.altKey) return false;
+        if (!!combo.shift !== !!event.shiftKey) return false;
+        if (!combo.key) return false;
+        const key = (event.key || '').toLowerCase();
+        return combo.key === key;
+    }
+
+    function applyPanicPreset(id) {
+        if (!id) return;
+        const preset = getPresetById(state.settingPresets?.panicButtons, id);
+        if (!preset) return;
+        if (els.settingPanicUrl) els.settingPanicUrl.value = preset.url || '';
+        if (els.settingPanicKeybind) els.settingPanicKeybind.value = preset.keybind || '';
+    }
+
+    function applyTabPreset(id) {
+        if (!id) return;
+        const preset = getPresetById(state.settingPresets?.tabDisguises, id);
+        if (!preset) return;
+        if (els.settingTabTitle) els.settingTabTitle.value = preset.title || '';
+        if (els.settingTabFavicon) els.settingTabFavicon.value = preset.favicon || '';
+        if (els.settingTabSource) els.settingTabSource.value = preset.sourceUrl || '';
+    }
+
+    async function fetchTabMetadata() {
+        const url = (els.settingTabSource?.value || '').trim();
+        if (!url) {
+            setSettingsFeedback('Enter a URL to fetch metadata', true);
+            return;
+        }
+        setSettingsFeedback('Fetching metadata...', false);
+        try {
+            const { title, favicon } = await api.post('/api/utils/page-meta', { url });
+            if (title && els.settingTabTitle) els.settingTabTitle.value = title;
+            if (favicon && els.settingTabFavicon) els.settingTabFavicon.value = favicon;
+            setSettingsFeedback('Metadata applied', false);
+            queueSaveSettings();
+        } catch (err) {
+            setSettingsFeedback(err.message || 'Failed to fetch metadata', true);
+        }
+    }
+
+    function setFavicon(href) {
+        if (!href && runtime.defaultFavicon) href = runtime.defaultFavicon;
+        let link = document.querySelector('link[rel="shortcut icon"]') || document.querySelector('link[rel~="icon"]');
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+        }
+        if (href) link.href = href;
+    }
+
+    function applyPanicBehavior(settings) {
+        if (runtime.panicHandler) {
+            document.removeEventListener('keydown', runtime.panicHandler);
+            runtime.panicHandler = null;
+        }
+        const preset = getPresetById(state.settingPresets?.panicButtons, settings.panicPreset);
+        const url = settings.panicUrl || preset?.url;
+        const keybindStr = settings.panicKeybind || preset?.keybind || '';
+        const enabled = !!settings.panicEnabled && !!url;
+        if (els.panicButton) {
+            els.panicButton.style.display = enabled ? 'inline-flex' : 'none';
+            els.panicButton.onclick = enabled ? (() => triggerPanicRedirect(url)) : null;
+        }
+        if (!enabled) return;
+        const combo = parseKeybindString(keybindStr || 'escape');
+        const handler = (e) => {
+            if (matchesKeybind(e, combo)) {
+                e.preventDefault();
+                triggerPanicRedirect(url);
+            }
+        };
+        runtime.panicHandler = handler;
+        document.addEventListener('keydown', handler);
+    }
+
+    function triggerPanicRedirect(url) {
+        if (!url) return;
+        window.location.href = url;
+    }
+
+    function applyTabDisguiseBehavior(settings) {
+        const preset = getPresetById(state.settingPresets?.tabDisguises, settings.tabDisguisePreset);
+        if (!runtime.defaultTitle) runtime.defaultTitle = document.title;
+        const enabled = !!settings.tabDisguiseEnabled;
+        if (!enabled) {
+            document.title = runtime.defaultTitle;
+            if (runtime.defaultFavicon) setFavicon(runtime.defaultFavicon);
+            return;
+        }
+        const title = settings.tabDisguiseTitle || preset?.title || runtime.defaultTitle;
+        const favicon = settings.tabDisguiseFavicon || preset?.favicon || runtime.defaultFavicon;
+        if (title) document.title = title;
+        if (favicon) setFavicon(favicon);
     }
 
     function applySettingsBehavior(settings) {
@@ -1056,6 +3212,8 @@
         updateProxyUI();
         applyClockSetting(settings.showClock !== false);
         applyCurrentSectionSetting(settings.showCurrent !== false);
+        applyPanicBehavior(settings);
+        applyTabDisguiseBehavior(settings);
     }
 
     async function updateHealth() {
@@ -1063,9 +3221,12 @@
             const health = await api.get('/health');
             const players = Number.isFinite(health.players) ? health.players : (Number.isFinite(health.games) ? health.games : null);
             if (players === null) throw new Error('Bad health payload');
-            setStatus(true, `Online - ${players} Players`);
+            const label = state.user?.admin ? `Online - ${players} Players` : 'Online';
+            setStatus(true, label);
+            handleConnectivityChange(true);
         } catch (_) {
             setStatus(false, 'Offline - Check Network');
+            handleConnectivityChange(false);
         }
     }
 
@@ -1077,6 +3238,21 @@
         els.statusText.classList.toggle('offline', !isOnline);
     }
 
+    function handleConnectivityChange(isOnline) {
+        if (runtime.lastOnlineState === isOnline && (isOnline || runtime.offlineNotified)) return;
+        runtime.lastOnlineState = isOnline;
+        if (!isOnline) {
+            runtime.offlineNotified = true;
+            pushNotification('Offline', 'Jettic Online Services are unavailable while offline.', 'warning');
+            setStatus(false, 'Offline - Check Network');
+        } else {
+            runtime.offlineNotified = false;
+            pushNotification('Back online', 'Reconnected to Jettic Online Services.', 'success');
+            setStatus(true, 'Online');
+            sendOnlinePing();
+        }
+    }
+
     function refreshUserUI() {
         if (state.user) {
             els.accountLabel.textContent = state.user.username;
@@ -1086,6 +3262,11 @@
             populateProfileForm();
             applySettingsToUI(state.settings || state.user.settings);
             updateAccountAvatar(state.user);
+            toggleAdminUI(!!state.user.admin);
+            if (els.settingsLoginBox) els.settingsLoginBox.style.display = 'none';
+            if (els.settingsGrid) els.settingsGrid.style.display = 'grid';
+            if (els.settingsActions) els.settingsActions.style.display = 'flex';
+            if (els.adminNotifyTests) els.adminNotifyTests.style.display = state.user.admin ? 'flex' : 'none';
         } else {
             els.accountLabel.textContent = 'Log in';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
@@ -1096,10 +3277,31 @@
             if (els.friendsCount) els.friendsCount.textContent = '0';
             if (els.pendingCount) els.pendingCount.textContent = '0';
             updateAccountAvatar(null);
+            toggleAdminUI(false);
+            if (els.settingsGrid) els.settingsGrid.style.display = 'none';
+            if (els.settingsActions) els.settingsActions.style.display = 'none';
+            if (els.adminNotifyTests) els.adminNotifyTests.style.display = 'none';
+            if (els.settingsLoginBox) els.settingsLoginBox.style.display = 'block';
+            if (els.profileEmail) els.profileEmail.value = '';
         }
-            closeAddFriendModal();
+        closeAddFriendModal();
         renderPlayHistory();
         renderFavoritesPage();
+    }
+
+    function showBannedModal(reason = 'Your account is banned') {
+        if (els.bannedReason) els.bannedReason.textContent = reason;
+        if (els.bannedModal) els.bannedModal.style.display = 'flex';
+    }
+
+    function hideBannedModal() {
+        if (els.bannedModal) els.bannedModal.style.display = 'none';
+    }
+
+    function toggleAdminUI(isAdmin) {
+        if (els.accountAdminBtn) els.accountAdminBtn.style.display = isAdmin ? 'block' : 'none';
+        if (els.openAdminPageBtn) els.openAdminPageBtn.style.display = isAdmin ? 'block' : 'none';
+        if (!isAdmin && runtime.currentPage === 'admin') showPage('home');
     }
 
         function updateAccountAvatar(user) {
@@ -1112,6 +3314,10 @@
     function populateProfileForm() {
         if (!state.user) return;
         els.profileUsername.value = state.user.username || '';
+        if (els.profileEmail) {
+            els.profileEmail.value = state.user.email || '';
+            els.profileEmail.readOnly = true;
+        }
         els.profileColor.value = state.user.profile?.accentColor || '#58a6ff';
         if (state.user.profile?.avatar) {
             els.avatarPreview.src = state.user.profile.avatar;
@@ -1128,10 +3334,17 @@
     function showPage(page) {
         const next = els.pages?.[page];
         if (!next) return;
+        if (page === 'admin' && !state.user?.admin) {
+            showToast('Admin only', true);
+            return showPage('home');
+        }
 
         const currentKey = runtime.currentPage;
-        const current = currentKey ? els.pages?.[currentKey] : null;
-        if (current === next) return;
+        const current = document.querySelector('.page.active') || (currentKey ? els.pages?.[currentKey] : null);
+        if (current === next || next.classList.contains('active')) {
+            runtime.currentPage = page;
+            return;
+        }
 
         const wasGame = runtime.currentPage === 'game' && state.currentGame;
 
@@ -1151,11 +3364,15 @@
         runtime.currentPage = page;
         if (page === 'favorites') renderFavoritesPage();
         if (page === 'home') filterAndRender();
+        if (page === 'admin') {
+            switchAdminTab(state.adminTab || 'requests');
+        }
         if (page !== 'game' && wasGame) {
             beginCloseCurrentGame();
         } else if (page !== 'game') {
             updatePresence(true, null);
         }
+        if (page === 'game') renderGameAds(); else renderGameAds();
         renderPlayHistory();
         renderOnlineFriends();
     }
@@ -1212,12 +3429,27 @@
     async function handleAuthSubmit(e) {
         e.preventDefault();
         const mode = els.authModal.dataset.mode || 'login';
-        const username = els.authForm.username.value.trim();
+        const identifier = els.authForm.username.value.trim();
         const password = els.authForm.password.value;
+        const email = els.authEmail?.value?.trim();
         els.authFeedback.textContent = '';
         try {
             const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
-            const { user } = await api.post(path, { username, password });
+            const payload = mode === 'register'
+                ? { username: identifier, password, email }
+                : { identifier, password };
+            const res = await api.post(path, payload);
+            const user = res.user;
+            if (res.banned) {
+                state.user = normalizeUser(user);
+                state.favorites = new Set();
+                state.settings = null;
+                refreshUserUI();
+                closeAuthModal();
+                showBannedModal(res.reason || 'Your account is banned');
+                return;
+            }
+            hideBannedModal();
             state.user = normalizeUser(user);
             state.favorites = new Set((user.favorites || []).map(String));
             state.settings = user.settings || null;
@@ -1237,9 +3469,13 @@
 
     async function logout() {
         try { await api.post('/api/auth/logout'); } catch (_) {}
+        finalizePlaySession(true);
         state.user = null;
         state.favorites = new Set();
         state.settings = null;
+        state.adminLoginCache = {};
+        state.adminNotice = null;
+        state.adminAnalytics = null;
         state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
         runtime.friendsSnapshot = null;
         if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
@@ -1248,6 +3484,9 @@
         stopGameFrame();
         disableCustomCursor();
         stopParticles();
+        applyPanicBehavior({ panicEnabled: false });
+        applyTabDisguiseBehavior({ tabDisguiseEnabled: false });
+        hideBannedModal();
         refreshUserUI();
         renderOnlineFriends();
         showPage('home');
@@ -1259,6 +3498,163 @@
 
     function hideLogoutConfirm() {
         if (els.logoutConfirmModal) els.logoutConfirmModal.style.display = 'none';
+    }
+
+    function closeActionModal() {
+        if (els.adminActionModal) els.adminActionModal.style.display = 'none';
+        if (els.adminActionInput) els.adminActionInput.value = '';
+        els.adminActionConfirm?.classList.remove('danger', 'positive');
+    }
+
+    function resolveActionModal(result) {
+        if (!actionModalResolver) return;
+        const resolver = actionModalResolver;
+        actionModalResolver = null;
+        resolver(result);
+    }
+
+    function openActionModal(options = {}) {
+        if (!els.adminActionModal) return Promise.resolve({ confirmed: false });
+        const {
+            title = 'Confirm',
+            message = '',
+            confirmText = 'Confirm',
+            cancelText = 'Cancel',
+            inputLabel = '',
+            inputPlaceholder = '',
+            defaultValue = '',
+            inputType = 'text',
+            tone = 'danger'
+        } = options;
+
+        if (actionModalResolver) resolveActionModal({ confirmed: false });
+
+        if (els.adminActionTitle) els.adminActionTitle.textContent = title;
+        if (els.adminActionMessage) els.adminActionMessage.textContent = message;
+        const wantsInput = !!inputLabel;
+        if (els.adminActionInputRow) els.adminActionInputRow.style.display = wantsInput ? 'flex' : 'none';
+        if (wantsInput && els.adminActionInputLabel) els.adminActionInputLabel.textContent = inputLabel;
+        if (els.adminActionInput) {
+            els.adminActionInput.placeholder = inputPlaceholder || '';
+            els.adminActionInput.value = defaultValue || '';
+            els.adminActionInput.type = inputType || 'text';
+        }
+
+        if (els.adminActionConfirm) {
+            els.adminActionConfirm.textContent = confirmText;
+            els.adminActionConfirm.classList.toggle('danger', tone === 'danger');
+            els.adminActionConfirm.classList.toggle('positive', tone === 'positive');
+        }
+        if (els.adminActionCancel) els.adminActionCancel.textContent = cancelText;
+
+        if (els.adminActionModal) els.adminActionModal.style.display = 'flex';
+        setTimeout(() => {
+            const target = wantsInput ? els.adminActionInput : els.adminActionConfirm;
+            target?.focus?.();
+        }, 0);
+
+        return new Promise((resolve) => { actionModalResolver = resolve; });
+    }
+
+    function handleActionConfirm() {
+        const wantsInput = els.adminActionInputRow?.style.display === 'flex';
+        const value = wantsInput ? (els.adminActionInput?.value || '') : null;
+        closeActionModal();
+        resolveActionModal({ confirmed: true, value });
+    }
+
+    function handleActionCancel() {
+        closeActionModal();
+        resolveActionModal({ confirmed: false });
+    }
+
+    function openPresetEditModal(type = 'panic', index = 0) {
+        const presets = state.adminDefaults?.presets || { panicButtons: [], tabDisguises: [] };
+        const list = type === 'panic' ? (presets.panicButtons || []) : (presets.tabDisguises || []);
+        const preset = list[index];
+        if (!preset || !els.adminPresetModal) return;
+        presetEditContext = { type, index };
+        if (els.adminPresetTitle) els.adminPresetTitle.textContent = type === 'panic' ? 'Edit panic preset' : 'Edit disguise preset';
+        if (els.adminPresetName) els.adminPresetName.value = preset.label || preset.title || '';
+        if (els.adminPresetUrl) els.adminPresetUrl.value = preset.url || preset.sourceUrl || '';
+        if (els.adminPresetFavicon) {
+            els.adminPresetFavicon.value = preset.favicon || '';
+            els.adminPresetFavicon.parentElement.style.display = type === 'disguise' ? 'block' : 'none';
+        }
+        if (els.adminPresetSource) {
+            els.adminPresetSource.value = preset.sourceUrl || '';
+            els.adminPresetSource.parentElement.style.display = type === 'disguise' ? 'block' : 'none';
+        }
+        els.adminPresetModal.style.display = 'flex';
+        setTimeout(() => els.adminPresetName?.focus?.(), 0);
+    }
+
+    function closePresetEditModal() {
+        if (els.adminPresetModal) els.adminPresetModal.style.display = 'none';
+        if (els.adminPresetForm) els.adminPresetForm.reset();
+        presetEditContext = null;
+    }
+
+    function savePresetEdit(e) {
+        if (e) e.preventDefault();
+        if (!presetEditContext) return closePresetEditModal();
+        const { type, index } = presetEditContext;
+        const presets = state.adminDefaults?.presets || { panicButtons: [], tabDisguises: [] };
+        const list = type === 'panic' ? (presets.panicButtons || []) : (presets.tabDisguises || []);
+        const preset = list[index];
+        if (!preset) return closePresetEditModal();
+        if (type === 'panic') {
+            preset.label = (els.adminPresetName?.value || '').trim() || 'Preset';
+            preset.url = (els.adminPresetUrl?.value || '').trim();
+        } else {
+            const name = (els.adminPresetName?.value || '').trim() || 'Preset';
+            preset.label = name;
+            preset.title = name;
+            preset.favicon = (els.adminPresetFavicon?.value || '').trim();
+            preset.sourceUrl = (els.adminPresetSource?.value || '').trim();
+            preset.url = preset.sourceUrl;
+        }
+        state.adminDefaults = state.adminDefaults || { defaults: {}, presets: { panicButtons: [], tabDisguises: [] } };
+        state.adminDefaults.presets = presets;
+        renderAdminDefaults();
+        closePresetEditModal();
+    }
+
+    function openLoginHistoryModal(titleText = 'Login history') {
+        if (els.adminLoginTitle) els.adminLoginTitle.textContent = titleText;
+        if (els.adminLoginModal) els.adminLoginModal.style.display = 'flex';
+    }
+
+    function closeLoginHistoryModal() {
+        if (els.adminLoginModal) els.adminLoginModal.style.display = 'none';
+    }
+
+    function renderLoginHistoryList(history = []) {
+        if (!els.adminLoginList) return;
+        els.adminLoginList.innerHTML = '';
+        if (!history.length) {
+            const empty = document.createElement('div');
+            empty.className = 'muted-hint';
+            empty.textContent = 'No login history yet';
+            els.adminLoginList.appendChild(empty);
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        history.forEach((entry) => {
+            const row = document.createElement('div');
+            row.className = 'login-history-row';
+            const ip = document.createElement('div');
+            ip.className = 'login-history-ip';
+            ip.textContent = entry?.ip || 'Unknown IP';
+            const meta = document.createElement('div');
+            meta.className = 'login-history-meta';
+            const count = entry?.count ? `x${entry.count}` : 'x1';
+            const ts = entry?.lastAt ? new Date(entry.lastAt).toLocaleString() : 'Unknown time';
+            meta.textContent = `${count} • ${ts}`;
+            row.append(ip, meta);
+            frag.appendChild(row);
+        });
+        els.adminLoginList.appendChild(frag);
     }
 
     function updateProxyUI() {
@@ -1300,7 +3696,16 @@
             cursorSize: Number(els.settingCursorSize?.value || 8),
             cursorColor: els.settingCursorColor?.value,
             showClock: els.settingShowClock ? els.settingShowClock.checked : true,
-            showCurrent: els.settingShowCurrent ? els.settingShowCurrent.checked : true
+            showCurrent: els.settingShowCurrent ? els.settingShowCurrent.checked : true,
+            panicEnabled: !!els.settingPanicEnabled?.checked,
+            panicUrl: (els.settingPanicUrl?.value || '').trim(),
+            panicKeybind: (els.settingPanicKeybind?.value || '').trim(),
+            panicPreset: els.settingPanicPreset?.value || '',
+            tabDisguiseEnabled: !!els.settingTabEnabled?.checked,
+            tabDisguiseTitle: (els.settingTabTitle?.value || '').trim(),
+            tabDisguiseFavicon: (els.settingTabFavicon?.value || '').trim(),
+            tabDisguiseSource: (els.settingTabSource?.value || '').trim(),
+            tabDisguisePreset: els.settingTabPreset?.value || ''
         };
     }
 
@@ -1331,34 +3736,30 @@
     }
 
     function showToast(message, isError = false) {
-        if (!els.toast) return;
-        const el = els.toast;
-        el.textContent = message;
-        el.style.display = 'block';
-        el.style.position = 'fixed';
-        el.style.bottom = '24px';
-        el.style.right = '24px';
-        el.style.padding = '12px 16px';
-        el.style.background = isError ? '#f85149' : '#238636';
-        el.style.color = '#fff';
-        el.style.borderRadius = '10px';
-        el.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
-        clearTimeout(el._hideTimer);
-        el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+        const tone = isError ? 'error' : 'success';
+        pushNotification(isError ? 'Error' : 'Success', message, tone);
     }
 
     function pushNotification(title, message, type = 'info') {
         if (!els.notificationStack) return;
+        const tone = normalizeTone(type);
+        const duration = 4500;
         const card = document.createElement('div');
-        card.className = `notification-card ${type}`;
+        card.className = `notification-card ${tone}`;
+        card.style.setProperty('--notif-duration', `${duration}ms`);
         card.innerHTML = `
-            <div class="notification-icon"><i class="fas ${iconForType(type)}"></i></div>
+            <div class="notification-icon"><i class="fas ${iconForType(tone)}"></i></div>
             <div class="notification-body">
                 <div class="notification-title">${title}</div>
                 <div class="notification-text">${message}</div>
             </div>
             <button class="notification-close" aria-label="Dismiss"><i class="fas fa-times"></i></button>
+            <div class="notification-progress"></div>
         `;
+        const progressWrap = card.querySelector('.notification-progress');
+        const progress = document.createElement('div');
+        progress.className = 'notification-progress-bar';
+        progressWrap?.appendChild(progress);
         const remove = () => {
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
@@ -1366,9 +3767,56 @@
         };
         card.querySelector('.notification-close')?.addEventListener('click', remove);
         els.notificationStack.appendChild(card);
-        const timer = setTimeout(remove, 4000);
-        card.addEventListener('mouseenter', () => clearTimeout(timer));
-        card.addEventListener('mouseleave', () => setTimeout(remove, 1200));
+
+        playNotificationSound();
+
+        let remaining = duration;
+        let start = performance.now();
+        let hideTimer = setTimeout(remove, remaining);
+
+        const pause = () => {
+            clearTimeout(hideTimer);
+            remaining -= performance.now() - start;
+            if (progress) progress.style.animationPlayState = 'paused';
+        };
+
+        const resume = () => {
+            start = performance.now();
+            hideTimer = setTimeout(remove, remaining);
+            if (progress) progress.style.animationPlayState = 'running';
+        };
+
+        card.addEventListener('mouseenter', pause);
+        card.addEventListener('mouseleave', resume);
+    }
+
+    function normalizeTone(type = 'info') {
+        const t = String(type || '').toLowerCase();
+        if (t === 'success' || t === 'warning' || t === 'error' || t === 'info') return t;
+        if (t === 'fail' || t === 'danger') return 'error';
+        if (t === 'passive') return 'info';
+        return 'info';
+    }
+
+    function playNotificationSound() {
+        try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const ctx = playNotificationSound.ctx || new Ctx();
+            playNotificationSound.ctx = ctx;
+            ctx.resume?.();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.08;
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.18);
+            gain.gain.setTargetAtTime(0.0001, ctx.currentTime + 0.08, 0.05);
+        } catch (_) {
+            /* ignore audio errors */
+        }
     }
 
     function iconForType(type) {
@@ -1498,7 +3946,19 @@
         const normalized = { ...user };
         normalized.profile = normalized.profile || {};
         normalized.profile.lastPlayed = Array.isArray(normalized.profile.lastPlayed) ? normalized.profile.lastPlayed : [];
+        normalized.profile.playtime = normalizePlaytimeMap(normalized.profile.playtime);
         return normalized;
+    }
+
+    function normalizePlaytimeMap(map) {
+        if (!map || typeof map !== 'object') return {};
+        const next = {};
+        Object.entries(map).forEach(([id, value]) => {
+            const ms = Number(value);
+            if (!Number.isFinite(ms) || ms < 0) return;
+            next[String(id)] = ms;
+        });
+        return next;
     }
 
     function updateLocalLastPlayed(gameId) {
@@ -1519,14 +3979,67 @@
         renderPlayHistory();
     }
 
+    function setPlaytimeMap(map) {
+        if (!state.user) return;
+        state.user.profile.playtime = normalizePlaytimeMap(map);
+        renderPlayHistory();
+    }
+
+    function getPlaytimeMap() {
+        return normalizePlaytimeMap(state.user?.profile?.playtime);
+    }
+
+    function getPlaytimeForGame(gameId) {
+        const playtime = getPlaytimeMap();
+        return playtime[String(gameId)] || 0;
+    }
+
+    function addLocalPlaytime(gameId, deltaMs) {
+        if (!state.user) return;
+        const delta = Number(deltaMs);
+        if (!Number.isFinite(delta) || delta <= 0) return;
+        const map = getPlaytimeMap();
+        const key = String(gameId);
+        map[key] = (map[key] || 0) + delta;
+        state.user.profile.playtime = map;
+    }
+
     function getLastPlayedGames() {
         return Array.isArray(state.user?.profile?.lastPlayed) ? state.user.profile.lastPlayed : [];
+    }
+
+    function formatPlaytime(ms) {
+        const minutes = Math.floor(ms / 60000);
+        if (!Number.isFinite(minutes) || minutes <= 0) return 'Under 1 min';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours && mins) return `${hours}h ${mins}m`;
+        if (hours) return `${hours}h`;
+        return `${minutes}m`;
     }
 
     function renderPlayHistory() {
         renderCurrentlyPlaying();
         renderPreviouslyPlayed();
+        renderProfilePlaytime();
         renderOnlineFriends();
+        renderGameAds();
+    }
+
+    function renderGameAds() {
+        const slots = els.gameAdSlots;
+        if (!slots) return;
+        slots.innerHTML = '';
+        if (runtime.currentPage !== 'game') return;
+        const count = Math.max(1, Math.min(6, Math.floor(window.innerHeight / 240)));
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < count; i += 1) {
+            const slot = document.createElement('div');
+            slot.className = 'ad-slot-placeholder';
+            slot.textContent = 'Ad placeholder';
+            frag.appendChild(slot);
+        }
+        slots.appendChild(frag);
     }
 
     function renderOnlineFriends() {
@@ -1622,10 +4135,74 @@
             li.className = 'sidebar-mini-item';
             const left = document.createElement('div');
             left.className = 'mini-left';
+            const textWrap = document.createElement('div');
+            textWrap.className = 'mini-text-wrap';
             const text = document.createElement('span');
             text.className = 'mini-text';
             text.textContent = title;
-            left.appendChild(text);
+            const playtime = document.createElement('span');
+            playtime.className = 'mini-subtext';
+            const ms = getPlaytimeForGame(id);
+            playtime.textContent = ms ? formatPlaytime(ms) : 'Under 1 min';
+            textWrap.append(text, playtime);
+            left.appendChild(textWrap);
+            li.appendChild(left);
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-arrow-up-right-from-square';
+            li.appendChild(icon);
+            li.addEventListener('click', () => openGame(id));
+            frag.appendChild(li);
+        });
+        list.appendChild(frag);
+    }
+
+    function renderProfilePlaytime() {
+        const list = els.profilePlaytimeList;
+        const empty = els.profilePlaytimeEmpty;
+        if (!list || !empty) return;
+        list.innerHTML = '';
+        const playtimeMap = getPlaytimeMap();
+        if (!state.user) {
+            empty.textContent = 'Sign in to track playtime.';
+            empty.style.display = 'block';
+            return;
+        }
+        const seen = new Set();
+        const ordered = [];
+        getLastPlayedGames().forEach((id) => {
+            const key = String(id);
+            seen.add(key);
+            ordered.push({ id: key, ms: playtimeMap[key] || 0 });
+        });
+        Object.entries(playtimeMap)
+            .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+            .forEach(([id, ms]) => {
+                if (seen.has(id)) return;
+                ordered.push({ id, ms });
+            });
+        const displayList = ordered.filter((item) => getGameTitleById(item.id) || item.ms > 0);
+        if (!displayList.length) {
+            empty.textContent = 'No playtime tracked yet.';
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        const frag = document.createDocumentFragment();
+        displayList.slice(0, 10).forEach(({ id, ms }) => {
+            const li = document.createElement('li');
+            li.className = 'sidebar-mini-item';
+            const left = document.createElement('div');
+            left.className = 'mini-left';
+            const textWrap = document.createElement('div');
+            textWrap.className = 'mini-text-wrap';
+            const title = document.createElement('span');
+            title.className = 'mini-text';
+            title.textContent = getGameTitleById(id) || 'Unknown Game';
+            const time = document.createElement('span');
+            time.className = 'mini-subtext';
+            time.textContent = ms ? formatPlaytime(ms) : 'Under 1 min';
+            textWrap.append(title, time);
+            left.appendChild(textWrap);
             li.appendChild(left);
             const icon = document.createElement('i');
             icon.className = 'fas fa-arrow-up-right-from-square';
@@ -1673,6 +4250,7 @@
     function beginCloseCurrentGame() {
         if (!state.currentGame && !runtime.closingGame) return;
         const game = state.currentGame || runtime.closingGame?.game;
+        finalizePlaySession(true);
         state.currentGame = null;
         if (!game) return;
         runtime.closingGame = { game, endAt: Date.now() + 10000, progress: 0 };
