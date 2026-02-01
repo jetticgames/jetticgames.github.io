@@ -6,6 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <base href="/">
     <title>Jettic Games</title>
 
     <script>
@@ -91,12 +92,6 @@
                             </div>
                         </li>
                     </div>
-                    <li class="nav-item nav-legal-link" data-page="privacy">
-                        <a href="#" class="nav-link"><i class="nav-icon fas fa-user-shield"></i><span>Privacy Policy</span></a>
-                    </li>
-                    <li class="nav-item nav-legal-link" data-page="terms">
-                        <a href="#" class="nav-link"><i class="nav-icon fas fa-file-contract"></i><span>Terms of Service</span></a>
-                    </li>
                 </ul>
             </nav>
         </aside>
@@ -194,9 +189,7 @@
                                 <div class="manage-header-row">
                                     <div class="manage-text">
                                         <h3>Manage connections</h3>
-                                        <p class="muted-hint">Review requests, remove friends, or block users.</p>
                                     </div>
-                                    <button type="button" class="update-check-btn" id="openAddFriendModalBtn">Add Friend</button>
                                 </div>
                                 <div class="friends-columns">
                                     <div class="friends-panel">
@@ -490,6 +483,7 @@
                             </div>
                             <div class="friends-tab-nav" id="adminTabNav">
                                 <button class="friends-tab cat-tab active" data-tab="requests">Requests</button>
+                                <button class="friends-tab cat-tab" data-tab="reports">Reports</button>
                                 <button class="friends-tab cat-tab" data-tab="games">Games</button>
                                 <button class="friends-tab cat-tab" data-tab="users">Users</button>
                                 <button class="friends-tab cat-tab" data-tab="notice">Notice</button>
@@ -506,6 +500,17 @@
                                     <div id="adminRequestsError" class="form-feedback" style="color:#f85149;"></div>
                                     <div id="adminRequestsEmpty" class="muted-hint" style="display:none;">No requests yet.</div>
                                     <ul id="adminRequestsList" class="friends-list"></ul>
+                                </div>
+
+                                <div class="friends-tab-panel" data-panel="reports">
+                                    <div class="section-header" style="margin:0 0 12px 0;">
+                                        <h3 class="section-title">Reports</h3>
+                                        <button type="button" class="update-check-btn" id="adminReportsRefresh">Refresh</button>
+                                    </div>
+                                    <input type="search" id="adminReportsSearch" placeholder="Search reports..." class="admin-search" />
+                                    <div id="adminReportsError" class="form-feedback" style="color:#f85149;"></div>
+                                    <div id="adminReportsEmpty" class="muted-hint" style="display:none;">No reports yet.</div>
+                                    <ul id="adminReportsList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
                                 </div>
 
                                 <div class="friends-tab-panel" data-panel="games">
@@ -784,7 +789,7 @@
                     <div class="game-page-container">
                         <div class="game-main-area">
                             <div class="game-frame-wrapper">
-                                <iframe id="gameFrame" src="" title="Game"></iframe>
+                                <iframe id="gameFrame" src="" title="Game" allow="fullscreen; autoplay; clipboard-write; gamepad; pointer-lock" allowfullscreen tabindex="-1"></iframe>
                                 <div id="gameDisabledNotice" class="game-disabled-notice" style="display:none;">
                                     <div class="disabled-inner">
                                         <i class="fas fa-triangle-exclamation"></i>
@@ -794,10 +799,9 @@
                                 </div>
                                 <div id="gameLoadingOverlay" aria-live="polite" style="display:none;">
                                     <div class="loading-inner">
-                                        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+                                        <div class="apl-spinner game-loading-spinner" aria-hidden="true"></div>
                                         <div class="loading-status" id="loadingStatusText">Loading game...</div>
-                                        <div class="loading-hint" id="loadingHintText">Preparing resources</div>
-                                        <button class="loading-proxy-btn" id="loadingProxyToggle">Toggle Proxy</button>
+                                        <div class="loading-hint" id="loadingHintText"></div>
                                     </div>
                                 </div>
                             </div>
@@ -809,11 +813,11 @@
                                 <div class="game-info-right">
                                     <div class="game-friend-avatars" id="gameFriendAvatars"></div>
                                     <div class="proxy-toggle-container" aria-label="Proxy toggle">
-                                        <div class="proxy-toggle-visual off" id="proxyToggleGame" role="button" aria-pressed="false" title="Proxy Disabled">
-                                            <i class="fas fa-cloud cloud-icon"></i>
-                                            <span class="status-badge"><i class="fas fa-check check-icon"></i><i class="fas fa-times times-icon"></i></span>
-                                        </div>
+                                        <button class="icon-btn proxy-toggle-btn off" id="proxyToggleGame" type="button" aria-pressed="false" title="Proxy Disabled">
+                                            <i class="fas fa-cloud"></i>
+                                        </button>
                                     </div>
+                                    <button class="icon-btn report-btn" id="openReportBtn" type="button" title="Report a problem"><i class="fas fa-flag"></i></button>
                                     <button class="icon-btn fav-btn" id="gameFavBtn" aria-pressed="false"><i class="fas fa-heart"></i></button>
                                     <button class="icon-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
                                 </div>
@@ -833,9 +837,58 @@
         </main>
     </div>
 
+    <footer class="floating-footer" aria-label="Site footer">
+        <div class="footer-card">
+            <div class="footer-brand">
+                <span class="footer-dot" aria-hidden="true"></span>
+                <span class="footer-title">Jettic</span>
+            </div>
+            <ul class="footer-links" aria-label="Legal links">
+                <li class="nav-item footer-nav-item" data-page="privacy">
+                    <a href="#" class="nav-link footer-link">Privacy Policy</a>
+                </li>
+                <li class="footer-separator" aria-hidden="true">•</li>
+                <li class="nav-item footer-nav-item" data-page="terms">
+                    <a href="#" class="nav-link footer-link">Terms of Service</a>
+                </li>
+            </ul>
+        </div>
+    </footer>
+
     <div id="offlineOverlays" class="offline-overlays" style="display:none;">
         <div id="gameOfflineOverlay" class="game-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h3>You are offline</h3><p>Check your connection.</p></div></div>
         <div id="mainOfflineOverlay" class="main-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h2>You are offline</h2><p>Games and data unavailable while offline.</p></div></div>
+    </div>
+
+    <div id="reportModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
+        <div id="reportOverlay" style="position:absolute; inset:0;"></div>
+        <div class="modal-card" style="width:520px; max-height:85vh; overflow:auto;">
+            <div class="modal-header">
+                <h3>Report a problem</h3>
+                <button class="close-auth" id="reportClose" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="reportForm" class="profile-form" autocomplete="off">
+                <div class="report-game-meta" id="reportGameMeta">No game selected</div>
+                <input type="hidden" id="reportGameId" />
+                <input type="hidden" id="reportGameTitle" />
+                <label>Summary<input type="text" id="reportSummary" maxlength="160" placeholder="Brief summary" required /></label>
+                <label>Category
+                    <select id="reportCategory">
+                        <option value="bug">Bug</option>
+                        <option value="abuse">Abuse</option>
+                        <option value="content">Content</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label>Description<textarea id="reportDescription" rows="4" maxlength="2000" placeholder="Describe what happened" required></textarea></label>
+                <div class="form-feedback" id="reportFeedback"></div>
+                <div class="modal-actions" style="margin-top:12px;">
+                    <button type="button" class="logout-btn" id="reportCancelBtn">Cancel</button>
+                    <button type="submit" class="logout-btn" id="reportSubmitBtn">Send report</button>
+                    <div class="save-indicator" id="reportSubmitIndicator" style="display:none;"></div>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="adminGameModal" style="display:none; position:fixed; inset:0; z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">

@@ -22,12 +22,25 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REQUESTS_FILE = path.join(DATA_DIR, 'requests.json');
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+const SITEMAP_FILE = path.join(FRONTEND_DIR, 'sitemap.xml');
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/+$/, '') : null;
 const COOKIE_NAME = 'jg_session';
+const REFRESH_COOKIE_NAME = 'jg_refresh';
 const GUEST_COOKIE = 'jg_guest';
 const LEGACY_SESSION_COOKIE = 'ww_session';
 const LEGACY_GUEST_COOKIE = 'ww_guest';
+const SESSION_FILE = path.join(DATA_DIR, 'sessions.json');
+const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60 * 60; // default 1h to reduce churn
+const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 30;
+const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+const COOKIE_SECURE = process.env.COOKIE_SECURE
+    ? process.env.COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production'; // secure in prod by default; can be disabled for local http
+const COOKIE_SAME_SITE = (process.env.COOKIE_SAME_SITE || (COOKIE_SECURE ? 'none' : 'lax')).toLowerCase();
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 const ONLINE_WINDOW_MS = 60 * 1000; // users must ping within last 60 seconds to count as online
 const ANALYTICS_DIR = path.join(DATA_DIR, 'analytics');
 const ANALYTICS_PLAYERS_FILE = path.join(ANALYTICS_DIR, 'players.json');
@@ -83,6 +96,8 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
 app.use(morgan('dev'));
+// Disable weak ETags to avoid 304 responses breaking SPA fetch flows
+app.set('etag', false);
 
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -184,6 +199,18 @@ function isHttpUrl(url) {
 function isIconUrl(url) {
     if (!url) return true;
     return isHttpUrl(url) || url.startsWith('data:image/');
+}
+
+function resolveBaseUrl(req) {
+    if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+    const forwardedProto = (req.get('x-forwarded-proto') || '').split(',')[0].trim();
+    const protocol = forwardedProto || req.protocol || 'http';
+    const host = req.get('x-forwarded-host') || req.get('host') || `localhost:${PORT}`;
+    return `${protocol}://${host}`.replace(/\/+$/, '');
+}
+
+function buildGamePathForSitemap(gameId) {
+    return `/game/${encodeURIComponent(gameId)}`;
 }
 
 function extractMetaFromHtml(html = '', baseUrl = '') {
@@ -329,6 +356,35 @@ async function loadGames() {
 
 async function saveGames(games) {
     await writeJson(GAMES_FILE, games);
+    try {
+        await regenerateSitemap(games);
+    } catch (err) {
+        console.error('Failed to regenerate sitemap after saving games', err);
+    }
+}
+
+async function generateSitemapXml(games, baseUrl) {
+    const base = (baseUrl || PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
+    const urls = [
+        `${base}/`,
+        ...games
+            .filter((g) => !g.disabled)
+            .map((g) => `${base}${buildGamePathForSitemap(g.id)}`)
+    ];
+    return [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ...urls.map((loc) => `  <url><loc>${loc}</loc></url>`),
+        '</urlset>'
+    ].join('\n');
+}
+
+async function regenerateSitemap(games, baseUrl) {
+    const list = games || await loadGames();
+    const xml = await generateSitemapXml(list, baseUrl);
+    await fs.mkdir(path.dirname(SITEMAP_FILE), { recursive: true });
+    await fs.writeFile(SITEMAP_FILE, xml, 'utf8');
+    return xml;
 }
 
 async function loadUsers() {
@@ -356,8 +412,17 @@ async function saveRequests(requests) {
     await writeJson(REQUESTS_FILE, { requests });
 }
 
+async function loadReports() {
+    const data = await readJson(REPORTS_FILE, { reports: [] });
+    return Array.isArray(data) ? data : data.reports || [];
+}
+
+async function saveReports(reports) {
+    await writeJson(REPORTS_FILE, { reports });
+}
+
 function sanitizeUser(user) {
-    if (!user) return null;
+    if (!user) return null; // Ensure user object is valid
     return {
         id: user.id,
         username: user.username,
@@ -379,60 +444,235 @@ function sanitizeUser(user) {
     };
 }
 
-function signToken(user) {
-    return jwt.sign({ id: user.id, username: user.username, admin: !!user.admin }, JWT_SECRET, { expiresIn: '7d' });
+function hashToken(token) {
+    return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
 
-function getSessionToken(req) {
+function getAccessToken(req) {
     return req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
 }
 
-async function requireAdmin(req, res, next) {
-    const token = getSessionToken(req);
-    if (!token) return res.status(401).json({ error: 'Not authenticated' });
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const users = await loadUsers();
-        const me = await getUserById(users, decoded.id);
-        if (!me?.admin) return res.status(403).json({ error: 'Admin required' });
-        req.user = { ...decoded, admin: true };
-        return next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid session' });
+function parseRefreshCookie(req) {
+    const raw = req.cookies[REFRESH_COOKIE_NAME];
+    if (!raw) return null;
+    const [sessionId, ...rest] = String(raw).split('.');
+    const token = rest.join('.');
+    if (!sessionId || !token) return null;
+    return { sessionId, token };
+}
+
+function signAccessToken(user, sessionId) {
+    return jwt.sign(
+        { sid: sessionId, id: user.id, username: user.username, admin: !!user.admin },
+        JWT_SECRET,
+        { expiresIn: ACCESS_TOKEN_TTL_SECONDS }
+    );
+}
+
+function cookieOptions(maxAge) {
+    const opts = {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAME_SITE,
+        maxAge
+    };
+    if (COOKIE_DOMAIN) opts.domain = COOKIE_DOMAIN;
+    return opts;
+}
+
+function setAccessCookie(res, token) {
+    res.cookie(COOKIE_NAME, token, cookieOptions(ACCESS_TOKEN_TTL_SECONDS * 1000));
+    res.clearCookie(LEGACY_SESSION_COOKIE);
+}
+
+function setRefreshCookie(res, sessionId, refreshToken) {
+    res.cookie(REFRESH_COOKIE_NAME, `${sessionId}.${refreshToken}`, cookieOptions(REFRESH_TOKEN_TTL_MS));
+    res.clearCookie(LEGACY_GUEST_COOKIE);
+    res.clearCookie(LEGACY_SESSION_COOKIE);
+}
+
+function setAuthCookies(res, { accessToken, sessionId, refreshToken }) {
+    setAccessCookie(res, accessToken);
+    if (refreshToken) setRefreshCookie(res, sessionId, refreshToken);
+}
+
+function clearAuthCookies(res) {
+    res.clearCookie(COOKIE_NAME);
+    res.clearCookie(REFRESH_COOKIE_NAME);
+    res.clearCookie(LEGACY_SESSION_COOKIE);
+    res.clearCookie(LEGACY_GUEST_COOKIE);
+}
+
+async function loadSessions() {
+    const data = await readJson(SESSION_FILE, { sessions: [] });
+    return Array.isArray(data) ? data : data.sessions || [];
+}
+
+async function saveSessions(sessions) {
+    await writeJson(SESSION_FILE, { sessions });
+}
+
+function pruneSessionsList(sessions, now = Date.now()) {
+    const cutoff = now - REFRESH_TOKEN_TTL_MS;
+    return sessions.filter((s) => {
+        const exp = Date.parse(s.expiresAt || 0);
+        const revoked = Date.parse(s.revokedAt || 0);
+        const active = !Number.isFinite(exp) || exp > now;
+        const recentlyRevoked = Number.isFinite(revoked) ? revoked > cutoff : false;
+        return active || recentlyRevoked;
+    });
+}
+
+async function persistSessions(sessions) {
+    await saveSessions(pruneSessionsList(sessions));
+}
+
+async function createSession(user, meta = {}) {
+    const sessions = await loadSessions();
+    const refreshToken = crypto.randomBytes(48).toString('hex');
+    const now = new Date();
+    const session = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        refreshHash: hashToken(refreshToken),
+        createdAt: now.toISOString(),
+        lastSeenAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + REFRESH_TOKEN_TTL_MS).toISOString(),
+        ip: meta.ip || null,
+        userAgent: meta.userAgent || null,
+        revokedAt: null
+    };
+    sessions.push(session);
+    await persistSessions(sessions);
+    return { session, refreshToken };
+}
+
+async function replaceSessionForUser(user, req, res) {
+    const meta = { ip: getClientIp(req), userAgent: req.headers['user-agent'] };
+    const sessions = await loadSessions();
+    if (req.session) {
+        const existing = sessions.find((s) => s.id === req.session.id);
+        if (existing) existing.revokedAt = new Date().toISOString();
+        await persistSessions(sessions);
     }
+    const { session, refreshToken } = await createSession(user, meta);
+    const accessToken = signAccessToken(user, session.id);
+    setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    req.session = session;
+    return session;
+}
+
+function accessTokenStale(decoded) {
+    if (!decoded?.exp) return false;
+    const msLeft = decoded.exp * 1000 - Date.now();
+    const threshold = Math.max(ACCESS_TOKEN_TTL_SECONDS * 250, 5 * 60 * 1000); // refresh when ~<5m left
+    return msLeft > 0 && msLeft < threshold;
+}
+
+async function refreshSessionFromCookie(req, res) {
+    const parsed = parseRefreshCookie(req);
+    if (!parsed) return null;
+    const sessions = await loadSessions();
+    const session = sessions.find((s) => s.id === parsed.sessionId);
+    if (!session || session.revokedAt) {
+        await persistSessions(sessions);
+        return null;
+    }
+
+    const now = Date.now();
+    const expiresAt = Date.parse(session.expiresAt || 0);
+    if (Number.isFinite(expiresAt) && expiresAt <= now) {
+        session.revokedAt = session.revokedAt || new Date().toISOString();
+        await persistSessions(sessions);
+        return null;
+    }
+
+    if (session.refreshHash !== hashToken(parsed.token)) return null;
+
+    const users = await loadUsers();
+    const me = await getUserById(users, session.userId);
+    if (!me) {
+        session.revokedAt = session.revokedAt || new Date().toISOString();
+        await persistSessions(sessions);
+        return null;
+    }
+
+    session.lastSeenAt = new Date().toISOString();
+    await persistSessions(sessions);
+
+    // Do not rotate the refresh token during silent refresh to avoid race conditions
+    // when multiple concurrent requests refresh at the same time. Only rotate on login
+    // or credential changes.
+    const accessToken = signAccessToken(me, session.id);
+    setAccessCookie(res, accessToken);
+    return { user: me, session };
 }
 
 async function requireAuth(req, res, next) {
-    const token = getSessionToken(req);
-    if (!token) return res.status(401).json({ error: 'Not authenticated' });
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const users = await loadUsers();
-        const me = await getUserById(users, decoded.id);
-        if (!me) {
-            res.clearCookie(COOKIE_NAME);
-            res.clearCookie(LEGACY_SESSION_COOKIE);
-            return res.status(401).json({ error: 'Session expired' });
+    const token = getAccessToken(req);
+    let decoded = null;
+
+    if (token) {
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (_) {
+            decoded = null; // fall through to refresh flow
         }
-        req.user = decoded;
-        req.me = me;
-        return next();
-    } catch (err) {
-        res.clearCookie(COOKIE_NAME);
-        res.clearCookie(LEGACY_SESSION_COOKIE);
-        return res.status(401).json({ error: 'Invalid session' });
     }
+
+    const tryRefresh = async () => {
+        const refreshed = await refreshSessionFromCookie(req, res);
+        if (refreshed?.user && refreshed?.session) {
+            req.user = { id: refreshed.user.id, username: refreshed.user.username, admin: !!refreshed.user.admin };
+            req.me = refreshed.user;
+            req.session = refreshed.session;
+            return true;
+        }
+        return false;
+    };
+
+    if (!decoded) {
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    const sessions = await loadSessions();
+    const session = sessions.find((s) => s.id === decoded.sid);
+    const now = Date.now();
+    const expiresAt = Date.parse(session?.expiresAt || 0);
+    if (!session || session.revokedAt || (Number.isFinite(expiresAt) && expiresAt <= now)) {
+        if (session && !session.revokedAt) session.revokedAt = new Date().toISOString();
+        await persistSessions(sessions);
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    const users = await loadUsers();
+    const me = await getUserById(users, session.userId);
+    if (!me) {
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    session.lastSeenAt = new Date().toISOString();
+    await persistSessions(sessions);
+
+    req.user = { id: me.id, username: me.username, admin: !!me.admin };
+    req.me = me;
+    req.session = session;
+    if (accessTokenStale(decoded)) {
+        const fresh = signAccessToken(me, session.id);
+        setAccessCookie(res, fresh);
+    }
+    return next();
 }
 
-function setSessionCookie(res, token) {
-    res.cookie(COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 24 * 7
+async function requireAdmin(req, res, next) {
+    return requireAuth(req, res, () => {
+        if (!req.me?.admin) return res.status(403).json({ error: 'Admin required' });
+        req.user = { ...(req.user || {}), admin: true };
+        return next();
     });
-    // Clear legacy WaterWall cookie names during the rebrand
-    res.clearCookie(LEGACY_SESSION_COOKIE);
 }
 
 async function getUserById(users, id) {
@@ -615,6 +855,8 @@ setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
     await ensureFile(GAMES_FILE, []);
     await ensureFile(CONFIG_FILE, {});
     await ensureFile(REQUESTS_FILE, { requests: [] });
+    await ensureFile(REPORTS_FILE, { reports: [] });
+    await ensureFile(SESSION_FILE, { sessions: [] });
     await ensureAnalyticsFiles();
         await ensureFile(BANNER_FILE, `enabled: true
 id: default
@@ -709,6 +951,66 @@ app.delete('/api/requests/:id', requireAdmin, async (req, res) => {
     if (idx === -1) return res.status(404).json({ error: 'Request not found' });
     requests.splice(idx, 1);
     await saveRequests(requests);
+    res.json({ success: true });
+});
+
+// --- Issue Reports
+app.post('/api/reports', requireAuth, async (req, res) => {
+    const { summary, description, category, gameId, gameTitle } = req.body || {};
+    const title = (summary || '').trim();
+    const details = (description || '').trim();
+    if (!title || title.length < 3) return res.status(400).json({ error: 'Summary is required' });
+    if (title.length > 160) return res.status(400).json({ error: 'Summary too long' });
+    if (!details || details.length < 10) return res.status(400).json({ error: 'Description is required' });
+    if (details.length > 2000) return res.status(400).json({ error: 'Description too long' });
+
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+
+    const reports = await loadReports();
+    const now = new Date().toISOString();
+    const report = {
+        id: crypto.randomUUID(),
+        userId: me.id,
+        username: me.username,
+        summary: title,
+        description: details,
+        category: (category || 'general').toString().slice(0, 40),
+        gameId: gameId ? String(gameId) : null,
+        gameTitle: gameTitle ? String(gameTitle).slice(0, 180) : null,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now
+    };
+    reports.push(report);
+    await saveReports(reports);
+    res.status(201).json({ report });
+});
+
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+    const reports = await loadReports();
+    res.json({ reports });
+});
+
+app.put('/api/admin/reports/:id/status', requireAdmin, async (req, res) => {
+    const { status } = req.body || {};
+    if (!['open', 'resolved', 'dismissed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    const reports = await loadReports();
+    const report = reports.find((r) => r.id === req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    report.status = status;
+    report.updatedAt = new Date().toISOString();
+    await saveReports(reports);
+    res.json({ report });
+});
+
+app.delete('/api/admin/reports/:id', requireAdmin, async (req, res) => {
+    const reports = await loadReports();
+    const idx = reports.findIndex((r) => r.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Report not found' });
+    reports.splice(idx, 1);
+    await saveReports(reports);
     res.json({ success: true });
 });
 
@@ -1205,8 +1507,12 @@ app.post('/api/auth/register', async (req, res) => {
         recordAccountEvent('signups');
         await saveUsers(users);
 
-        const token = signToken(user);
-        setSessionCookie(res, token);
+        const { session, refreshToken } = await createSession(user, {
+            ip: getClientIp(req),
+            userAgent: req.headers['user-agent']
+        });
+        const accessToken = signAccessToken(user, session.id);
+        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
         res.status(201).json({ user: sanitizeUser(user) });
     } catch (err) {
         res.status(400).json({ error: err.message || 'Invalid registration' });
@@ -1233,9 +1539,12 @@ app.post('/api/auth/login', async (req, res) => {
     setPresence(user, { online: !user.banned?.active });
     user.updatedAt = new Date().toISOString();
     await saveUsers(users);
-
-    const token = signToken(user);
-    setSessionCookie(res, token);
+    const { session, refreshToken } = await createSession(user, {
+        ip: getClientIp(req),
+        userAgent: req.headers['user-agent']
+    });
+    const accessToken = signAccessToken(user, session.id);
+    setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
     const payload = { user: sanitizeUser(user) };
     if (user.banned?.active) {
         payload.banned = true;
@@ -1244,15 +1553,22 @@ app.post('/api/auth/login', async (req, res) => {
     res.json(payload);
 });
 
-app.post('/api/auth/logout', (req, res) => {
-    res.clearCookie(COOKIE_NAME);
-    res.clearCookie(LEGACY_SESSION_COOKIE);
-    (async () => {
-        const users = await loadUsers();
-        const token = getSessionToken(req);
+app.post('/api/auth/logout', async (req, res) => {
+    clearAuthCookies(res);
+    try {
+        const sessions = await loadSessions();
+        const parsed = parseRefreshCookie(req);
+        if (parsed) {
+            const session = sessions.find((s) => s.id === parsed.sessionId);
+            if (session) session.revokedAt = new Date().toISOString();
+            await persistSessions(sessions);
+        }
+
+        const token = getAccessToken(req);
         if (token) {
             try {
                 const decoded = jwt.verify(token, JWT_SECRET);
+                const users = await loadUsers();
                 const me = await getUserById(users, decoded.id);
                 if (me) {
                     setPresence(me, { online: false, gameId: null });
@@ -1261,7 +1577,8 @@ app.post('/api/auth/logout', (req, res) => {
                 }
             } catch (_) {}
         }
-    })();
+    } catch (_) {}
+
     res.json({ success: true });
 });
 
@@ -1299,8 +1616,17 @@ app.put('/api/profile', requireAuth, async (req, res) => {
     }
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
-    const token = signToken(me);
-    setSessionCookie(res, token);
+    if (req.session) {
+        const accessToken = signAccessToken(me, req.session.id);
+        setAccessCookie(res, accessToken);
+    } else {
+        const { session, refreshToken } = await createSession(me, {
+            ip: getClientIp(req),
+            userAgent: req.headers['user-agent']
+        });
+        const accessToken = signAccessToken(me, session.id);
+        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    }
     res.json({ user: sanitizeUser(me) });
 });
 
@@ -1318,8 +1644,7 @@ app.put('/api/profile/email', requireAuth, async (req, res) => {
     me.email = normalized;
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
-    const token = signToken(me);
-    setSessionCookie(res, token);
+    await replaceSessionForUser(me, req, res);
     res.json({ user: sanitizeUser(me) });
 });
 
@@ -1335,8 +1660,7 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
     me.passwordHash = await bcrypt.hash(newPassword, 10);
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
-    const token = signToken(me);
-    setSessionCookie(res, token);
+    await replaceSessionForUser(me, req, res);
     res.json({ success: true });
 });
 
@@ -1692,14 +2016,21 @@ app.post('/api/online/ping', async (req, res) => {
     const now = Date.now();
     pruneGuestHeartbeats(now);
 
-    const token = getSessionToken(req);
-    const decoded = token ? decodeSessionToken(token) : null;
+    const token = getAccessToken(req);
+    let decoded = token ? decodeSessionToken(token) : null;
     let users = null;
     let me = null;
 
     if (decoded?.id) {
         users = await loadUsers();
         me = await getUserById(users, decoded.id);
+    } else {
+        const refreshed = await refreshSessionFromCookie(req, res);
+        if (refreshed?.user?.id) {
+            decoded = { id: refreshed.user.id };
+            users = await loadUsers();
+            me = await getUserById(users, refreshed.user.id);
+        }
     }
 
     if (me) {
@@ -1828,6 +2159,21 @@ app.get('/proxy', async (req, res) => {
         clearTimeout(timeout);
     }
 });
+
+// --- SEO sitemap
+app.get('/sitemap.xml', async (req, res) => {
+    try {
+        const games = await loadGames();
+        const base = resolveBaseUrl(req);
+        const xml = await generateSitemapXml(games, base);
+        res.type('application/xml').send(xml);
+        regenerateSitemap(games, base).catch((err) => console.error('Failed to persist sitemap', err));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to generate sitemap' });
+    }
+});
+
+regenerateSitemap().catch((err) => console.error('Failed to generate initial sitemap', err));
 
 // --- Static frontend
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));

@@ -18,6 +18,7 @@
         currentGame: null,
         proxyEnabled: false,
         adminRequests: [],
+        adminReports: [],
         adminGames: [],
         adminUsers: [],
         adminLoginCache: {},
@@ -62,8 +63,13 @@
         defaultTitle: document.title,
         defaultFavicon: null,
         lastOnlineState: navigator.onLine !== false,
-        offlineNotified: false
+        offlineNotified: false,
+        handlingRoute: false,
+        pendingRoute: null
     };
+
+    const HOME_PATH = '/';
+    const GAME_ROUTE_PREFIX = '/game/';
 
     let actionModalResolver = null;
     let presetEditContext = null;
@@ -308,6 +314,7 @@
         cacheElements();
         const currentIcon = document.querySelector('link[rel~="icon"], link[rel="shortcut icon"]');
         runtime.defaultFavicon = currentIcon ? currentIcon.getAttribute('href') : null;
+        runtime.pendingRoute = parseRouteFromPath(window.location.pathname);
         bindNavigation();
         bindAuthModal();
         bindRequestForm();
@@ -318,6 +325,7 @@
         bindFriendsUI();
         bindFavoritesUI();
         bindGameControls();
+        bindReportUI();
         bindLogoutModal();
         bindBannedModal();
         window.addEventListener('resize', renderGameAds);
@@ -330,8 +338,9 @@
         window.addEventListener('focus', () => sendOnlinePing());
         window.addEventListener('offline', () => handleConnectivityChange(false));
         window.addEventListener('online', () => handleConnectivityChange(true));
+        window.addEventListener('popstate', handlePopState);
         setActiveNav('home');
-        showPage('home');
+        showPage('home', { skipHistory: true, replaceHistory: true });
         loadInitial();
     }
 
@@ -436,6 +445,7 @@
             settingTabPreset: document.getElementById('settingTabPreset'),
             settingTabFetchBtn: document.getElementById('settingTabFetchBtn'),
             gameFrame: document.getElementById('gameFrame'),
+            gameFrameWrapper: document.querySelector('.game-frame-wrapper'),
             gameTitle: document.getElementById('gameTitle'),
             gameCategory: document.getElementById('gameCategory'),
             gameDescription: document.getElementById('gameDescription'),
@@ -445,6 +455,7 @@
             loadingHintText: document.getElementById('loadingHintText'),
             loadingProxyToggle: document.getElementById('loadingProxyToggle'),
             proxyToggleGame: document.getElementById('proxyToggleGame'),
+            openReportBtn: document.getElementById('openReportBtn'),
             gameFavBtn: document.getElementById('gameFavBtn'),
             fullscreenBtn: document.getElementById('fullscreenBtn'),
             offlineOverlays: document.getElementById('offlineOverlays'),
@@ -500,6 +511,11 @@
         els.adminRequestsError = document.getElementById('adminRequestsError');
         els.adminRequestsRefresh = document.getElementById('adminRequestsRefresh');
         els.adminRequestsSearch = document.getElementById('adminRequestsSearch');
+        els.adminReportsList = document.getElementById('adminReportsList');
+        els.adminReportsEmpty = document.getElementById('adminReportsEmpty');
+        els.adminReportsError = document.getElementById('adminReportsError');
+        els.adminReportsRefresh = document.getElementById('adminReportsRefresh');
+        els.adminReportsSearch = document.getElementById('adminReportsSearch');
         els.adminTabNav = document.getElementById('adminTabNav');
         els.adminTabPanels = Array.from(document.querySelectorAll('#adminTabPanels .friends-tab-panel'));
         els.adminGamesList = document.getElementById('adminGamesList');
@@ -613,6 +629,20 @@
         els.gameDisabledNotice = document.getElementById('gameDisabledNotice');
         els.gameAdRail = document.getElementById('gameAdRail');
         els.gameAdSlots = document.getElementById('gameAdSlots');
+        els.reportModal = document.getElementById('reportModal');
+        els.reportOverlay = document.getElementById('reportOverlay');
+        els.reportForm = document.getElementById('reportForm');
+        els.reportSummary = document.getElementById('reportSummary');
+        els.reportCategory = document.getElementById('reportCategory');
+        els.reportDescription = document.getElementById('reportDescription');
+        els.reportFeedback = document.getElementById('reportFeedback');
+        els.reportSubmitBtn = document.getElementById('reportSubmitBtn');
+        els.reportSubmitIndicator = document.getElementById('reportSubmitIndicator');
+        els.reportClose = document.getElementById('reportClose');
+        els.reportCancelBtn = document.getElementById('reportCancelBtn');
+        els.reportGameId = document.getElementById('reportGameId');
+        els.reportGameTitle = document.getElementById('reportGameTitle');
+        els.reportGameMeta = document.getElementById('reportGameMeta');
     }
 
     function bindNavigation() {
@@ -672,9 +702,11 @@
 
     function bindAdminUI() {
         els.adminRequestsRefresh?.addEventListener('click', () => loadAdminRequests(true));
+        els.adminReportsRefresh?.addEventListener('click', () => loadAdminReports(true));
         els.adminGamesRefresh?.addEventListener('click', () => loadAdminGames(true));
         els.adminUsersRefresh?.addEventListener('click', () => loadAdminUsers(true));
         els.adminRequestsSearch?.addEventListener('input', () => renderAdminRequests());
+        els.adminReportsSearch?.addEventListener('input', () => renderAdminReports());
         els.adminGamesSearch?.addEventListener('input', () => renderAdminGames());
         els.adminUsersSearch?.addEventListener('input', () => renderAdminUsers());
 
@@ -1156,11 +1188,6 @@
             updateProxyUI();
             if (state.currentGame) loadGameFrame(state.currentGame);
         });
-        els.loadingProxyToggle?.addEventListener('click', () => {
-            state.proxyEnabled = !state.proxyEnabled;
-            updateProxyUI();
-            if (state.currentGame) loadGameFrame(state.currentGame);
-        });
         els.gameFavBtn?.addEventListener('click', () => {
             if (!state.currentGame) return;
             toggleFavorite(state.currentGame.id);
@@ -1170,6 +1197,19 @@
             if (!wrap) return;
             if (!document.fullscreenElement) wrap.requestFullscreen?.(); else document.exitFullscreen?.();
         });
+        els.openReportBtn?.addEventListener('click', () => {
+            if (!state.user) return openAuthModal('login');
+            openReportModal();
+        });
+        els.gameFrameWrapper?.addEventListener('click', focusGameFrame, true);
+    }
+
+    function bindReportUI() {
+        const close = () => closeReportModal();
+        els.reportClose?.addEventListener('click', close);
+        els.reportCancelBtn?.addEventListener('click', close);
+        els.reportOverlay?.addEventListener('click', close);
+        els.reportForm?.addEventListener('submit', handleReportSubmit);
     }
 
     function bindLogoutModal() {
@@ -1210,6 +1250,7 @@
             } else {
                 refreshUserUI();
             }
+            applyRouteFromLocation({ initial: true });
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
         } finally {
@@ -1494,6 +1535,14 @@
         return card;
     }
 
+    function refreshGameCardFriends() {
+        if (!els.allGames) return;
+        els.allGames.querySelectorAll('.game-card').forEach((card) => {
+            const gameId = card.dataset.id;
+            renderCardFriends(card, gameId);
+        });
+    }
+
     function renderCardFriends(card, gameId) {
         const wrap = card.querySelector('.card-friend-avatars');
         if (!wrap) return;
@@ -1567,16 +1616,19 @@
         }
     }
 
-    async function openGame(gameId) {
+    async function openGame(gameId, options = {}) {
         const game = state.games.find((g) => String(g.id) === String(gameId));
-        if (!game) return;
+        if (!game) return false;
+        const shouldUpdateUrl = !options.skipHistory && !runtime.handlingRoute;
+        if (shouldUpdateUrl) updateGameRoute(game.id, { replace: !!options.replaceHistory });
+        document.title = `${game.title} • Jettic Games`;
         finalizePlaySession(true);
         cancelCloseTimer(true);
         state.currentGame = game;
         els.gameTitle.textContent = game.title;
         els.gameCategory.textContent = capitalize(game.category || 'Other');
         els.gameDescription.textContent = game.description || '';
-        showPage('game');
+        showPage('game', { skipHistory: true });
         updateGameFavoriteButton(game.id);
         state.proxyEnabled = state.settings?.proxyDefault || false;
         updateProxyUI();
@@ -1585,6 +1637,7 @@
         renderGameFriends(game.id);
         updateLocalLastPlayed(game.id);
         loadGameFrame(game);
+        return true;
     }
 
     function loadGameFrame(game) {
@@ -1600,14 +1653,83 @@
 
         els.gameLoadingOverlay.style.display = 'flex';
         els.loadingStatusText.textContent = 'Loading game...';
-        els.loadingHintText.textContent = state.proxyEnabled ? 'Proxy enabled' : 'Direct load';
+        if (els.loadingHintText) els.loadingHintText.textContent = '';
         const src = state.proxyEnabled ? `${backendUrl}/proxy?url=${encodeURIComponent(game.embed)}` : game.embed;
         els.gameFrame.src = src;
         const onLoad = () => {
             els.gameLoadingOverlay.style.display = 'none';
             els.gameFrame.removeEventListener('load', onLoad);
+            focusGameFrame();
         };
         els.gameFrame.addEventListener('load', onLoad);
+        focusGameFrame();
+    }
+
+    function focusGameFrame() {
+        const frame = els.gameFrame;
+        if (!frame) return;
+        try { frame.contentWindow?.focus?.(); } catch (_) {}
+        frame.focus?.();
+    }
+
+    function openReportModal() {
+        if (!els.reportModal) return;
+        const game = state.currentGame;
+        if (els.reportGameId) els.reportGameId.value = game ? game.id : '';
+        if (els.reportGameTitle) els.reportGameTitle.value = game ? game.title : '';
+        if (els.reportGameMeta) {
+            els.reportGameMeta.textContent = game ? `Reporting ${game.title}` : 'No game selected';
+        }
+        if (els.reportSummary) els.reportSummary.value = '';
+        if (els.reportCategory) els.reportCategory.value = 'bug';
+        if (els.reportDescription) els.reportDescription.value = '';
+        setReportFeedback('');
+        setReportSubmitting(false);
+        els.reportModal.style.display = 'flex';
+        els.reportModal.setAttribute('aria-hidden', 'false');
+        els.reportSummary?.focus();
+    }
+
+    function closeReportModal() {
+        if (!els.reportModal) return;
+        els.reportModal.style.display = 'none';
+        els.reportModal.setAttribute('aria-hidden', 'true');
+        setReportSubmitting(false);
+    }
+
+    function setReportFeedback(msg, isError = false) {
+        if (!els.reportFeedback) return;
+        els.reportFeedback.textContent = msg || '';
+        els.reportFeedback.style.color = isError ? '#f85149' : '#58a6ff';
+    }
+
+    function setReportSubmitting(isLoading) {
+        if (els.reportSubmitIndicator) els.reportSubmitIndicator.style.display = isLoading ? 'inline-block' : 'none';
+        if (els.reportForm) els.reportForm.querySelectorAll('input, textarea, button, select').forEach((el) => { el.disabled = !!isLoading; });
+    }
+
+    async function handleReportSubmit(e) {
+        e.preventDefault();
+        if (!state.user) { openAuthModal('login'); return; }
+        const summary = (els.reportSummary?.value || '').trim();
+        const description = (els.reportDescription?.value || '').trim();
+        const category = (els.reportCategory?.value || '').trim() || 'general';
+        const gameId = (els.reportGameId?.value || state.currentGame?.id || '').toString().trim();
+        const gameTitle = (els.reportGameTitle?.value || state.currentGame?.title || '').toString().trim();
+        setReportFeedback('');
+        setReportSubmitting(true);
+        try {
+            const payload = { summary, description, category };
+            if (gameId) payload.gameId = gameId;
+            if (gameTitle) payload.gameTitle = gameTitle;
+            await api.post('/api/reports', payload);
+            showToast('Report sent');
+            closeReportModal();
+        } catch (err) {
+            setReportFeedback(err.message || 'Failed to send report', true);
+        } finally {
+            setReportSubmitting(false);
+        }
     }
 
     function toggleFavorite(gameId) {
@@ -1651,8 +1773,7 @@
             renderFriends();
         } catch (err) {
             if (err.status === 401 || err.status === 404) {
-                await logout();
-                showToast('Session expired. Please sign in again.', true);
+                showToast('Could not refresh friends right now. Try again or re-sign in if it keeps happening.', true);
                 return;
             }
             showToast(err.message || 'Friends unavailable', true);
@@ -1672,6 +1793,19 @@
             renderAdminRequests();
         } catch (err) {
             if (els.adminRequestsError) els.adminRequestsError.textContent = err.message || 'Failed to load requests';
+        }
+    }
+
+    async function loadAdminReports(force = false) {
+        if (!state.user?.admin) return;
+        if (!force && state.adminReports?.length) { renderAdminReports(); return; }
+        if (els.adminReportsError) els.adminReportsError.textContent = '';
+        try {
+            const { reports = [] } = await api.get('/api/admin/reports');
+            state.adminReports = reports;
+            renderAdminReports();
+        } catch (err) {
+            if (els.adminReportsError) els.adminReportsError.textContent = err.message || 'Failed to load reports';
         }
     }
 
@@ -2067,6 +2201,38 @@
         }
     }
 
+    async function updateReportStatus(id, status) {
+        if (!state.user?.admin) return;
+        try {
+            const { report } = await api.put(`/api/admin/reports/${id}/status`, { status });
+            state.adminReports = state.adminReports.map((r) => (r.id === id ? report : r));
+            renderAdminReports();
+            showToast(`Report marked ${status}`);
+        } catch (err) {
+            showToast(err.message || 'Failed to update report', true);
+        }
+    }
+
+    async function deleteReport(id) {
+        if (!state.user?.admin) return;
+        const res = await openActionModal({
+            title: 'Delete report',
+            message: 'Delete this report? This cannot be undone.',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            tone: 'danger'
+        });
+        if (!res.confirmed) return;
+        try {
+            await api.request(`/api/admin/reports/${id}`, { method: 'DELETE' });
+            state.adminReports = state.adminReports.filter((r) => r.id !== id);
+            renderAdminReports();
+            showToast('Report deleted');
+        } catch (err) {
+            showToast(err.message || 'Failed to delete report', true);
+        }
+    }
+
     async function deleteRequest(id) {
         if (!state.user?.admin) return;
         try {
@@ -2201,7 +2367,7 @@
 
         // update overlays for current game
         if (state.currentGame) renderGameFriends(state.currentGame.id);
-        renderGames();
+        refreshGameCardFriends();
         renderOnlineFriends();
     }
 
@@ -2292,6 +2458,97 @@
             frag.appendChild(li);
         });
         els.adminRequestsList.appendChild(frag);
+    }
+
+    function renderAdminReports() {
+        if (!els.adminReportsList) return;
+        const list = Array.isArray(state.adminReports) ? state.adminReports.slice() : [];
+        const query = (els.adminReportsSearch?.value || '').trim().toLowerCase();
+        const filtered = (query
+            ? list.filter((rep) =>
+                (rep.summary || '').toLowerCase().includes(query) ||
+                (rep.description || '').toLowerCase().includes(query) ||
+                (rep.username || '').toLowerCase().includes(query) ||
+                (rep.category || '').toLowerCase().includes(query) ||
+                (rep.gameTitle || '').toLowerCase().includes(query)
+            )
+            : list)
+            .sort((a, b) => {
+                if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
+                return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+            });
+
+        els.adminReportsList.innerHTML = '';
+        if (!filtered.length) {
+            if (els.adminReportsEmpty) els.adminReportsEmpty.style.display = 'block';
+            return;
+        }
+        if (els.adminReportsEmpty) els.adminReportsEmpty.style.display = 'none';
+
+        const frag = document.createDocumentFragment();
+        filtered.forEach((rep) => {
+            const li = document.createElement('li');
+            li.className = 'friend-row';
+
+            const meta = document.createElement('div');
+            meta.className = 'friend-meta';
+            const name = document.createElement('div');
+            name.className = 'friend-name';
+            name.textContent = rep.summary || 'Report';
+            const status = document.createElement('div');
+            status.className = 'friend-status';
+            const statusLabel = rep.status || 'open';
+            const metaParts = [rep.username || 'Unknown user', statusLabel];
+            if (rep.category) metaParts.push(rep.category);
+            status.textContent = metaParts.join(' • ');
+            meta.append(name, status);
+
+            const desc = document.createElement('div');
+            desc.className = 'muted-hint';
+            desc.textContent = rep.description || '';
+
+            const info = document.createElement('div');
+            info.className = 'report-meta-line';
+            const created = rep.updatedAt || rep.createdAt;
+            const gameText = rep.gameTitle ? `Game: ${rep.gameTitle}` : null;
+            const pieces = [];
+            if (gameText) pieces.push(gameText);
+            if (rep.category) pieces.push(`Category: ${rep.category}`);
+            if (created) pieces.push(new Date(created).toLocaleString());
+            info.textContent = pieces.join(' • ');
+
+            const actionsWrap = document.createElement('div');
+            actionsWrap.className = 'friend-actions';
+            actionsWrap.style.display = 'flex';
+            actionsWrap.style.gap = '8px';
+
+            const addStatusBtn = (label, icon, nextStatus, tone) => {
+                const btn = document.createElement('button');
+                btn.className = 'friend-action-btn';
+                if (tone === 'danger') btn.classList.add('danger');
+                if (tone === 'positive') btn.classList.add('positive');
+                btn.innerHTML = `<i class="fas ${icon}"></i>`;
+                btn.title = label;
+                btn.addEventListener('click', () => updateReportStatus(rep.id, nextStatus));
+                return btn;
+            };
+
+            if (rep.status !== 'open') actionsWrap.appendChild(addStatusBtn('Reopen', 'fa-rotate-left', 'open'));
+            if (rep.status !== 'resolved') actionsWrap.appendChild(addStatusBtn('Mark resolved', 'fa-check', 'resolved', 'positive'));
+            if (rep.status !== 'dismissed') actionsWrap.appendChild(addStatusBtn('Dismiss', 'fa-ban', 'dismissed', 'danger'));
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'friend-action-btn danger';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.title = 'Delete report';
+            delBtn.addEventListener('click', () => deleteReport(rep.id));
+            actionsWrap.appendChild(delBtn);
+
+            li.append(meta, desc, info, actionsWrap);
+            frag.appendChild(li);
+        });
+
+        els.adminReportsList.appendChild(frag);
     }
 
     function renderAdminGames() {
@@ -2589,6 +2846,7 @@
         els.adminTabNavButtons?.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
         els.adminTabPanels?.forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
         if (tab === 'requests') loadAdminRequests(true);
+        if (tab === 'reports') loadAdminReports(true);
         if (tab === 'games') loadAdminGames(true);
         if (tab === 'users') loadAdminUsers(true);
         if (tab === 'notice') loadAdminNotice(true);
@@ -3327,16 +3585,78 @@
         }
     }
 
+    function normalizePathname(pathname = HOME_PATH) {
+        if (!pathname) return HOME_PATH;
+        const [raw] = pathname.split('?');
+        const cleaned = raw.replace(/\/+/g, '/').replace(/\/+$/, '') || HOME_PATH;
+        const normalized = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+        return normalized || HOME_PATH;
+    }
+
+    function parseRouteFromPath(pathname = window.location.pathname) {
+        const path = normalizePathname(pathname);
+        const match = path.match(/^\/game\/([^/]+)\/?$/);
+        if (match) return { page: 'game', gameId: decodeURIComponent(match[1]) };
+        return { page: 'home' };
+    }
+
+    function buildGamePath(gameId) {
+        return `${GAME_ROUTE_PREFIX}${encodeURIComponent(gameId)}`;
+    }
+
+    function setRoute(path, state = {}, { replace = false } = {}) {
+        if (!window?.history?.pushState) return;
+        const target = normalizePathname(path);
+        const current = normalizePathname(window.location.pathname);
+        const method = replace || target === current ? 'replaceState' : 'pushState';
+        window.history[method](state, '', target);
+    }
+
+    function updateGameRoute(gameId, { replace = false } = {}) {
+        setRoute(buildGamePath(gameId), { page: 'game', gameId: String(gameId) }, { replace });
+    }
+
+    function resetBaseRoute({ replace = false } = {}) {
+        setRoute(HOME_PATH, { page: 'home' }, { replace });
+    }
+
+    function applyRouteFromLocation(options = {}) {
+        const route = options.route || runtime.pendingRoute || parseRouteFromPath(window.location.pathname);
+        runtime.pendingRoute = null;
+        runtime.handlingRoute = true;
+        if (route.page === 'game') {
+            const opened = openGame(route.gameId, { skipHistory: true, replaceHistory: true });
+            if (opened) {
+                updateGameRoute(route.gameId, { replace: true });
+                runtime.handlingRoute = false;
+                return;
+            }
+            resetBaseRoute({ replace: true });
+            showPage('home', { skipHistory: true, replaceHistory: true });
+        } else {
+            showPage(route.page || 'home', { skipHistory: true, replaceHistory: true });
+            document.title = runtime.defaultTitle;
+            if (normalizePathname(window.location.pathname) !== HOME_PATH) resetBaseRoute({ replace: true });
+        }
+        runtime.handlingRoute = false;
+    }
+
+    function handlePopState() {
+        applyRouteFromLocation({ fromPopState: true });
+    }
+
     function setActiveNav(page) {
         els.navItems.forEach((item) => item.classList.toggle('active', item.dataset.page === page));
     }
 
-    function showPage(page) {
+    function showPage(page, opts = {}) {
+        const skipHistory = opts.skipHistory === true;
+        const replaceHistory = opts.replaceHistory === true;
         const next = els.pages?.[page];
         if (!next) return;
         if (page === 'admin' && !state.user?.admin) {
             showToast('Admin only', true);
-            return showPage('home');
+            return showPage('home', opts);
         }
 
         const currentKey = runtime.currentPage;
@@ -3362,6 +3682,11 @@
         next.classList.add('is-visible');
         requestAnimationFrame(() => next.classList.add('active'));
         runtime.currentPage = page;
+        const leavingGame = wasGame && page !== 'game';
+        if (page !== 'game' && !skipHistory && !runtime.handlingRoute) {
+            resetBaseRoute({ replace: replaceHistory });
+        }
+        if (page !== 'game') document.title = runtime.defaultTitle;
         if (page === 'favorites') renderFavoritesPage();
         if (page === 'home') filterAndRender();
         if (page === 'admin') {
@@ -3661,16 +3986,21 @@
         const active = state.proxyEnabled;
         els.proxyToggleGame?.classList.toggle('off', !active);
         els.proxyToggleGame?.setAttribute('aria-pressed', active ? 'true' : 'false');
-        els.loadingProxyToggle?.classList.toggle('off', !active);
-        els.loadingProxyToggle?.setAttribute('aria-pressed', active ? 'true' : 'false');
-        if (els.loadingHintText) els.loadingHintText.textContent = active ? 'Proxy enabled' : 'Direct load';
         if (state.currentGame) renderGameFriends(state.currentGame.id);
     }
 
     function showLoader(show) {
         if (!els.loader) return;
-        els.loader.style.display = show ? 'flex' : 'none';
-        if (!show) els.loader.classList.add('fade-out');
+        if (show) {
+            // Only allow showing once during initial load to avoid re-triggering the intro animation
+            if (els.loader.dataset.locked === 'true') return;
+            els.loader.style.display = 'flex';
+        } else {
+            els.loader.dataset.locked = 'true';
+            els.loader.classList.add('fade-out');
+            // Keep it in the DOM but hidden to prevent flicker on future API polls
+            setTimeout(() => { els.loader.style.display = 'none'; }, 600);
+        }
     }
 
     function toggleSaving(isSaving) {
