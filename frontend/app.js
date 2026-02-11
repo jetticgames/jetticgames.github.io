@@ -1,9 +1,35 @@
 // Jettic Games frontend v3 - rebuilt
-(() => {
+(async () => {
     'use strict';
 
-    const backendUrl = window.JETTIC_BACKEND_URL || window.location.origin;
+    const { backendUrl, basePath: BASE_PATH } = await loadRuntimeConfig();
     const ONLINE_PING_INTERVAL = 30 * 1000;
+
+    function sanitizeBasePath(input = '') {
+        if (!input || input === '/' || input === './') return '';
+        const cleaned = `/${String(input).trim().replace(/^\/+/g, '').replace(/\/+$/g, '')}`;
+        return cleaned === '/' ? '' : cleaned;
+    }
+
+    async function loadRuntimeConfig() {
+        const fallbackBackend = (window.JETTIC_BACKEND_URL || window.location.origin || '').replace(/\/+$/, '');
+        const fallbackBase = sanitizeBasePath(window.JETTIC_PUBLIC_PATH || '');
+        if (window.JETTIC_CONFIG_READY && typeof window.JETTIC_CONFIG_READY.then === 'function') {
+            try {
+                const cfg = await window.JETTIC_CONFIG_READY;
+                return {
+                    backendUrl: (cfg?.backendUrl || fallbackBackend || window.location.origin || '').replace(/\/+$/, ''),
+                    basePath: sanitizeBasePath(cfg?.basePath ?? fallbackBase)
+                };
+            } catch (_) {
+                // Fall through to defaults below
+            }
+        }
+        return {
+            backendUrl: fallbackBackend || window.location.origin || '',
+            basePath: fallbackBase
+        };
+    }
 
     const state = {
         games: [],
@@ -3593,8 +3619,28 @@
         return normalized || HOME_PATH;
     }
 
+    function stripBasePath(pathname = HOME_PATH) {
+        const normalized = normalizePathname(pathname);
+        const base = BASE_PATH ? normalizePathname(BASE_PATH) : '';
+        if (!base) return normalized;
+        if (normalized === base) return HOME_PATH;
+        if (normalized.startsWith(`${base}/`)) {
+            const stripped = normalized.slice(base.length) || HOME_PATH;
+            return normalizePathname(stripped);
+        }
+        return normalized;
+    }
+
+    function applyBasePath(pathname = HOME_PATH) {
+        const normalized = normalizePathname(pathname);
+        if (!BASE_PATH) return normalized;
+        if (normalized === HOME_PATH) return normalizePathname(BASE_PATH);
+        const base = normalizePathname(BASE_PATH);
+        return normalizePathname(`${base}${normalized}`);
+    }
+
     function parseRouteFromPath(pathname = window.location.pathname) {
-        const path = normalizePathname(pathname);
+        const path = stripBasePath(pathname);
         const match = path.match(/^\/game\/([^/]+)\/?$/);
         if (match) return { page: 'game', gameId: decodeURIComponent(match[1]) };
         return { page: 'home' };
@@ -3606,7 +3652,7 @@
 
     function setRoute(path, state = {}, { replace = false } = {}) {
         if (!window?.history?.pushState) return;
-        const target = normalizePathname(path);
+        const target = applyBasePath(path);
         const current = normalizePathname(window.location.pathname);
         const method = replace || target === current ? 'replaceState' : 'pushState';
         window.history[method](state, '', target);
@@ -3636,7 +3682,7 @@
         } else {
             showPage(route.page || 'home', { skipHistory: true, replaceHistory: true });
             document.title = runtime.defaultTitle;
-            if (normalizePathname(window.location.pathname) !== HOME_PATH) resetBaseRoute({ replace: true });
+            if (stripBasePath(window.location.pathname) !== HOME_PATH) resetBaseRoute({ replace: true });
         }
         runtime.handlingRoute = false;
     }
@@ -4268,7 +4314,8 @@
 
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        const swPath = applyBasePath('/sw.js');
+        navigator.serviceWorker.register(swPath).catch(() => {});
     }
 
     function normalizeUser(user) {

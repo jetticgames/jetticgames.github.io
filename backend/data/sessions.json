@@ -1,91 +1,14 @@
 {
   "sessions": [
     {
-      "id": "7d5b95e7-163b-499d-87e3-53f417f9cdfd",
+      "id": "bd31b836-4d73-4f04-93ce-ee9db42e0396",
       "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "3c722481f33b1a1296fb414e78d99f3ba35a632d7a32286799c7d91e9206fc44",
-      "createdAt": "2026-02-01T06:58:06.845Z",
-      "lastSeenAt": "2026-02-01T06:59:00.551Z",
-      "expiresAt": "2026-03-03T06:58:06.845Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "242a6387-c94b-4e98-9583-43cf5e022482",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "8f85057b709829d9c396b2492c9ffe6167cf9bfd93b0b34a2c28b8f30a1b777a",
-      "createdAt": "2026-02-01T07:03:09.393Z",
-      "lastSeenAt": "2026-02-01T07:03:24.543Z",
-      "expiresAt": "2026-03-03T07:03:09.393Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "3df6848e-1238-45b3-9784-c98117f8a823",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "3902de9d760329e5242d6be36fd3db38b56539ac5e95af94f91325d5add55d88",
-      "createdAt": "2026-02-01T07:03:47.250Z",
-      "lastSeenAt": "2026-02-01T07:03:51.582Z",
-      "expiresAt": "2026-03-03T07:03:47.250Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "85cbb5cd-ca3b-48f2-b83b-298a3961902c",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "0c78f283f1e4c2ac76fae9635867f4c8355ecdca1f0f3813e5a3910304c58e5e",
-      "createdAt": "2026-02-01T07:05:13.460Z",
-      "lastSeenAt": "2026-02-01T07:05:26.683Z",
-      "expiresAt": "2026-03-03T07:05:13.460Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "6f3bc8a7-fc45-4dc4-83e3-fada3b7faf08",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "d34821496d0e119c3673dd4e6f4058c37765827371cf5f4091fe67ec7dcd015c",
-      "createdAt": "2026-02-01T07:08:13.925Z",
-      "lastSeenAt": "2026-02-01T07:08:14.161Z",
-      "expiresAt": "2026-03-03T07:08:13.925Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "ef493c86-3095-4675-9c92-a40e0560c09d",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "c533e1551573c41ff152d0187e8be1c8af96a4c8601a7ea92cbf08e2bb895af2",
-      "createdAt": "2026-02-01T07:08:41.945Z",
-      "lastSeenAt": "2026-02-01T07:09:12.965Z",
-      "expiresAt": "2026-03-03T07:08:41.945Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "239c5685-17d9-4f90-88b6-7b0a6c071831",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "ae80f349ca3b0a964d8ba2bd13b7071fc894c64fe39bd2d11c39fac332c9f15c",
-      "createdAt": "2026-02-01T07:11:51.644Z",
-      "lastSeenAt": "2026-02-01T07:12:36.015Z",
-      "expiresAt": "2026-03-03T07:11:51.644Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
-      "revokedAt": null
-    },
-    {
-      "id": "5be0bfab-8ca4-4c92-a5b7-759b9e23e2a5",
-      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
-      "refreshHash": "3a557b05a8d37fa1288069d53ae1fbd1902e5d802bb17006b91005c665177032",
-      "createdAt": "2026-02-01T07:14:56.988Z",
-      "lastSeenAt": "2026-02-01T07:32:37.404Z",
-      "expiresAt": "2026-03-03T07:14:56.988Z",
-      "ip": "115.70.99.1",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
+      "refreshHash": "2b6710a4b571cbc2e00a429f94d253a7bce1d505ce44e688a563ea96335a941d",
+      "createdAt": "2026-02-05T04:59:02.097Z",
+      "lastSeenAt": "2026-02-11T00:52:05.257Z",
+      "expiresAt": "2026-03-07T04:59:02.097Z",
+      "ip": "125.63.138.138",
+      "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
       "revokedAt": null
     }
   ]

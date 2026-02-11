@@ -1,0 +1,10 @@
+{
+  "backend": {
+    "primary": "",
+    "fallbacks": []
+  },
+  "frontend": {
+    "publicBasePath": "",
+    "configVersion": 1
+  }
+}
