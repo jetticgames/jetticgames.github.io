@@ -1,6 +1,6 @@
 {
   "backend": {
-    "primary": "https://scaling-potato-q57v4v4jxr539wp6-3000.app.github.dev/",
+    "primary": "https://scaling-potato-q57v4v4jxr539wp6-3000.app.github.dev",
     "fallbacks": []
   },
   "frontend": {
