@@ -1,0 +1,15 @@
+{
+  "sessions": [
+    {
+      "id": "bd31b836-4d73-4f04-93ce-ee9db42e0396",
+      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
+      "refreshHash": "2b6710a4b571cbc2e00a429f94d253a7bce1d505ce44e688a563ea96335a941d",
+      "createdAt": "2026-02-05T04:59:02.097Z",
+      "lastSeenAt": "2026-02-11T00:52:05.257Z",
+      "expiresAt": "2026-03-07T04:59:02.097Z",
+      "ip": "125.63.138.138",
+      "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+      "revokedAt": null
+    }
+  ]
+}

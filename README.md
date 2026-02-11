@@ -1,7 +1,7 @@
 <div align="center">
 <img width="707" height="353" alt="The_worlds_most_advanced_unblocked_games_website__1_-removebg-preview" src="https://github.com/user-attachments/assets/0aeebfff-fd11-4366-ad35-44e1e4dab410" />
 
-# WaterWall - Advanced Dynamic Gaming Platform
+# Jettic Games - Advanced Dynamic Gaming Platform
 
 ## Self-hosted rebuild (v3)
 
@@ -11,6 +11,18 @@ This repo now ships with a local Express backend instead of the previous Cloudfl
 1) `cd backend && npm install`
 2) `npm start`
 3) Open http://localhost:3000 — the backend serves the frontend files, API, proxy, auth, favorites, friends, and profile endpoints.
+
+## Static hosting (GitHub Pages, Netlify, etc.)
+
+Frontend
+- Edit [frontend/backend-config.json](frontend/backend-config.json) and set `backend.primary` to the live backend URL (e.g., `https://api.yourdomain.com`).
+- If your static host serves the site from a subpath (GitHub Pages project sites), set `frontend.publicBasePath` to that path (example: `/WaterWall`).
+- Deploy the `frontend/` folder as static files. The app now waits for the config file before initializing, so no code edits are needed for different hosts.
+
+Backend
+- Deploy the `backend/` folder to your server as a standalone Node service (`npm install && npm start`). All runtime data lives in `backend/data` (users, games, config, analytics, banner, sessions, etc.).
+- Set `PUBLIC_BASE_URL` if you want sitemap generation to point at your public backend host.
+- Keep `SESSION_SECRET_FILE` and data files on disk (they are created automatically if missing).
 
 Key changes:
 - Express API with file-based storage (`backend/data`) for users, favorites, friends, and config
@@ -45,7 +57,7 @@ Key changes:
 ## 🏗️ Architecture Overview
 
 ```
-WaterWall v2.0 Architecture
+Jettic Games v2.0 Architecture
 ├── Frontend (Static SPA)
 │   ├── Dynamic content loading from backend APIs
 │   ├── Real-time configuration updates
@@ -71,7 +83,7 @@ WaterWall v2.0 Architecture
 ## 📁 Project Structure
 
 ```
-WaterWall/
+Jettic/
 ├── frontend/                 # Enhanced SPA with backend integration
 │   ├── index.html            # Main application shell
 │   ├── app.js               # Core app with backend API integration
@@ -142,7 +154,7 @@ WaterWall/
    npm run deploy:production
    
    # Get your worker URL
-   # Example: https://waterwall-backend.your-subdomain.workers.dev
+   # Example: https://jettic-backend.your-subdomain.workers.dev
    ```
 
 ### Frontend Configuration
@@ -314,5 +326,5 @@ MIT License - Feel free to use this code for your own projects with proper attri
 
 ---
 
-**WaterWall v2.0** - The most advanced unblocked gaming platform with full-stack architecture. 🌊🎮
+**Jettic Games v2.0** - The most advanced unblocked gaming platform with full-stack architecture. 🌊🎮
 </div>

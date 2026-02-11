@@ -1,6 +1,6 @@
-# WaterWall Backend API
+# Jettic Games Backend API
 
-A complete backend API for the WaterWall gaming platform powered by Cloudflare Workers. This backend provides dynamic content delivery, maintenance mode management, version checking, and proxy services.
+A complete backend API for the Jettic Games platform powered by Cloudflare Workers. This backend provides dynamic content delivery, maintenance mode management, version checking, and proxy services.
 
 ## 🚀 Features
 
@@ -169,7 +169,7 @@ npm install
 ### 2. Configure Wrangler
 Update `wrangler.toml` with your account details:
 ```toml
-name = "waterwall-backend"
+name = "jettic-backend"
 account_id = "your-account-id"
 ```
 
@@ -319,4 +319,4 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**WaterWall Backend** - Powering the next generation of unblocked gaming. 🌊🎮
+**Jettic Games Backend** - Powering the next generation of unblocked gaming. 🌊🎮

@@ -2,7 +2,7 @@
   "version": "3.0.0",
   "maintenanceMode": {
     "enabled": false,
-    "message": "WaterWall is currently under maintenance. We'll be back online soon!",
+    "message": "Jettic Games is currently under maintenance. We'll be back online soon!",
     "estimatedTime": "Please check back in a few hours.",
     "blockProxy": false
   },
@@ -23,7 +23,7 @@
     "adVerificationEnabled": false,
     "mobileAccessEnabled": false,
     "debugModeEnabled": false,
-    "analyticsEnabled": false,
+    "analyticsEnabled": true,
     "errorReportingEnabled": true
   },
   "uiControls": {
@@ -56,6 +56,51 @@
       "size": 8,
       "color": "#ffffff",
       "type": "circle"
+    },
+    "panicButton": {
+      "enabled": false,
+      "url": "https://classroom.google.com",
+      "keybind": "Escape",
+      "preset": "google-classroom"
+    },
+    "tabDisguise": {
+      "enabled": false,
+      "title": "Classes",
+      "favicon": "https://ssl.gstatic.com/classroom/favicon.png",
+      "sourceUrl": "https://classroom.google.com",
+      "preset": "google-classroom"
+    },
+    "presets": {
+      "panicButtons": [
+        {
+          "id": "google-classroom",
+          "label": "Google Classroom",
+          "url": "https://classroom.google.com",
+          "keybind": "Escape"
+        },
+        {
+          "id": "khan-academy",
+          "label": "Khan Academy",
+          "url": "https://www.khanacademy.org",
+          "keybind": "Escape"
+        }
+      ],
+      "tabDisguises": [
+        {
+          "id": "google-classroom",
+          "label": "Google Classroom",
+          "title": "Classes",
+          "favicon": "https://ssl.gstatic.com/classroom/favicon.png",
+          "sourceUrl": "https://classroom.google.com"
+        },
+        {
+          "id": "khan-academy",
+          "label": "Khan Academy",
+          "title": "Khan Academy",
+          "favicon": "https://www.khanacademy.org/favicon.ico",
+          "sourceUrl": "https://www.khanacademy.org"
+        }
+      ]
     }
   }
 }
