@@ -1,7 +1,7 @@
 // Service Worker for Jettic Games
 // Provides basic caching for offline functionality
 
-const CACHE_VERSION = 'v4-no-cache-20250906';
+const CACHE_VERSION = 'v5-no-cache-20250211';
 const CACHE_NAME = `jettic-${CACHE_VERSION}`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/+$/, '');
 const BASE_PATH = SCOPE_PATH === '/' ? '' : SCOPE_PATH;
