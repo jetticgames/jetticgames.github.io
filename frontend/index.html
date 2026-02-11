@@ -6,14 +6,13 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <base href="/">
     <title>Jettic Games</title>
 
     <script>
         window.JETTIC_BACKEND_URL = window.location.origin;
-        window.JETTIC_PUBLIC_PATH = (window.location.pathname || '').replace(/\/index\.html$/, '').replace(/\/+$/, '');
         console.log('Jettic Games v3 loading...');
     </script>
-    <script defer src="config-loader.js"></script>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logo.png">
@@ -1065,6 +1064,6 @@
         <div id="notificationStack" class="notification-stack" aria-live="polite"></div>
     <div id="jg-toast" style="display:none;"></div>
 
-    <script defer src="app.js?v=3.0.1"></script>
+    <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

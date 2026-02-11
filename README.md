@@ -12,18 +12,6 @@ This repo now ships with a local Express backend instead of the previous Cloudfl
 2) `npm start`
 3) Open http://localhost:3000 — the backend serves the frontend files, API, proxy, auth, favorites, friends, and profile endpoints.
 
-## Static hosting (GitHub Pages, Netlify, etc.)
-
-Frontend
-- Edit [frontend/backend-config.json](frontend/backend-config.json) and set `backend.primary` to the live backend URL (e.g., `https://api.yourdomain.com`).
-- If your static host serves the site from a subpath (GitHub Pages project sites), set `frontend.publicBasePath` to that path (example: `/WaterWall`).
-- Deploy the `frontend/` folder as static files. The app now waits for the config file before initializing, so no code edits are needed for different hosts.
-
-Backend
-- Deploy the `backend/` folder to your server as a standalone Node service (`npm install && npm start`). All runtime data lives in `backend/data` (users, games, config, analytics, banner, sessions, etc.).
-- Set `PUBLIC_BASE_URL` if you want sitemap generation to point at your public backend host.
-- Keep `SESSION_SECRET_FILE` and data files on disk (they are created automatically if missing).
-
 Key changes:
 - Express API with file-based storage (`backend/data`) for users, favorites, friends, and config
 - Built-in CORS, rate limiting, JWT cookie auth, and basic proxy endpoint

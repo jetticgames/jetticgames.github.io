@@ -1,46 +1,9 @@
 // Jettic Games frontend v3 - rebuilt
-(async () => {
+(() => {
     'use strict';
 
-    const { backendUrl, basePath: BASE_PATH } = await loadRuntimeConfig();
+    const backendUrl = window.JETTIC_BACKEND_URL || window.location.origin;
     const ONLINE_PING_INTERVAL = 30 * 1000;
-    const FETCH_TIMEOUT_MS = 9000;
-
-    console.info('[Jettic] bootstrap', { backendUrl, basePath: BASE_PATH });
-
-    function sanitizeBasePath(input = '') {
-        if (!input || input === '/' || input === './') return '';
-        const cleaned = `/${String(input).trim().replace(/^\/+/g, '').replace(/\/+$/g, '')}`;
-        return cleaned === '/' ? '' : cleaned;
-    }
-    
-    function withTimeout(promise, ms, label = 'timeout') {
-        let timer;
-        const timeout = new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error(label)), ms);
-        });
-        return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
-    }
-
-    async function loadRuntimeConfig() {
-        const fallbackBackend = (window.JETTIC_BACKEND_URL || window.location.origin || '').replace(/\/+$/, '');
-        const fallbackBase = sanitizeBasePath(window.JETTIC_PUBLIC_PATH || '');
-        if (window.JETTIC_CONFIG_READY && typeof window.JETTIC_CONFIG_READY.then === 'function') {
-            try {
-                const cfg = await window.JETTIC_CONFIG_READY;
-                return {
-                    backendUrl: (cfg?.backendUrl || fallbackBackend || window.location.origin || '').replace(/\/+$/, ''),
-                    basePath: sanitizeBasePath(cfg?.basePath ?? fallbackBase)
-                };
-            } catch (_) {
-                // Fall through to defaults below
-            }
-        }
-        return {
-            backendUrl: fallbackBackend || window.location.origin || '',
-            basePath: fallbackBase
-        };
-    }
 
     const state = {
         games: [],
@@ -115,15 +78,11 @@
 
     const api = {
         async request(path, options = {}) {
-            const res = await withTimeout(
-                fetch(`${backendUrl}${path}`, {
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-                    ...options
-                }),
-                FETCH_TIMEOUT_MS,
-                `Request timeout: ${path}`
-            );
+            const res = await fetch(`${backendUrl}${path}`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                ...options
+            });
             if (!res.ok) {
                 let msg = res.statusText;
                 try { msg = (await res.json()).error || msg; } catch (_) {}
@@ -1293,34 +1252,11 @@
             }
             applyRouteFromLocation({ initial: true });
         } catch (err) {
-            console.error('[Jettic] initial load failed', err);
             showToast(err.message || 'Failed to load data', true);
-            await loadFallbackGames();
         } finally {
             startOnlineHeartbeat();
             startHealthPolling();
             showLoader(false);
-        }
-    }
-
-    async function loadFallbackGames() {
-        if (state.games.length) return;
-        try {
-            const url = applyBasePath('/games.json');
-            const res = await withTimeout(fetch(url, { cache: 'no-store' }), FETCH_TIMEOUT_MS, 'Fallback games timeout');
-            if (!res.ok) throw new Error('Fallback games unavailable');
-            const games = await res.json();
-            if (Array.isArray(games)) {
-                state.games = games;
-                state.filtered = games.slice();
-                state.categories = buildCategories(games);
-                buildCategoryTabs();
-                renderGames();
-                updateStats({ totalGames: games.length, categoryCount: state.categories.length });
-                setStatus(false, 'Offline (fallback data)');
-            }
-        } catch (fallbackErr) {
-            console.error('[Jettic] fallback games failed', fallbackErr);
         }
     }
 
@@ -3657,28 +3593,8 @@
         return normalized || HOME_PATH;
     }
 
-    function stripBasePath(pathname = HOME_PATH) {
-        const normalized = normalizePathname(pathname);
-        const base = BASE_PATH ? normalizePathname(BASE_PATH) : '';
-        if (!base) return normalized;
-        if (normalized === base) return HOME_PATH;
-        if (normalized.startsWith(`${base}/`)) {
-            const stripped = normalized.slice(base.length) || HOME_PATH;
-            return normalizePathname(stripped);
-        }
-        return normalized;
-    }
-
-    function applyBasePath(pathname = HOME_PATH) {
-        const normalized = normalizePathname(pathname);
-        if (!BASE_PATH) return normalized;
-        if (normalized === HOME_PATH) return normalizePathname(BASE_PATH);
-        const base = normalizePathname(BASE_PATH);
-        return normalizePathname(`${base}${normalized}`);
-    }
-
     function parseRouteFromPath(pathname = window.location.pathname) {
-        const path = stripBasePath(pathname);
+        const path = normalizePathname(pathname);
         const match = path.match(/^\/game\/([^/]+)\/?$/);
         if (match) return { page: 'game', gameId: decodeURIComponent(match[1]) };
         return { page: 'home' };
@@ -3690,7 +3606,7 @@
 
     function setRoute(path, state = {}, { replace = false } = {}) {
         if (!window?.history?.pushState) return;
-        const target = applyBasePath(path);
+        const target = normalizePathname(path);
         const current = normalizePathname(window.location.pathname);
         const method = replace || target === current ? 'replaceState' : 'pushState';
         window.history[method](state, '', target);
@@ -3720,7 +3636,7 @@
         } else {
             showPage(route.page || 'home', { skipHistory: true, replaceHistory: true });
             document.title = runtime.defaultTitle;
-            if (stripBasePath(window.location.pathname) !== HOME_PATH) resetBaseRoute({ replace: true });
+            if (normalizePathname(window.location.pathname) !== HOME_PATH) resetBaseRoute({ replace: true });
         }
         runtime.handlingRoute = false;
     }
@@ -4352,8 +4268,7 @@
 
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
-        const swPath = applyBasePath('/sw.js');
-        navigator.serviceWorker.register(swPath).catch(() => {});
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
     function normalizeUser(user) {
