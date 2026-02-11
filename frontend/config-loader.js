@@ -5,6 +5,21 @@
         frontend: { publicBasePath: '', configVersion: 1 }
     };
 
+    const CONFIG_TIMEOUT_MS = 4000;
+
+    function withTimeout(promise, ms, onTimeout) {
+        let timer;
+        return Promise.race([
+            promise.finally(() => clearTimeout(timer)),
+            new Promise((resolve, reject) => {
+                timer = setTimeout(() => {
+                    if (onTimeout) onTimeout();
+                    reject(new Error('Config load timeout'));
+                }, ms);
+            })
+        ]);
+    }
+
     function isHttpUrl(url) {
         if (!url) return false;
         try {
@@ -23,7 +38,11 @@
 
     async function loadConfig() {
         try {
-            const res = await fetch('backend-config.json', { cache: 'no-store' });
+            const res = await withTimeout(
+                fetch('backend-config.json', { cache: 'no-store' }),
+                CONFIG_TIMEOUT_MS,
+                () => console.warn('[Jettic] backend-config fetch timed out; using defaults')
+            );
             if (!res.ok) return { ...DEFAULT_CONFIG };
             const data = await res.json();
             return {

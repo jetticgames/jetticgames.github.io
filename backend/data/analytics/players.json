@@ -8693,6 +8693,54 @@
       "players": 0,
       "onlineUsers": 0,
       "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:12:48.653Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:13:37.090Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:14:35.092Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:15:35.123Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:16:35.123Z",
+      "players": 1,
+      "onlineUsers": 1,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:17:35.126Z",
+      "players": 1,
+      "onlineUsers": 1,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:18:35.126Z",
+      "players": 1,
+      "onlineUsers": 1,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-02-11T01:19:19.551Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
     }
   ]
 }

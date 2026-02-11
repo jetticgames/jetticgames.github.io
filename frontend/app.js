@@ -4,11 +4,22 @@
 
     const { backendUrl, basePath: BASE_PATH } = await loadRuntimeConfig();
     const ONLINE_PING_INTERVAL = 30 * 1000;
+    const FETCH_TIMEOUT_MS = 9000;
+
+    console.info('[Jettic] bootstrap', { backendUrl, basePath: BASE_PATH });
 
     function sanitizeBasePath(input = '') {
         if (!input || input === '/' || input === './') return '';
         const cleaned = `/${String(input).trim().replace(/^\/+/g, '').replace(/\/+$/g, '')}`;
         return cleaned === '/' ? '' : cleaned;
+    }
+    
+    function withTimeout(promise, ms, label = 'timeout') {
+        let timer;
+        const timeout = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error(label)), ms);
+        });
+        return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
     }
 
     async function loadRuntimeConfig() {
@@ -104,11 +115,15 @@
 
     const api = {
         async request(path, options = {}) {
-            const res = await fetch(`${backendUrl}${path}`, {
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-                ...options
-            });
+            const res = await withTimeout(
+                fetch(`${backendUrl}${path}`, {
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                    ...options
+                }),
+                FETCH_TIMEOUT_MS,
+                `Request timeout: ${path}`
+            );
             if (!res.ok) {
                 let msg = res.statusText;
                 try { msg = (await res.json()).error || msg; } catch (_) {}
@@ -1278,11 +1293,34 @@
             }
             applyRouteFromLocation({ initial: true });
         } catch (err) {
+            console.error('[Jettic] initial load failed', err);
             showToast(err.message || 'Failed to load data', true);
+            await loadFallbackGames();
         } finally {
             startOnlineHeartbeat();
             startHealthPolling();
             showLoader(false);
+        }
+    }
+
+    async function loadFallbackGames() {
+        if (state.games.length) return;
+        try {
+            const url = applyBasePath('/games.json');
+            const res = await withTimeout(fetch(url, { cache: 'no-store' }), FETCH_TIMEOUT_MS, 'Fallback games timeout');
+            if (!res.ok) throw new Error('Fallback games unavailable');
+            const games = await res.json();
+            if (Array.isArray(games)) {
+                state.games = games;
+                state.filtered = games.slice();
+                state.categories = buildCategories(games);
+                buildCategoryTabs();
+                renderGames();
+                updateStats({ totalGames: games.length, categoryCount: state.categories.length });
+                setStatus(false, 'Offline (fallback data)');
+            }
+        } catch (fallbackErr) {
+            console.error('[Jettic] fallback games failed', fallbackErr);
         }
     }
 
