@@ -116,10 +116,6 @@
                                 <span class="status-text" id="statusText">Checking...</span>
                             </div>
                         </div>
-                        <div class="search-container">
-                            <input type="text" id="searchInput" placeholder="Search games...">
-                            <button class="search-btn"><i class="fas fa-search"></i></button>
-                        </div>
                         <button id="panicButton" class="panic-quick-btn" style="display:none;" title="Panic redirect">
                             <i class="fas fa-bolt"></i><span>Panic</span>
                         </button>
@@ -135,7 +131,13 @@
                             <h2 class="section-title">Featured</h2>
                         </div>
                         <div id="homeBanner" class="home-banner-slot"></div>
-                        <div id="categoryTabs" class="category-tabs"></div>
+                        <div class="category-bar">
+                            <div id="categoryTabs" class="category-tabs"></div>
+                            <div class="search-container">
+                                <input type="search" id="searchInput" name="gameSearch" placeholder="Search games..." autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-autocomplete="none" aria-label="Search games">
+                                <button class="search-btn"><i class="fas fa-search"></i></button>
+                            </div>
+                        </div>
                         <div class="games-grid" id="allGames"></div>
                     </div>
                 </section>

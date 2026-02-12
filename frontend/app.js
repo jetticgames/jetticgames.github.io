@@ -892,7 +892,15 @@
     }
 
     function bindSearch() {
-        els.searchInput?.addEventListener('input', () => filterAndRender());
+        if (!els.searchInput) return;
+        const enableSearch = () => {
+            els.searchInput.disabled = false;
+            els.searchInput.classList.remove('search-disabled');
+            els.searchInput.addEventListener('input', () => filterAndRender(), { once: false });
+        };
+        els.searchInput.disabled = true;
+        els.searchInput.classList.add('search-disabled');
+        setTimeout(enableSearch, 3000);
     }
 
     function bindProfileForm() {

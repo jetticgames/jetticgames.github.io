@@ -5,9 +5,31 @@
       "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
       "refreshHash": "2b6710a4b571cbc2e00a429f94d253a7bce1d505ce44e688a563ea96335a941d",
       "createdAt": "2026-02-05T04:59:02.097Z",
-      "lastSeenAt": "2026-02-11T01:40:42.762Z",
+      "lastSeenAt": "2026-02-11T01:42:08.151Z",
       "expiresAt": "2026-03-07T04:59:02.097Z",
       "ip": "125.63.138.138",
+      "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+      "revokedAt": "2026-02-11T01:42:21.516Z"
+    },
+    {
+      "id": "acd2139b-fb3b-4e6f-a2ae-fecd9654867f",
+      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
+      "refreshHash": "197606cf704f90a0c2919d7aab4b1a49eb2a3ec744869f819ba289e295fd52c9",
+      "createdAt": "2026-02-11T01:42:24.037Z",
+      "lastSeenAt": "2026-02-11T02:29:33.463Z",
+      "expiresAt": "2026-03-13T01:42:24.037Z",
+      "ip": "203.62.28.65",
+      "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+      "revokedAt": null
+    },
+    {
+      "id": "af6d1359-10be-448f-974d-2f6edb328446",
+      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
+      "refreshHash": "6c9bab236266bee16e611a384ecd75ce151cbcb71ba5027b960787767983e7f8",
+      "createdAt": "2026-02-12T01:49:20.990Z",
+      "lastSeenAt": "2026-02-12T01:51:25.080Z",
+      "expiresAt": "2026-03-14T01:49:20.990Z",
+      "ip": "203.62.28.66",
       "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
       "revokedAt": null
     }
