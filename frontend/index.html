@@ -6,14 +6,13 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <base href="/">
     <title>Jettic Games</title>
 
     <script>
         window.JETTIC_BACKEND_URL = window.location.origin;
-        window.JETTIC_PUBLIC_PATH = (window.location.pathname || '').replace(/\/index\.html$/, '').replace(/\/+$/, '');
         console.log('Jettic Games v3 loading...');
     </script>
-    <script defer src="config-loader.js"></script>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logo.png">
@@ -117,10 +116,6 @@
                                 <span class="status-text" id="statusText">Checking...</span>
                             </div>
                         </div>
-                        <div class="search-container">
-                            <input type="text" id="searchInput" placeholder="Search games...">
-                            <button class="search-btn"><i class="fas fa-search"></i></button>
-                        </div>
                         <button id="panicButton" class="panic-quick-btn" style="display:none;" title="Panic redirect">
                             <i class="fas fa-bolt"></i><span>Panic</span>
                         </button>
@@ -136,7 +131,13 @@
                             <h2 class="section-title">Featured</h2>
                         </div>
                         <div id="homeBanner" class="home-banner-slot"></div>
-                        <div id="categoryTabs" class="category-tabs"></div>
+                        <div class="category-bar">
+                            <div id="categoryTabs" class="category-tabs"></div>
+                            <div class="search-container">
+                                <input type="search" id="searchInput" name="gameSearch" placeholder="Search games..." autocomplete="new-password" autocapitalize="off" spellcheck="false" aria-autocomplete="none" aria-label="Search games">
+                                <button class="search-btn"><i class="fas fa-search"></i></button>
+                            </div>
+                        </div>
                         <div class="games-grid" id="allGames"></div>
                     </div>
                 </section>
@@ -1065,6 +1066,6 @@
         <div id="notificationStack" class="notification-stack" aria-live="polite"></div>
     <div id="jg-toast" style="display:none;"></div>
 
-    <script defer src="app.js?v=3.0.0"></script>
+    <script src="app.js?v=3.0.0"></script>
 </body>
 </html>

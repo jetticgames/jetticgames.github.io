@@ -3,18 +3,12 @@
 
 const CACHE_VERSION = 'v4-no-cache-20250906';
 const CACHE_NAME = `jettic-${CACHE_VERSION}`;
-const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/+$/, '');
-const BASE_PATH = SCOPE_PATH === '/' ? '' : SCOPE_PATH;
-const withBase = (path) => {
-    const normalized = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_PATH}${normalized}` || '/';
-};
 const urlsToCache = [
-    withBase('/'),
-    withBase('/index.html'),
-    withBase('/styles.css'),
-    withBase('/games.json'),
-    withBase('/backend-config.json')
+    '/',
+    '/index.html',
+    '/styles.css',
+    // Don't cache app.js to ensure updates are always loaded
+    '/games.json'
 ];
 
 // Install event - cache static assets
@@ -57,7 +51,7 @@ self.addEventListener('fetch', event => {
             if (cached) return cached;
             // Fallback for navigation requests
             if (event.request.mode === 'navigate') {
-                return caches.match(withBase('/index.html'));
+                return caches.match('/index.html');
             }
             return new Response('Offline', { status: 503 });
         }
