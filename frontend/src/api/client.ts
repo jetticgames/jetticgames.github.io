@@ -27,11 +27,15 @@ export interface LoginResponse {
 }
 
 export class ApiClient {
-  constructor(
-    private readonly baseUrl: string,
-    private readonly getToken: () => string | null,
-    private readonly setToken: (token: string | null) => void
-  ) {}
+  private readonly baseUrl: string
+  private readonly getToken: () => string | null
+  private readonly setToken: (token: string | null) => void
+
+  constructor(baseUrl: string, getToken: () => string | null, setToken: (token: string | null) => void) {
+    this.baseUrl = baseUrl
+    this.getToken = getToken
+    this.setToken = setToken
+  }
 
   private buildUrl(path: string) {
     const safePath = path.startsWith('/') ? path : `/${path}`;
