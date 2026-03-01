@@ -9269,6 +9269,12 @@
       "players": 1,
       "onlineUsers": 1,
       "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-01T23:23:32.336Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
     }
   ]
 }
