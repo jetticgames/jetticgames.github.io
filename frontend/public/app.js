@@ -340,6 +340,7 @@
         bindReportUI();
         bindLogoutModal();
         bindBannedModal();
+        renderVersionInfo();
         window.addEventListener('resize', renderGameAds);
         registerServiceWorker();
         applyClockSetting(true);
@@ -354,6 +355,13 @@
         setActiveNav('home');
         showPage('home', { skipHistory: true, replaceHistory: true });
         loadInitial();
+    }
+
+    function renderVersionInfo() {
+        if (!els.settingsVersion) return;
+        const raw = (window.JETTIC_VERSION || '').toString().trim();
+        const version = raw || 'dev';
+        els.settingsVersion.textContent = `Version: ${version}`;
     }
 
     function cacheElements() {
@@ -446,6 +454,7 @@
             settingCursorColor: document.getElementById('settingCursorColor'),
             settingShowClock: document.getElementById('settingShowClock'),
             settingsFeedback: document.getElementById('settingsFeedback'),
+            settingsVersion: document.getElementById('settingsVersion'),
             settingPanicEnabled: document.getElementById('settingPanicEnabled'),
             settingPanicUrl: document.getElementById('settingPanicUrl'),
             settingPanicKeybind: document.getElementById('settingPanicKeybind'),

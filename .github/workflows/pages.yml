@@ -23,6 +23,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Write version
+        run: |
+          VERSION="${{ github.run_number }}-${{ github.sha::0:7 }}"
+          echo "window.JETTIC_VERSION = '${VERSION}';" > frontend/public/version.js
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
