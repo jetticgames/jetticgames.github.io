@@ -181,7 +181,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .update-check-btn {background:#238636; border:1px solid #2ea043; color:#fff; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:.25s;}
 .update-check-btn:hover:not(:disabled){background:#2ea043;}
 .update-check-btn:disabled{opacity:.6; cursor:wait;}
-.muted-hint{display:block; margin-top:6px; color:#7d8590;}
+.muted-hint{display:block; margin-top:6px; color:#7d8590; font-style:normal; text-align:left;}
 /* Account page */
 .single-account-frame {display:flex; flex-direction:column; gap:16px;}
 .account-iframe {width:100%; height:520px; border:1px solid #30363d; border-radius:14px; background:#0d1117;}
@@ -3800,6 +3800,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+.settings-footer-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 14px 6px;
 }
 
 .setting-group {

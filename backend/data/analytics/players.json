@@ -9581,6 +9581,36 @@
       "players": 2,
       "onlineUsers": 0,
       "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T01:00:40.571Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T01:01:40.573Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T01:02:40.576Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T01:03:40.577Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:04:45.355Z",
+      "players": 1,
+      "onlineUsers": 1,
+      "onlineGuests": 0
     }
   ]
 }
