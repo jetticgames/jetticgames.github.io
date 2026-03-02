@@ -2,7 +2,38 @@
 (() => {
     'use strict';
 
-    const backendUrl = window.JETTIC_BACKEND_URL || window.location.origin;
+    function detectCodespaceBackend() {
+        const host = window.location.hostname;
+        const match = host.match(/^(.*)-(\d+)\.github\.dev$/);
+        if (!match) return null;
+        // Default backend port is 3000; adjust here if the server runs on a different port
+        const backendHost = `${match[1]}-3000.github.dev`;
+        return `${window.location.protocol}//${backendHost}`;
+    }
+
+    function readStoredApi() {
+        try { return localStorage.getItem('jg_api_base') || null; } catch (_) { return null; }
+    }
+
+    function saveStoredApi(url) {
+        try { localStorage.setItem('jg_api_base', url); } catch (_) {}
+    }
+
+    function resolveBackendUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const queryApi = (params.get('api') || '').trim();
+        if (queryApi) saveStoredApi(queryApi);
+
+        const storedApi = (queryApi || readStoredApi() || '').trim();
+        const envApi = (window.JETTIC_BACKEND_URL || '').trim();
+        const codespaceApi = detectCodespaceBackend();
+        const fallback = window.location.origin;
+
+        const chosen = [storedApi, envApi, codespaceApi, fallback].find(Boolean) || fallback;
+        return chosen.replace(/\/+$/, '');
+    }
+
+    const backendUrl = resolveBackendUrl();
     const ONLINE_PING_INTERVAL = 30 * 1000;
 
     const state = {
