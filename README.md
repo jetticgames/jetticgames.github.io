@@ -1,59 +1,52 @@
-# Jettic Games (Developer Guide)
+# Jettic Games
 
-Internal notes for the current Jettic Games stack. This is a private repository; keep operational details inside the team.
+Public documentation for the current Jettic Games stack. The project is a full-stack web app with an Express backend and a single-page frontend that it serves.
 
-## What’s here
-- Full-stack app: Express backend (v3) serves both API and the SPA in frontend/.
-- File-backed storage in backend/data/ for users, sessions, games, config, requests, reports, and analytics snapshots.
-- Social layer: friends, presence/online pings, favorites, playtime tracking, banners, and UI defaults configurable by admins.
-- Simple CORS proxy for game embeds plus sitemap generation for shared game links.
-- Single deployment target: the Express server started via npm scripts.
+## Overview
+- Backend: Express API with authentication, admin tools, analytics snapshots, and a lightweight CORS proxy for embeds. Static assets (SPA bundle and game thumbnails) are served from the same server.
+- Frontend: Modern SPA (vanilla/ES modules) rendered from `frontend/dist` at runtime; uses the API for auth, game data, friends, and admin flows.
+- Storage: File-backed JSON/YAML under `backend/data/` for users, sessions, games, banner config, requests, reports, and analytics. Game thumbnails live in `backend/images/` and are served from `/images/*`.
 
 ## Repository layout
-- backend/server.js — Express API, auth, admin, proxy, sitemap, and static file hosting.
-- backend/data/ — JSON/YAML data stores (users, games, config, banner, requests, reports, analytics, sessions).
-- frontend/ — SPA assets (HTML, JS, CSS, SW) loaded from the same origin as the API.
-- backend/README*.md — Additional deployment and API notes; some refer to the legacy worker.
+- backend/server.js — Express API, auth, admin, proxy, sitemap, and static hosting (including `/images`).
+- backend/data/ — JSON/YAML stores (users, games, config, banner, requests, reports, analytics, sessions).
+- backend/images/ — Game thumbnails referenced by `backend/data/games.json`.
+- frontend/ — Source for the SPA; built output lives in `frontend/dist/` and is what the backend serves.
+- frontend/public/ — Static assets copied into the build (config, version, icons, service worker, etc.).
 
-## Key backend capabilities
-- Auth: username/email + password, JWT access + refresh cookies, profile edits (username, email, password, avatar, accent color).
-- Settings: per-user UI preferences (accent, particles, cursor, clock/current sections, panic button, tab disguise) with admin-defined defaults/presets.
-- Content: GET /api/games with search/category filters, GET /api/games/:id, GET /api/stats.
-- Favorites: toggle and list favorites per user.
-- Friends & presence: send/respond/cancel/remove/block/unblock, presence pings, playtime tracking, last played history, online guests/users counts.
-- Requests & reports: users can submit; admins review/update/delete.
-- Admin: manage games, users (ban/unban/delete), defaults/presets, banner, analytics snapshots, and view relations/login history.
-- Banner: YAML-backed announcement bar with optional CTA button.
-- Proxy: GET /proxy?url=... streams remote content with permissive CORS (no HTML rewriting).
-- SEO: dynamic sitemap.xml generated from games list.
-
-## Running locally
+## Local development
 Requirements: Node 18+.
 
-```
+```sh
+# Backend (serves API + SPA)
 cd backend
 npm install
-npm run dev   # starts Express, serves API + SPA on http://localhost:3000
+npm run dev   # http://localhost:3000
+
+# Frontend (if you need to rebuild the bundle)
+cd ../frontend
+npm install
+npm run build # outputs to frontend/dist consumed by the backend
 ```
 
-Data files are created on first run. Because storage is local JSON/YAML, commits can easily include sensitive state—review backend/data/ before pushing.
+Data files are created on first run. Because storage is local JSON/YAML, avoid committing real user data or secrets.
 
-## Environment knobs
+## Configuration
 - PORT (default 3000)
-- PUBLIC_BASE_URL — used for sitemap/base URL generation when behind a proxy.
-- JWT_SECRET — overrides generated secret stored in backend/data/session-secret.txt.
-- ACCESS_TOKEN_TTL_SECONDS (default 3600), REFRESH_TOKEN_TTL_DAYS (default 30).
-- COOKIE_SECURE (true in production by default), COOKIE_SAME_SITE (defaults to none when secure, otherwise lax), COOKIE_DOMAIN (optional).
-- TRUST_PROXY — Express trust proxy setting; defaults to loopback, linklocal, uniquelocal.
+- PUBLIC_BASE_URL — base used for sitemap and absolute asset URLs when behind a proxy
+- JWT_SECRET — overrides the generated secret at `backend/data/session-secret.txt`
+- ACCESS_TOKEN_TTL_SECONDS (default 3600)
+- REFRESH_TOKEN_TTL_DAYS (default 30)
+- COOKIE_SECURE (true in production by default)
+- COOKIE_SAME_SITE (defaults to none when secure, otherwise lax)
+- COOKIE_DOMAIN (optional)
+- TRUST_PROXY — Express trust proxy setting; defaults to `loopback, linklocal, uniquelocal`
 
-## Admin workflow (in-app UI)
-- Log in with an admin account (set admin: true in backend/data/users.json if seeding locally).
-- Manage games, users, requests, reports, defaults/presets, banner, and analytics from the Admin page in the SPA.
+## Admin access (local)
+- Seed an admin user by setting `admin: true` on an account in `backend/data/users.json`.
+- Use the Admin page in the app to manage games, users (ban/unban/delete), defaults/presets, banner, analytics, requests, and reports.
 
 ## Notes
-- The legacy Cloudflare Worker code and configs have been removed; all runtime paths go through the Express server.
+- Legacy worker-based hosting is gone; everything runs through the Express server.
+- Thumbnails are expected to be relative paths like `images/foo.png` in `backend/data/games.json` and are served from `/images` by the backend.
 
-## Troubleshooting
-- CORS/proxy issues: confirm you are hitting the Express proxy (/proxy) and not the legacy worker routes.
-- Session/auth: verify cookies are set for the current domain and JWT_SECRET is consistent between restarts if you persist sessions.
-- Data anomalies: stop the server before manually editing JSON/YAML in backend/data/ to avoid concurrent writes.

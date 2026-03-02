@@ -98,6 +98,17 @@
       "ip": "203.62.28.67",
       "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
       "revokedAt": null
+    },
+    {
+      "id": "95d07b7b-3781-4cf1-a129-2860dd3caf77",
+      "userId": "53245475-a58f-4a36-bcaf-15b27e9f69b6",
+      "refreshHash": "ad7fc8232ac6d6fdbd37b23d2fe7733e761fed4537be2a25d0ba4d601c74f313",
+      "createdAt": "2026-03-02T01:58:45.771Z",
+      "lastSeenAt": "2026-03-02T01:59:01.246Z",
+      "expiresAt": "2026-04-01T01:58:45.771Z",
+      "ip": "203.62.28.69",
+      "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+      "revokedAt": null
     }
   ]
 }
