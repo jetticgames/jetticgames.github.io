@@ -9881,6 +9881,30 @@
       "players": 7,
       "onlineUsers": 1,
       "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T02:44:09.807Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T02:45:07.810Z",
+      "players": 5,
+      "onlineUsers": 0,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T02:46:07.811Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T02:47:07.813Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
     }
   ]
 }

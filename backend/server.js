@@ -148,6 +148,12 @@ function loadSessionSecret() {
 
 async function readJson(file, fallback) {
     try {
+        const raw = await fs.readFile(file, 'utf8');
+        return JSON.parse(raw);
+    } catch (_) {
+        return fallback;
+    }
+}
 
 function loadAuth0Config() {
     try {
@@ -170,12 +176,6 @@ function loadAuth0Config() {
     } catch (err) {
         console.error('Failed to load Auth0 config', err.message || err);
         throw err;
-    }
-}
-        const raw = await fs.readFile(file, 'utf8');
-        return JSON.parse(raw);
-    } catch (_) {
-        return fallback;
     }
 }
 
