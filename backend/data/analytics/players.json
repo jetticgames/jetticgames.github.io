@@ -9455,6 +9455,30 @@
       "players": 4,
       "onlineUsers": 0,
       "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T00:39:40.497Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T00:40:40.501Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T00:41:40.508Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T00:42:40.510Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
     }
   ]
 }
