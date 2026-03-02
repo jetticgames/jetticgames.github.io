@@ -9611,6 +9611,102 @@
       "players": 1,
       "onlineUsers": 1,
       "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T01:06:13.909Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T01:07:11.907Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:08:11.907Z",
+      "players": 5,
+      "onlineUsers": 1,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T01:09:11.909Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T01:10:11.912Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T01:11:11.912Z",
+      "players": 1,
+      "onlineUsers": 0,
+      "onlineGuests": 1
+    },
+    {
+      "time": "2026-03-02T01:12:11.915Z",
+      "players": 14,
+      "onlineUsers": 0,
+      "onlineGuests": 14
+    },
+    {
+      "time": "2026-03-02T01:13:11.916Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T01:14:11.917Z",
+      "players": 10,
+      "onlineUsers": 0,
+      "onlineGuests": 10
+    },
+    {
+      "time": "2026-03-02T01:15:11.920Z",
+      "players": 5,
+      "onlineUsers": 0,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:16:11.921Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T01:17:11.921Z",
+      "players": 5,
+      "onlineUsers": 0,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:18:11.922Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T01:19:11.924Z",
+      "players": 5,
+      "onlineUsers": 0,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:20:11.929Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T01:21:11.930Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
     }
   ]
 }

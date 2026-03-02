@@ -77,7 +77,8 @@
         lastOnlineState: navigator.onLine !== false,
         offlineNotified: false,
         handlingRoute: false,
-        pendingRoute: null
+        pendingRoute: null,
+        lastPlayedCache: []
     };
 
     const HOME_PATH = '/';
@@ -346,6 +347,7 @@
         registerServiceWorker();
         applyClockSetting(true);
         applyCurrentSectionSetting(true);
+        els.offlineReloadBtn?.addEventListener('click', () => window.location.reload());
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') sendOnlinePing();
         });
@@ -492,6 +494,10 @@
             gameFavBtn: document.getElementById('gameFavBtn'),
             fullscreenBtn: document.getElementById('fullscreenBtn'),
             offlineOverlays: document.getElementById('offlineOverlays'),
+            mainOfflineOverlay: document.getElementById('mainOfflineOverlay'),
+            gameOfflineOverlay: document.getElementById('gameOfflineOverlay'),
+            offlineReloadBtn: document.getElementById('offlineReloadBtn'),
+            offlineMessage: document.getElementById('offlineMessage'),
             authModal: document.getElementById('authModal'),
             authTabs: Array.from(document.querySelectorAll('.auth-tab')),
             authForm: document.getElementById('authForm'),
@@ -1284,6 +1290,7 @@
                 await loadFriends();
                 startFriendsPolling();
                 updateAccountAvatar(state.user);
+                await sendOnlinePing();
                 updatePresence(true, null);
                 refreshUserUI();
                 renderPlayHistory();
@@ -1294,6 +1301,7 @@
             applyRouteFromLocation({ initial: true });
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
+            showOfflineOverlay('Jettic Games is currently offline or blocked by your network.');
         } finally {
             startOnlineHeartbeat();
             startHealthPolling();
@@ -3523,9 +3531,10 @@
             const label = state.user?.admin ? `Online - ${players} Players` : 'Online';
             setStatus(true, label);
             handleConnectivityChange(true);
+            hideOfflineOverlay();
         } catch (_) {
             setStatus(false, 'Offline - Check Network');
-            handleConnectivityChange(false);
+            handleConnectivityChange(false, 'Jettic Games is currently offline or blocked by your network.');
         }
     }
 
@@ -3537,19 +3546,39 @@
         els.statusText.classList.toggle('offline', !isOnline);
     }
 
-    function handleConnectivityChange(isOnline) {
+    function handleConnectivityChange(isOnline, reason) {
         if (runtime.lastOnlineState === isOnline && (isOnline || runtime.offlineNotified)) return;
         runtime.lastOnlineState = isOnline;
         if (!isOnline) {
             runtime.offlineNotified = true;
             pushNotification('Offline', 'Jettic Online Services are unavailable while offline.', 'warning');
             setStatus(false, 'Offline - Check Network');
+            showOfflineOverlay(reason || 'Jettic Games is currently offline or blocked by your network.');
         } else {
             runtime.offlineNotified = false;
             pushNotification('Back online', 'Reconnected to Jettic Online Services.', 'success');
             setStatus(true, 'Online');
+            hideOfflineOverlay();
             sendOnlinePing();
         }
+    }
+
+    function showOfflineOverlay(message) {
+        if (!els.offlineOverlays || !els.mainOfflineOverlay) return;
+        if (els.offlineMessage && message) els.offlineMessage.textContent = message;
+        els.offlineOverlays.style.display = 'block';
+        els.offlineOverlays.style.pointerEvents = 'auto';
+        els.mainOfflineOverlay.style.display = 'flex';
+        document.body.classList.add('offline-mode');
+    }
+
+    function hideOfflineOverlay() {
+        if (!els.offlineOverlays) return;
+        els.offlineOverlays.style.display = 'none';
+        els.offlineOverlays.style.pointerEvents = 'none';
+        if (els.mainOfflineOverlay) els.mainOfflineOverlay.style.display = 'none';
+        if (els.gameOfflineOverlay) els.gameOfflineOverlay.style.display = 'none';
+        document.body.classList.remove('offline-mode');
     }
 
     function refreshUserUI() {
@@ -3823,6 +3852,7 @@
             await loadFriends();
             startFriendsPolling();
             updateAccountAvatar(state.user);
+            await sendOnlinePing();
             updatePresence(true, null);
             refreshUserUI();
             renderPlayHistory();
@@ -3846,6 +3876,7 @@
         runtime.friendsSnapshot = null;
         if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
         runtime.friendsPlayingMap = new Map();
+        runtime.lastPlayedCache = [];
         cancelCloseTimer(true);
         stopGameFrame();
         disableCustomCursor();
@@ -3853,6 +3884,7 @@
         applyPanicBehavior({ panicEnabled: false });
         applyTabDisguiseBehavior({ tabDisguiseEnabled: false });
         hideBannedModal();
+        hideOfflineOverlay();
         refreshUserUI();
         renderOnlineFriends();
         showPage('home');
@@ -4318,6 +4350,7 @@
         normalized.profile = normalized.profile || {};
         normalized.profile.lastPlayed = Array.isArray(normalized.profile.lastPlayed) ? normalized.profile.lastPlayed : [];
         normalized.profile.playtime = normalizePlaytimeMap(normalized.profile.playtime);
+        runtime.lastPlayedCache = normalized.profile.lastPlayed.slice();
         return normalized;
     }
 
@@ -4340,19 +4373,25 @@
         const filtered = existing.filter((id) => String(id) !== idStr);
         filtered.unshift(idStr);
         state.user.profile.lastPlayed = filtered.slice(0, 10);
+        runtime.lastPlayedCache = state.user.profile.lastPlayed.slice();
         renderPlayHistory();
     }
 
     function updateLastPlayedState(list) {
         if (!state.user || !Array.isArray(list)) return;
+        const sanitized = list.map((id) => String(id)).filter(Boolean);
+        const current = getLastPlayedGames();
+        if (!sanitized.length && current.length) return; // avoid wiping history when server yields empty list
         state.user.profile = state.user.profile || {};
-        state.user.profile.lastPlayed = list.map((id) => String(id));
+        state.user.profile.lastPlayed = sanitized;
+        runtime.lastPlayedCache = sanitized.slice();
         renderPlayHistory();
     }
 
     function setPlaytimeMap(map) {
         if (!state.user) return;
         state.user.profile.playtime = normalizePlaytimeMap(map);
+        runtime.lastPlayedCache = getLastPlayedGames();
         renderPlayHistory();
     }
 
@@ -4376,7 +4415,9 @@
     }
 
     function getLastPlayedGames() {
-        return Array.isArray(state.user?.profile?.lastPlayed) ? state.user.profile.lastPlayed : [];
+        const list = Array.isArray(state.user?.profile?.lastPlayed) ? state.user.profile.lastPlayed : [];
+        if (!list.length && runtime.lastPlayedCache?.length) return runtime.lastPlayedCache;
+        return list;
     }
 
     function formatPlaytime(ms) {

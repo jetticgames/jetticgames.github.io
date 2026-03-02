@@ -863,8 +863,21 @@
     </footer>
 
     <div id="offlineOverlays" class="offline-overlays" style="display:none;">
-        <div id="gameOfflineOverlay" class="game-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h3>You are offline</h3><p>Check your connection.</p></div></div>
-        <div id="mainOfflineOverlay" class="main-offline-overlay"><div class="offline-content"><i class="fas fa-wifi-slash"></i><h2>You are offline</h2><p>Games and data unavailable while offline.</p></div></div>
+        <div id="gameOfflineOverlay" class="game-offline-overlay">
+            <div class="offline-content">
+                <i class="fas fa-wifi-slash"></i>
+                <h3>Connection lost</h3>
+                <p>Check your connection and try again.</p>
+            </div>
+        </div>
+        <div id="mainOfflineOverlay" class="main-offline-overlay">
+            <div class="offline-content">
+                <i class="fas fa-wifi-slash"></i>
+                <h2>Jettic Games is offline</h2>
+                <p id="offlineMessage">Jettic Games is currently offline or blocked by your network.</p>
+                <button type="button" class="update-check-btn" id="offlineReloadBtn" style="margin-top:14px;">Reload</button>
+            </div>
+        </div>
     </div>
 
     <div id="reportModal" style="display:none; position:fixed; inset:0; z-index:11000; align-items:center; justify-content:center; backdrop-filter:blur(2px); background:rgba(0,0,0,0.55);">
