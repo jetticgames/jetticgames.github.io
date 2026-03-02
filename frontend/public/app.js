@@ -7,7 +7,7 @@
         const match = host.match(/^(.*)-(\d+)\.github\.dev$/);
         if (!match) return null;
         // Default backend port is 3000; adjust here if the server runs on a different port
-        const backendHost = `${match[1]}-3000.github.dev`;
+        const backendHost = `potential-acorn-r9qvp496vxh577p-3000.github.dev`;
         return `${window.location.protocol}//${backendHost}`;
     }
 
