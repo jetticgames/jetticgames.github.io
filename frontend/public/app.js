@@ -8,13 +8,13 @@
         if (queryApi) return queryApi.replace(/\/+$/, '');
 
         const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
-        const fallback = window.location.origin;
+        if (configApi) return configApi.replace(/\/+$/, '');
 
-        const chosen = [configApi, fallback].find(Boolean) || fallback;
-        return chosen.replace(/\/+$/, '');
+        return '';
     }
 
     const backendUrl = resolveBackendUrl();
+    window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 30 * 1000;
 
     const state = {
@@ -341,6 +341,7 @@
         bindLogoutModal();
         bindBannedModal();
         renderVersionInfo();
+        renderBackendInfo();
         window.addEventListener('resize', renderGameAds);
         registerServiceWorker();
         applyClockSetting(true);
@@ -362,6 +363,12 @@
         const raw = (window.JETTIC_VERSION || '').toString().trim();
         const version = raw || 'dev';
         els.settingsVersion.textContent = `Version: ${version}`;
+    }
+
+    function renderBackendInfo() {
+        if (!els.settingsBackend) return;
+        const backend = (window.JETTIC_BACKEND_URL || backendUrl || '').trim();
+        els.settingsBackend.textContent = backend ? `Backend: ${backend}` : 'Backend: not configured';
     }
 
     function cacheElements() {
@@ -455,6 +462,7 @@
             settingShowClock: document.getElementById('settingShowClock'),
             settingsFeedback: document.getElementById('settingsFeedback'),
             settingsVersion: document.getElementById('settingsVersion'),
+            settingsBackend: document.getElementById('settingsBackend'),
             settingPanicEnabled: document.getElementById('settingPanicEnabled'),
             settingPanicUrl: document.getElementById('settingPanicUrl'),
             settingPanicKeybind: document.getElementById('settingPanicKeybind'),
