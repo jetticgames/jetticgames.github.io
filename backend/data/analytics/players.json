@@ -9767,6 +9767,66 @@
       "players": 0,
       "onlineUsers": 0,
       "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T01:42:39.742Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T01:43:39.744Z",
+      "players": 12,
+      "onlineUsers": 0,
+      "onlineGuests": 12
+    },
+    {
+      "time": "2026-03-02T01:44:39.744Z",
+      "players": 9,
+      "onlineUsers": 0,
+      "onlineGuests": 9
+    },
+    {
+      "time": "2026-03-02T01:45:39.745Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:46:39.747Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:47:39.747Z",
+      "players": 1,
+      "onlineUsers": 0,
+      "onlineGuests": 1
+    },
+    {
+      "time": "2026-03-02T01:48:39.748Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T01:49:39.749Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T01:50:39.750Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T01:51:39.750Z",
+      "players": 1,
+      "onlineUsers": 0,
+      "onlineGuests": 1
     }
   ]
 }

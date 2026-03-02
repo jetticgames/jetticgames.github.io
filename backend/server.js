@@ -91,7 +91,8 @@ const guestHeartbeats = new Map();
 app.disable('x-powered-by');
 app.use(helmet({
     contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '4mb' }));
