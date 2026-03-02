@@ -35,7 +35,7 @@ const LEGACY_SESSION_COOKIE = 'ww_session';
 const LEGACY_GUEST_COOKIE = 'ww_guest';
 const SESSION_FILE = path.join(DATA_DIR, 'sessions.json');
 const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60 * 60; // default 1h to reduce churn
-const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 30;
+const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 14; // keep users logged in for two weeks by default
 const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 const COOKIE_SECURE = process.env.COOKIE_SECURE
     ? process.env.COOKIE_SECURE === 'true'
@@ -600,18 +600,19 @@ async function refreshSessionFromCookie(req, res) {
     }
 
     session.lastSeenAt = new Date().toISOString();
+    session.expiresAt = new Date(now + REFRESH_TOKEN_TTL_MS).toISOString();
     await persistSessions(sessions);
 
-    // Do not rotate the refresh token during silent refresh to avoid race conditions
-    // when multiple concurrent requests refresh at the same time. Only rotate on login
-    // or credential changes.
+    // Keep the refresh token stable but refresh both cookies so the session slides with activity.
     const accessToken = signAccessToken(me, session.id);
     setAccessCookie(res, accessToken);
+    setRefreshCookie(res, session.id, parsed.token);
     return { user: me, session };
 }
 
 async function requireAuth(req, res, next) {
     const token = getAccessToken(req);
+    const refreshCookie = parseRefreshCookie(req);
     let decoded = null;
 
     if (token) {
@@ -657,7 +658,13 @@ async function requireAuth(req, res, next) {
     }
 
     session.lastSeenAt = new Date().toISOString();
+    session.expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS).toISOString();
     await persistSessions(sessions);
+
+    // Refresh the refresh-cookie max-age when we have the raw token and it matches.
+    if (refreshCookie && session.refreshHash === hashToken(refreshCookie.token)) {
+        setRefreshCookie(res, session.id, refreshCookie.token);
+    }
 
     req.user = { id: me.id, username: me.username, admin: !!me.admin };
     req.me = me;

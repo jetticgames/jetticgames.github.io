@@ -1837,11 +1837,22 @@
             renderFriends();
         } catch (err) {
             if (err.status === 401 || err.status === 404) {
-                showToast('Could not refresh friends right now. Try again or re-sign in if it keeps happening.', true);
+                // Session likely expired—stop polling and show the auth prompt without spamming toasts.
+                if (runtime.friendsPoll) {
+                    clearInterval(runtime.friendsPoll);
+                    runtime.friendsPoll = null;
+                }
+                runtime.friendsSnapshot = null;
+                runtime.friendsPlayingMap = new Map();
+                state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
+                renderFriends();
+                if (els.friendsContent) els.friendsContent.style.display = 'none';
+                if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
+                if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'block';
                 return;
             }
             showToast(err.message || 'Friends unavailable', true);
-            els.friendsContent.style.display = 'none';
+            if (els.friendsContent) els.friendsContent.style.display = 'none';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = state.user ? 'none' : 'block';
             if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = state.user ? 'none' : 'block';
         }

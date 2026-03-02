@@ -9953,6 +9953,216 @@
       "players": 5,
       "onlineUsers": 1,
       "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T02:58:30.064Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T02:59:30.065Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:00:30.071Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T03:01:30.071Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T03:02:30.071Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:03:30.071Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:04:30.072Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T03:05:30.073Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:06:30.073Z",
+      "players": 6,
+      "onlineUsers": 2,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T03:07:30.073Z",
+      "players": 5,
+      "onlineUsers": 2,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:08:30.072Z",
+      "players": 7,
+      "onlineUsers": 1,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:09:30.073Z",
+      "players": 8,
+      "onlineUsers": 1,
+      "onlineGuests": 7
+    },
+    {
+      "time": "2026-03-02T03:10:30.073Z",
+      "players": 7,
+      "onlineUsers": 1,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:11:30.075Z",
+      "players": 15,
+      "onlineUsers": 1,
+      "onlineGuests": 14
+    },
+    {
+      "time": "2026-03-02T03:12:30.075Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T03:13:30.075Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:14:30.077Z",
+      "players": 6,
+      "onlineUsers": 2,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-02T03:15:30.078Z",
+      "players": 5,
+      "onlineUsers": 2,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:16:30.078Z",
+      "players": 5,
+      "onlineUsers": 2,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:17:30.080Z",
+      "players": 5,
+      "onlineUsers": 2,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:18:30.081Z",
+      "players": 3,
+      "onlineUsers": 1,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:19:30.081Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:20:30.081Z",
+      "players": 4,
+      "onlineUsers": 1,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-02T03:21:30.082Z",
+      "players": 2,
+      "onlineUsers": 1,
+      "onlineGuests": 1
+    },
+    {
+      "time": "2026-03-02T03:22:30.086Z",
+      "players": 3,
+      "onlineUsers": 1,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:23:30.095Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:24:30.098Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:25:30.103Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:26:30.105Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:27:30.107Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:28:30.107Z",
+      "players": 6,
+      "onlineUsers": 0,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:28:49.389Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-02T03:29:47.388Z",
+      "players": 6,
+      "onlineUsers": 1,
+      "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T03:30:47.389Z",
+      "players": 7,
+      "onlineUsers": 1,
+      "onlineGuests": 6
+    },
+    {
+      "time": "2026-03-02T03:31:41.164Z",
+      "players": 2,
+      "onlineUsers": 0,
+      "onlineGuests": 2
     }
   ]
 }

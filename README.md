@@ -36,7 +36,7 @@ Data files are created on first run. Because storage is local JSON/YAML, avoid c
 - PUBLIC_BASE_URL — base used for sitemap and absolute asset URLs when behind a proxy
 - JWT_SECRET — overrides the generated secret at `backend/data/session-secret.txt`
 - ACCESS_TOKEN_TTL_SECONDS (default 3600)
-- REFRESH_TOKEN_TTL_DAYS (default 30)
+- REFRESH_TOKEN_TTL_DAYS (default 14)
 - COOKIE_SECURE (true in production by default)
 - COOKIE_SAME_SITE (defaults to none when secure, otherwise lax)
 - COOKIE_DOMAIN (optional)
