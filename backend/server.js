@@ -25,6 +25,7 @@ const REQUESTS_FILE = path.join(DATA_DIR, 'requests.json');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+const IMAGES_DIR = path.join(__dirname, 'images');
 const SITEMAP_FILE = path.join(FRONTEND_DIR, 'sitemap.xml');
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ? process.env.PUBLIC_BASE_URL.replace(/\/+$/, '') : null;
 const COOKIE_NAME = 'jg_session';
@@ -2174,6 +2175,9 @@ app.get('/sitemap.xml', async (req, res) => {
 });
 
 regenerateSitemap().catch((err) => console.error('Failed to generate initial sitemap', err));
+
+// --- Static assets
+app.use('/images', express.static(IMAGES_DIR, { maxAge: '1d', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] }));
 
 // --- Static frontend
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));

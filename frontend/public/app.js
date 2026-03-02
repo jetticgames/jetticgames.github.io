@@ -1547,8 +1547,23 @@
 
     const placeholderThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270" fill="none"><rect width="480" height="270" fill="%23161b22"/><path d="M70 190h340M70 150h200M70 110h140" stroke="%2330363d" stroke-width="14" stroke-linecap="round"/><circle cx="380" cy="110" r="38" stroke="%2358a6ff" stroke-width="12"/></svg>';
 
+    function resolveAssetUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('data:')) return url;
+        try {
+            const parsed = new URL(url);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+        } catch (_) {
+            /* fall through to relative handling */
+        }
+        const base = backendUrl || window.JETTIC_BACKEND_URL || '';
+        const cleaned = String(url).replace(/^\/+/, '');
+        if (base) return `${base}/${cleaned}`;
+        return `/${cleaned}`;
+    }
+
     function buildGameCard(game, idx = 0) {
-        const thumb = game.thumbnail || placeholderThumb;
+        const thumb = resolveAssetUrl(game.thumbnail) || placeholderThumb;
         const card = document.createElement('div');
         card.className = 'game-card';
         card.dataset.id = game.id;
@@ -2186,7 +2201,7 @@
                     .sort((a, b) => (Number(b.players) || 0) - (Number(a.players) || 0) || (Number(b.favorites) || 0) - (Number(a.favorites) || 0))
                     .map((g) => `
                         <div class="analytics-game-card${g.disabled ? ' disabled' : ''}">
-                            <div class="analytics-game-thumb" ${g.thumbnail ? `style="background-image:url('${escapeAttr(g.thumbnail)}');"` : ''}></div>
+                            <div class="analytics-game-thumb" ${g.thumbnail ? `style="background-image:url('${escapeAttr(resolveAssetUrl(g.thumbnail))}');"` : ''}></div>
                             <div class="analytics-game-meta">
                                 <div class="analytics-game-title">${escapeHtml(g.title || `Game ${g.id}`)}</div>
                                 <div class="analytics-game-stats"><span>Players ${g.players || 0}</span><span>Favs ${g.favorites || 0}</span></div>
