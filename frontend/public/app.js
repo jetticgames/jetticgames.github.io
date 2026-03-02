@@ -13,7 +13,7 @@
         return '';
     }
 
-    const backendUrl = resolveBackendUrl();
+    let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 30 * 1000;
 
@@ -367,6 +367,10 @@
 
     function renderBackendInfo() {
         if (!els.settingsBackend) return;
+        if (!backendUrl) {
+            backendUrl = resolveBackendUrl();
+            window.JETTIC_BACKEND_URL = backendUrl;
+        }
         const backend = (window.JETTIC_BACKEND_URL || backendUrl || '').trim();
         els.settingsBackend.textContent = backend ? `Backend: ${backend}` : 'Backend: not configured';
     }
