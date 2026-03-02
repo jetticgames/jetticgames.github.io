@@ -89,86 +89,11 @@
 
     const els = {};
 
-    const AUTH0_CDN = 'https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.6.3/dist/auth0-spa-js.production.js';
-
-    function authConfigured() {
-        const cfg = window.JETTIC_CONFIG || {};
-        return !!(cfg.auth0Domain && cfg.auth0ClientId && cfg.auth0Audience);
-    }
-
-    function loadExternalScript(src) {
-        return new Promise((resolve, reject) => {
-            if (document.querySelector(`script[src="${src}"]`)) return resolve();
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error(`Failed to load script ${src}`));
-            document.head.appendChild(script);
-        });
-    }
-
-    const auth = {
-        clientPromise: null,
-        async ensureClient() {
-            if (!authConfigured()) throw new Error('Auth0 is not configured');
-            if (this.clientPromise) return this.clientPromise;
-            this.clientPromise = (async () => {
-                if (!window.createAuth0Client) await loadExternalScript(AUTH0_CDN);
-                if (!window.createAuth0Client) throw new Error('Auth0 client failed to load');
-                const cfg = window.JETTIC_CONFIG || {};
-                return window.createAuth0Client({
-                    domain: cfg.auth0Domain,
-                    clientId: cfg.auth0ClientId,
-                    cacheLocation: 'localstorage',
-                    useRefreshTokens: true,
-                    authorizationParams: {
-                        audience: cfg.auth0Audience
-                    }
-                });
-            })();
-            return this.clientPromise;
-        },
-        async getToken() {
-            try {
-                const client = await this.ensureClient();
-                const isAuth = await client.isAuthenticated();
-                if (!isAuth) return null;
-                const cfg = window.JETTIC_CONFIG || {};
-                return await client.getTokenSilently({
-                    authorizationParams: { audience: cfg.auth0Audience }
-                });
-            } catch (err) {
-                console.warn('Auth0 token error', err);
-                return null;
-            }
-        },
-        async login() {
-            const client = await this.ensureClient();
-            const cfg = window.JETTIC_CONFIG || {};
-            await client.loginWithPopup({
-                authorizationParams: { audience: cfg.auth0Audience }
-            });
-            return this.getToken();
-        },
-        async logout() {
-            try {
-                const client = await this.ensureClient();
-                await client.logout({ logoutParams: { returnTo: window.location.origin } });
-            } catch (err) {
-                console.warn('Auth0 logout error', err);
-            }
-        }
-    };
-
     const api = {
         async request(path, options = {}) {
-            const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-            const token = await auth.getToken();
-            if (token) headers.Authorization = `Bearer ${token}`;
             const res = await fetch(`${backendUrl}${path}`, {
                 credentials: 'include',
-                headers,
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
                 ...options
             });
             if (!res.ok) {
@@ -942,8 +867,37 @@
         if (els.adminUserForm) {
             els.adminUserForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                setAdminUserFeedback('User creation and edits are managed in Auth0. Use the Auth0 dashboard.', true);
-                setAdminUserSaving(false);
+                if (!state.user?.admin) return;
+                const username = els.adminUserUsername?.value?.trim();
+                const email = els.adminUserEmail?.value?.trim();
+                const password = els.adminUserPassword?.value || '';
+                const id = els.adminUserId?.value;
+                setAdminUserSaving(true);
+                setAdminUserFeedback('', false);
+                if (!email) {
+                    setAdminUserFeedback('Email is required', true);
+                    setAdminUserSaving(false);
+                    return;
+                }
+                try {
+                    if (id) {
+                        const payload = { username, email };
+                        if (password) payload.password = password;
+                        const { user } = await api.put(`/api/admin/users/${id}`, payload);
+                        upsertAdminUser(user);
+                        showToast('User updated');
+                    } else {
+                        const { user } = await api.post('/api/admin/users', { username, password, email });
+                        upsertAdminUser(user);
+                        showToast('User created');
+                    }
+                    renderAdminUsers();
+                    closeAdminUserModal();
+                } catch (err) {
+                    setAdminUserFeedback(err.message || 'Failed to save user', true);
+                } finally {
+                    setAdminUserSaving(false);
+                }
             });
         }
     }
@@ -1310,22 +1264,6 @@
         els.logoutCancelBtn?.addEventListener('click', hideLogoutConfirm);
     }
 
-    async function applyUserSession(user) {
-        state.user = normalizeUser(user);
-        if (state.user?.admin) state.adminNotice = state.banner;
-        state.favorites = new Set((user.favorites || []).map(String));
-        state.settings = user.settings || null;
-        await loadSettingsIfNeeded();
-        await loadFriends();
-        startFriendsPolling();
-        updateAccountAvatar(state.user);
-        await sendOnlinePing();
-        updatePresence(true, null);
-        refreshUserUI();
-        renderPlayHistory();
-        if (state.user?.banned?.active) showBannedModal(state.user.banned.reason || 'Your account is banned');
-    }
-
     async function loadInitial() {
         showLoader(true);
         try {
@@ -1343,7 +1281,23 @@
             renderHomeBanner(state.banner);
             renderGames();
             if (stats) updateStats(stats); else updateStats({ totalGames: state.games.length, categoryCount: state.categories.length });
-            if (me?.user) await applyUserSession(me.user); else refreshUserUI();
+            if (me?.user) {
+                state.user = normalizeUser(me.user);
+                if (state.user?.admin) state.adminNotice = state.banner;
+                state.favorites = new Set((me.user.favorites || []).map(String));
+                state.settings = me.user.settings || null;
+                await loadSettingsIfNeeded();
+                await loadFriends();
+                startFriendsPolling();
+                updateAccountAvatar(state.user);
+                await sendOnlinePing();
+                updatePresence(true, null);
+                refreshUserUI();
+                renderPlayHistory();
+                if (state.user?.banned?.active) showBannedModal(state.user.banned.reason || 'Your account is banned');
+            } else {
+                refreshUserUI();
+            }
             applyRouteFromLocation({ initial: true });
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
@@ -3872,56 +3826,59 @@
     }
 
     function openAuthModal(defaultTab = 'login') {
-        if (!authConfigured()) {
-            showToast('Auth0 is not configured. Update config.js.', true);
-            return;
-        }
-        beginAuthFlow();
+        if (!els.authModal) return;
+        els.authModal.style.display = 'flex';
+        els.authModal.dataset.mode = defaultTab;
+        els.authTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === defaultTab));
     }
 
     function closeAuthModal() {
         if (els.authModal) els.authModal.style.display = 'none';
     }
 
-    async function hydrateUserFromApi() {
-        try {
-            const me = await api.get('/api/auth/me');
-            if (me?.user) {
-                await applyUserSession(me.user);
-                return true;
-            }
-            refreshUserUI();
-            return false;
-        } catch (err) {
-            showToast(err.message || 'Authentication failed', true);
-            return false;
-        }
-    }
-
-    async function beginAuthFlow() {
-        if (!authConfigured()) {
-            showToast('Auth0 is not configured. Update config.js.', true);
-            return;
-        }
-        if (els.authFeedback) els.authFeedback.textContent = '';
-        try {
-            await auth.login();
-            await hydrateUserFromApi();
-            closeAuthModal();
-            showToast('Signed in');
-        } catch (err) {
-            const msg = err?.message || 'Authentication failed';
-            if (els.authFeedback) els.authFeedback.textContent = msg; else showToast(msg, true);
-        }
-    }
-
     async function handleAuthSubmit(e) {
         e.preventDefault();
-        await beginAuthFlow();
+        const mode = els.authModal.dataset.mode || 'login';
+        const identifier = els.authForm.username.value.trim();
+        const password = els.authForm.password.value;
+        const email = els.authEmail?.value?.trim();
+        els.authFeedback.textContent = '';
+        try {
+            const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+            const payload = mode === 'register'
+                ? { username: identifier, password, email }
+                : { identifier, password };
+            const res = await api.post(path, payload);
+            const user = res.user;
+            if (res.banned) {
+                state.user = normalizeUser(user);
+                state.favorites = new Set();
+                state.settings = null;
+                refreshUserUI();
+                closeAuthModal();
+                showBannedModal(res.reason || 'Your account is banned');
+                return;
+            }
+            hideBannedModal();
+            state.user = normalizeUser(user);
+            state.favorites = new Set((user.favorites || []).map(String));
+            state.settings = user.settings || null;
+            await loadSettingsIfNeeded();
+            await loadFriends();
+            startFriendsPolling();
+            updateAccountAvatar(state.user);
+            await sendOnlinePing();
+            updatePresence(true, null);
+            refreshUserUI();
+            renderPlayHistory();
+            closeAuthModal();
+            showToast(mode === 'register' ? 'Account created' : 'Signed in');
+        } catch (err) {
+            els.authFeedback.textContent = err.message || 'Authentication failed';
+        }
     }
 
     async function logout() {
-        try { await auth.logout(); } catch (_) {}
         try { await api.post('/api/auth/logout'); } catch (_) {}
         finalizePlaySession(true);
         state.user = null;

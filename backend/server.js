@@ -9,7 +9,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
-const { createRemoteJWKSet, jwtVerify } = require('jose');
 const bcrypt = require('bcryptjs');
 const morgan = require('morgan');
 const yaml = require('js-yaml');
@@ -18,7 +17,6 @@ const APP_VERSION = '3.0.0';
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET_FILE = path.join(__dirname, 'data', 'session-secret.txt');
 const JWT_SECRET = process.env.JWT_SECRET || loadSessionSecret();
-const AUTH0_CONFIG_FILE = path.join(__dirname, 'auth0.secrets.json');
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.json');
@@ -81,18 +79,6 @@ const BUILT_IN_PRESETS = {
     ]
 };
 
-const AUTH0 = loadAuth0Config();
-const AUTH0_ISSUER = AUTH0.issuerBaseURL.replace(/\/+$/, '');
-const AUTH0_AUDIENCE = AUTH0.audience;
-const AUTH0_JWKS = createRemoteJWKSet(new URL(`${AUTH0_ISSUER}/.well-known/jwks.json`));
-
-function isAdminClaim(payload = {}) {
-    const perms = Array.isArray(payload.permissions) ? payload.permissions : [];
-    const roles = Array.isArray(payload['https://jettic.games/roles']) ? payload['https://jettic.games/roles'] : [];
-    const adminFlag = payload['https://jettic.games/admin'];
-    return perms.includes('admin') || perms.includes('admin:all') || roles.includes('admin') || adminFlag === true;
-}
-
 const app = express();
 // Trust only local/known proxies to keep rate-limit IPs accurate (avoids permissive 'true')
 const TRUST_PROXY_SETTING = process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal';
@@ -152,30 +138,6 @@ async function readJson(file, fallback) {
         return JSON.parse(raw);
     } catch (_) {
         return fallback;
-    }
-}
-
-function loadAuth0Config() {
-    try {
-        const raw = fsSync.readFileSync(AUTH0_CONFIG_FILE, 'utf8');
-        const data = JSON.parse(raw);
-        const issuerBaseURL = (data.issuerBaseURL || `https://${data.domain || ''}/`).replace(/\/+$/, '');
-        if (!data.domain || !data.audience || !data.spaClientId || !issuerBaseURL) {
-            throw new Error('Auth0 config missing required fields (domain, audience, spaClientId, issuerBaseURL)');
-        }
-        return {
-            domain: data.domain.replace(/\/+$/, ''),
-            audience: data.audience,
-            spaClientId: data.spaClientId,
-            issuerBaseURL,
-            managementClientId: data.managementClientId,
-            managementClientSecret: data.managementClientSecret,
-            managementAudience: data.managementAudience || `https://${data.domain}/api/v2/`,
-            allowedOrigins: Array.isArray(data.allowedOrigins) ? data.allowedOrigins : []
-        };
-    } catch (err) {
-        console.error('Failed to load Auth0 config', err.message || err);
-        throw err;
     }
 }
 
@@ -489,9 +451,6 @@ function hashToken(token) {
 }
 
 function getAccessToken(req) {
-    const auth = req.get('authorization') || '';
-    const match = auth.match(/^Bearer\s+(.+)$/i);
-    if (match) return match[1];
     return req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
 }
 
@@ -651,66 +610,63 @@ async function refreshSessionFromCookie(req, res) {
     return { user: me, session };
 }
 
-async function ensureLocalUserFromClaims(claims = {}) {
-    const users = await loadUsers();
-    let user = await getUserById(users, claims.sub);
-    const now = new Date().toISOString();
-    if (!user) {
-        const config = await loadConfig();
-        user = {
-            id: claims.sub,
-            username: claims.nickname || claims.name || claims.email || claims.sub,
-            email: claims.email ? String(claims.email).toLowerCase() : undefined,
-            favorites: [],
-            profile: {
-                username: claims.nickname || claims.name || claims.email || claims.sub,
-                accentColor: config.defaults?.accentColor || '#58a6ff',
-                avatar: null,
-                lastPlayed: [],
-                playtime: {}
-            },
-            settings: defaultSettingsFromConfig(config),
-            friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
-            presence: { online: false, gameId: null, lastSeen: now },
-            loginHistory: [],
-            banned: { active: false },
-            createdAt: now,
-            updatedAt: now,
-            admin: isAdminClaim(claims)
-        };
-        users.push(user);
-        await saveUsers(users);
-    } else {
-        const updatedAdmin = isAdminClaim(claims);
-        if (updatedAdmin && !user.admin) user.admin = true;
-        if (claims.email) user.email = String(claims.email).toLowerCase();
-        user.updatedAt = now;
-        await saveUsers(users);
-    }
-    return { user, users };
-}
-
-async function verifyAuth0Token(token) {
-    const result = await jwtVerify(token, AUTH0_JWKS, {
-        issuer: AUTH0_ISSUER,
-        audience: AUTH0_AUDIENCE
-    });
-    return result.payload;
-}
-
 async function requireAuth(req, res, next) {
     const token = getAccessToken(req);
-    if (!token) return res.status(401).json({ error: 'Missing bearer token' });
-    try {
-        const claims = await verifyAuth0Token(token);
-        const { user } = await ensureLocalUserFromClaims(claims);
-        req.auth = claims;
-        req.user = { id: user.id, username: user.username, admin: !!user.admin };
-        req.me = user;
-        return next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
+    let decoded = null;
+
+    if (token) {
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (_) {
+            decoded = null; // fall through to refresh flow
+        }
     }
+
+    const tryRefresh = async () => {
+        const refreshed = await refreshSessionFromCookie(req, res);
+        if (refreshed?.user && refreshed?.session) {
+            req.user = { id: refreshed.user.id, username: refreshed.user.username, admin: !!refreshed.user.admin };
+            req.me = refreshed.user;
+            req.session = refreshed.session;
+            return true;
+        }
+        return false;
+    };
+
+    if (!decoded) {
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    const sessions = await loadSessions();
+    const session = sessions.find((s) => s.id === decoded.sid);
+    const now = Date.now();
+    const expiresAt = Date.parse(session?.expiresAt || 0);
+    if (!session || session.revokedAt || (Number.isFinite(expiresAt) && expiresAt <= now)) {
+        if (session && !session.revokedAt) session.revokedAt = new Date().toISOString();
+        await persistSessions(sessions);
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    const users = await loadUsers();
+    const me = await getUserById(users, session.userId);
+    if (!me) {
+        if (await tryRefresh()) return next();
+        return res.status(401).json({ error: 'Session expired' });
+    }
+
+    session.lastSeenAt = new Date().toISOString();
+    await persistSessions(sessions);
+
+    req.user = { id: me.id, username: me.username, admin: !!me.admin };
+    req.me = me;
+    req.session = session;
+    if (accessTokenStale(decoded)) {
+        const fresh = signAccessToken(me, session.id);
+        setAccessCookie(res, fresh);
+    }
+    return next();
 }
 
 async function requireAdmin(req, res, next) {
@@ -1215,11 +1171,80 @@ app.get('/api/admin/users/:id/relations', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-    res.status(410).json({ error: 'User creation is managed through Auth0. Use Auth0 dashboard to create users.' });
+    const { username, password, admin = false, email } = req.body || {};
+    try {
+        validateUsername(username);
+        validatePassword(password);
+        const normalizedEmail = validateEmail(email);
+        const users = await loadUsers();
+        const clash = await getUserByUsername(users, username);
+        if (clash) return res.status(409).json({ error: 'Username already exists' });
+        const emailClash = await getUserByEmail(users, normalizedEmail);
+        if (emailClash) return res.status(409).json({ error: 'Email already exists' });
+        const hash = await bcrypt.hash(password, 10);
+        const now = new Date().toISOString();
+        const user = {
+            id: crypto.randomUUID(),
+            username,
+            email: normalizedEmail,
+            passwordHash: hash,
+            favorites: [],
+            profile: { username, accentColor: '#58a6ff', avatar: null, lastPlayed: [], playtime: {} },
+            settings: defaultSettingsFromConfig(await loadConfig()),
+            friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+            presence: { online: false, gameId: null, lastSeen: now },
+            loginHistory: [],
+            banned: { active: false },
+            createdAt: now,
+            updatedAt: now,
+            admin: !!admin
+        };
+        users.push(user);
+        recordAccountEvent('signups');
+        await saveUsers(users);
+        res.status(201).json({ user: sanitizeUser(user) });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Invalid user' });
+    }
 });
 
 app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
-    res.status(410).json({ error: 'User updates are managed through Auth0. Use Auth0 dashboard for profile changes.' });
+    const { username, password, admin, email } = req.body || {};
+    const users = await loadUsers();
+    const user = await getUserById(users, req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    try {
+        if (username !== undefined) {
+            validateUsername(username);
+            const clash = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.id !== user.id);
+            if (clash) return res.status(409).json({ error: 'Username already exists' });
+            user.username = username;
+            user.profile = user.profile || {};
+            user.profile.username = username;
+        }
+        if (email !== undefined) {
+            const normalizedEmail = validateEmail(email);
+            const clashEmail = users.find(u => (u.email || '').toLowerCase() === normalizedEmail && u.id !== user.id);
+            if (clashEmail) return res.status(409).json({ error: 'Email already exists' });
+            user.email = normalizedEmail;
+        }
+        if (password !== undefined) {
+            validatePassword(password);
+            user.passwordHash = await bcrypt.hash(password, 10);
+        }
+        if (admin !== undefined) {
+            const isSelf = req.user?.id === user.id;
+            if (isSelf && !admin && user.admin) {
+                return res.status(400).json({ error: 'You cannot remove your own admin access' });
+            }
+            user.admin = !!admin;
+        }
+        user.updatedAt = new Date().toISOString();
+        await saveUsers(users);
+        res.json({ user: sanitizeUser(user) });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Invalid update' });
+    }
 });
 
 app.put('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
@@ -1441,15 +1466,122 @@ app.get('/api/stats', async (req, res) => {
 
 // --- Auth endpoints
 app.post('/api/auth/register', async (req, res) => {
-    res.status(410).json({ error: 'Registration is handled by Auth0. Use the Auth0 SPA flow to sign up.' });
+    try {
+        const { username, password, email } = req.body || {};
+        validateUsername(username);
+        validatePassword(password);
+        const normalizedEmail = validateEmail(email);
+
+        const users = await loadUsers();
+        const config = await loadConfig();
+        const defaultSettings = defaultSettingsFromConfig(config);
+        const existing = await getUserByUsername(users, username);
+        if (existing) return res.status(409).json({ error: 'Username already exists' });
+        const emailClash = await getUserByEmail(users, normalizedEmail);
+        if (emailClash) return res.status(409).json({ error: 'Email already in use' });
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const now = new Date().toISOString();
+        const user = {
+            id: crypto.randomUUID(),
+            username,
+            email: normalizedEmail,
+            passwordHash,
+            favorites: [],
+            profile: {
+                username,
+                accentColor: (await loadConfig()).defaults?.accentColor || '#58a6ff',
+                avatar: null,
+                lastPlayed: [],
+                playtime: {}
+            },
+            settings: defaultSettings,
+            friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+            presence: { online: true, gameId: null, lastSeen: now },
+            loginHistory: [],
+            banned: { active: false },
+            createdAt: now,
+            updatedAt: now,
+            admin: false
+        };
+        recordLoginIp(user, getClientIp(req));
+        users.push(user);
+        recordAccountEvent('signups');
+        await saveUsers(users);
+
+        const { session, refreshToken } = await createSession(user, {
+            ip: getClientIp(req),
+            userAgent: req.headers['user-agent']
+        });
+        const accessToken = signAccessToken(user, session.id);
+        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+        res.status(201).json({ user: sanitizeUser(user) });
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Invalid registration' });
+    }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    res.status(410).json({ error: 'Login is handled by Auth0. Use the Auth0 SPA flow to sign in.' });
+    const { username, password, email, identifier } = req.body || {};
+    const loginId = identifier || username || email;
+    if (!loginId || !password) return res.status(400).json({ error: 'Username/email and password are required' });
+
+    const users = await loadUsers();
+    let user = null;
+    const looksEmail = loginId.includes('@');
+    if (looksEmail) user = await getUserByEmail(users, loginId);
+    if (!user) user = await getUserByUsername(users, loginId);
+    if (!user && !looksEmail) user = await getUserByEmail(users, loginId); // fall back if user typed email but without '@'
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const ok = await bcrypt.compare(password, user.passwordHash || '');
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+    recordLoginIp(user, getClientIp(req));
+    setPresence(user, { online: !user.banned?.active });
+    user.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    const { session, refreshToken } = await createSession(user, {
+        ip: getClientIp(req),
+        userAgent: req.headers['user-agent']
+    });
+    const accessToken = signAccessToken(user, session.id);
+    setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    const payload = { user: sanitizeUser(user) };
+    if (user.banned?.active) {
+        payload.banned = true;
+        payload.reason = user.banned?.reason || 'Your account is banned';
+    }
+    res.json(payload);
 });
 
 app.post('/api/auth/logout', async (req, res) => {
-    res.status(200).json({ success: true, message: 'Logout is handled client-side by clearing the Auth0 session/token.' });
+    clearAuthCookies(res);
+    try {
+        const sessions = await loadSessions();
+        const parsed = parseRefreshCookie(req);
+        if (parsed) {
+            const session = sessions.find((s) => s.id === parsed.sessionId);
+            if (session) session.revokedAt = new Date().toISOString();
+            await persistSessions(sessions);
+        }
+
+        const token = getAccessToken(req);
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                const users = await loadUsers();
+                const me = await getUserById(users, decoded.id);
+                if (me) {
+                    setPresence(me, { online: false, gameId: null });
+                    me.updatedAt = new Date().toISOString();
+                    await saveUsers(users);
+                }
+            } catch (_) {}
+        }
+    } catch (_) {}
+
+    res.json({ success: true });
 });
 
 app.get('/api/auth/me', requireAuth, async (req, res) => {
@@ -1486,15 +1618,52 @@ app.put('/api/profile', requireAuth, async (req, res) => {
     }
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
+    if (req.session) {
+        const accessToken = signAccessToken(me, req.session.id);
+        setAccessCookie(res, accessToken);
+    } else {
+        const { session, refreshToken } = await createSession(me, {
+            ip: getClientIp(req),
+            userAgent: req.headers['user-agent']
+        });
+        const accessToken = signAccessToken(me, session.id);
+        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    }
     res.json({ user: sanitizeUser(me) });
 });
 
 app.put('/api/profile/email', requireAuth, async (req, res) => {
-    res.status(410).json({ error: 'Email updates are managed through Auth0. Please update your email in Auth0.' });
+    const { newEmail, currentPassword } = req.body || {};
+    if (!newEmail || !currentPassword) return res.status(400).json({ error: 'Email and current password are required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const normalized = validateEmail(newEmail);
+    const clash = await getUserByEmail(users, normalized);
+    if (clash && clash.id !== me.id) return res.status(409).json({ error: 'Email already in use' });
+    const ok = await bcrypt.compare(currentPassword, me.passwordHash || '');
+    if (!ok) return res.status(401).json({ error: 'Invalid password' });
+    me.email = normalized;
+    me.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    await replaceSessionForUser(me, req, res);
+    res.json({ user: sanitizeUser(me) });
 });
 
 app.put('/api/profile/password', requireAuth, async (req, res) => {
-    res.status(410).json({ error: 'Password changes are managed through Auth0. Use Auth0 to change your password.' });
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password are required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const ok = await bcrypt.compare(currentPassword, me.passwordHash || '');
+    if (!ok) return res.status(401).json({ error: 'Invalid password' });
+    validatePassword(newPassword);
+    me.passwordHash = await bcrypt.hash(newPassword, 10);
+    me.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    await replaceSessionForUser(me, req, res);
+    res.json({ success: true });
 });
 
 app.delete('/api/profile', requireAuth, async (req, res) => {
@@ -1850,18 +2019,19 @@ app.post('/api/online/ping', async (req, res) => {
     pruneGuestHeartbeats(now);
 
     const token = getAccessToken(req);
+    let decoded = token ? decodeSessionToken(token) : null;
     let users = null;
     let me = null;
 
-    if (token) {
-        try {
-            const claims = await verifyAuth0Token(token);
-            const ensured = await ensureLocalUserFromClaims(claims);
-            users = ensured.users;
-            me = ensured.user;
-        } catch (_) {
-            users = null;
-            me = null;
+    if (decoded?.id) {
+        users = await loadUsers();
+        me = await getUserById(users, decoded.id);
+    } else {
+        const refreshed = await refreshSessionFromCookie(req, res);
+        if (refreshed?.user?.id) {
+            decoded = { id: refreshed.user.id };
+            users = await loadUsers();
+            me = await getUserById(users, refreshed.user.id);
         }
     }
 
