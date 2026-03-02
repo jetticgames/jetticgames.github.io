@@ -9941,6 +9941,18 @@
       "players": 5,
       "onlineUsers": 0,
       "onlineGuests": 5
+    },
+    {
+      "time": "2026-03-02T02:56:32.060Z",
+      "players": 0,
+      "onlineUsers": 0,
+      "onlineGuests": 0
+    },
+    {
+      "time": "2026-03-02T02:57:30.061Z",
+      "players": 5,
+      "onlineUsers": 1,
+      "onlineGuests": 4
     }
   ]
 }
