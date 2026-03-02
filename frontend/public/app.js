@@ -2,34 +2,16 @@
 (() => {
     'use strict';
 
-    function detectCodespaceBackend() {
-        const host = window.location.hostname;
-        const match = host.match(/^(.*)-(\d+)\.github\.dev$/);
-        if (!match) return null;
-        // Default backend port is 3000; adjust here if the server runs on a different port
-        const backendHost = `potential-acorn-r9qvp496vxh577p-3000.github.dev`;
-        return `${window.location.protocol}//${backendHost}`;
-    }
-
-    function readStoredApi() {
-        try { return localStorage.getItem('jg_api_base') || null; } catch (_) { return null; }
-    }
-
-    function saveStoredApi(url) {
-        try { localStorage.setItem('jg_api_base', url); } catch (_) {}
-    }
-
     function resolveBackendUrl() {
         const params = new URLSearchParams(window.location.search);
         const queryApi = (params.get('api') || '').trim();
-        if (queryApi) saveStoredApi(queryApi);
+        if (queryApi) return queryApi.replace(/\/+$/, '');
 
-        const storedApi = (queryApi || readStoredApi() || '').trim();
+        const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
         const envApi = (window.JETTIC_BACKEND_URL || '').trim();
-        const codespaceApi = detectCodespaceBackend();
         const fallback = window.location.origin;
 
-        const chosen = [storedApi, envApi, codespaceApi, fallback].find(Boolean) || fallback;
+        const chosen = [configApi, envApi, fallback].find(Boolean) || fallback;
         return chosen.replace(/\/+$/, '');
     }
 
