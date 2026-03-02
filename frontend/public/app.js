@@ -8,10 +8,9 @@
         if (queryApi) return queryApi.replace(/\/+$/, '');
 
         const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
-        const envApi = (window.JETTIC_BACKEND_URL || '').trim();
         const fallback = window.location.origin;
 
-        const chosen = [configApi, envApi, fallback].find(Boolean) || fallback;
+        const chosen = [configApi, fallback].find(Boolean) || fallback;
         return chosen.replace(/\/+$/, '');
     }
 

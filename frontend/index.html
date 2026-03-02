@@ -11,10 +11,6 @@
 
     <script type="module" src="/config.js"></script>
     <script type="module">
-        const apiBase = (import.meta.env?.VITE_API_BASE_URL || '').trim();
-        if (apiBase) {
-            window.JETTIC_BACKEND_URL = apiBase;
-        }
         console.log('Jettic Games v3 loading...');
     </script>
 
