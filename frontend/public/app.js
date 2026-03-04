@@ -1217,21 +1217,41 @@
         const current = panels.find((p) => p.classList.contains('active'));
         if (current === targetPanel) return;
         const transitionId = ++runtime.panelTransitionId;
+        const container = targetPanel.parentElement;
+        
+        if (container && current) {
+            const lockHeight = Math.max(current.offsetHeight || 0, targetPanel.offsetHeight || 0);
+            if (lockHeight > 0) container.style.minHeight = `${lockHeight}px`;
+            container.style.position = 'relative';
+        }
+
+        let currentDone = false;
+        let nextDone = false;
+
+        const checkUnlock = () => {
+            if (currentDone && nextDone && container) {
+                container.style.minHeight = '';
+            }
+        };
 
         const finishCurrent = () => {
             if (transitionId !== runtime.panelTransitionId) return;
             if (!current) return;
-            current.classList.remove('active', 'leaving', 'animating');
+            current.classList.remove('active', 'leaving', 'animating', 'overlay-leave');
             current.style.display = 'none';
+            currentDone = true;
+            checkUnlock();
         };
 
         const finishNext = () => {
             if (transitionId !== runtime.panelTransitionId) return;
-            targetPanel.classList.remove('entering', 'animating');
+            targetPanel.classList.remove('entering', 'animating', 'overlay-enter');
+            nextDone = true;
+            checkUnlock();
         };
 
         if (current) {
-            current.classList.add('animating', 'leaving');
+            current.classList.add('animating', 'leaving', 'overlay-leave');
             const onCurrentEnd = (event) => {
                 if (event.target !== current) return;
                 current.removeEventListener('transitionend', onCurrentEnd);
@@ -1240,11 +1260,17 @@
             };
             current.addEventListener('transitionend', onCurrentEnd);
             setTimeout(finishCurrent, 280);
+        } else {
+            currentDone = true;
         }
 
         targetPanel.style.display = 'block';
-        targetPanel.classList.add('active', 'animating', 'entering');
-        requestAnimationFrame(() => targetPanel.classList.remove('entering'));
+        targetPanel.classList.add('active', 'animating', 'entering', 'overlay-enter');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                targetPanel.classList.remove('entering');
+            });
+        });
         const onNextEnd = (event) => {
             if (event.target !== targetPanel) return;
             targetPanel.removeEventListener('transitionend', onNextEnd);
