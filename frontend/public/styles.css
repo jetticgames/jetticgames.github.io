@@ -3651,6 +3651,11 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     background: transparent;
     border-color: transparent;
     box-shadow: none;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
 }
 
 /* Smaller section cards use glass blur instead of flat solid fills */
