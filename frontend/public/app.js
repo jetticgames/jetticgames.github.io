@@ -4240,7 +4240,7 @@
             start = performance.now();
             hideTimer = setTimeout(remove, remaining);
             if (progress) progress.style.animationPlayState = 'running';
-        };
+            card.style.animation = 'notifOut 2s cubic-bezier(.2,.9,.2,1) forwards';
 
         card.addEventListener('mouseenter', pause);
         card.addEventListener('mouseleave', resume);
