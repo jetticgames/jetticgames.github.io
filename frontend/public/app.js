@@ -4208,11 +4208,28 @@
         const progress = document.createElement('div');
         progress.className = 'notification-progress-bar';
         progressWrap?.appendChild(progress);
+
+        // Shift existing toasts up to make room (animated stack motion)
+        Array.from(els.notificationStack.children).forEach((node) => {
+            node.classList.remove('stack-shift-down');
+            node.classList.add('stack-shift-up');
+            node.addEventListener('animationend', () => node.classList.remove('stack-shift-up'), { once: true });
+        });
+
         const remove = () => {
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
+            // Animate remaining toasts sliding down to fill the gap
+            Array.from(els.notificationStack.children)
+                .filter((node) => node !== card)
+                .forEach((node) => {
+                    node.classList.remove('stack-shift-up');
+                    node.classList.add('stack-shift-down');
+                    node.addEventListener('animationend', () => node.classList.remove('stack-shift-down'), { once: true });
+                });
             card.addEventListener('animationend', () => card.remove(), { once: true });
         };
+
         card.querySelector('.notification-close')?.addEventListener('click', remove);
         els.notificationStack.appendChild(card);
 
