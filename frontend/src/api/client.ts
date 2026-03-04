@@ -62,11 +62,24 @@ export class ApiClient {
     const token = this.getToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    const response = await fetch(this.buildUrl(path), {
-      ...init,
-      headers,
-      credentials: 'omit'
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    let response: Response;
+    try {
+      response = await fetch(this.buildUrl(path), {
+        ...init,
+        headers,
+        credentials: 'omit',
+        signal: init.signal || controller.signal
+      });
+    } catch (err: any) {
+      const message = err?.name === 'AbortError' ? 'Backend request timed out' : 'Backend is offline or unreachable';
+      clearTimeout(timeout);
+      throw new Error(message);
+    }
+
+    clearTimeout(timeout);
 
     const data = await this.parseJson(response);
     if (!response.ok) {

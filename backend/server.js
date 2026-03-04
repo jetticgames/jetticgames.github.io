@@ -1795,23 +1795,12 @@ app.post('/api/friends/request', requireAuth, async (req, res) => {
 
     me.friends.outgoing.push(target.id);
     target.friends.incoming.push(me.id);
-    session.lastSeenAt = new Date().toISOString();
-    session.expiresAt = new Date(now + REFRESH_TOKEN_TTL_MS).toISOString();
-    await persistSessions(sessions);
-
-    // Refresh the session cookie to slide expiry without rotating the token.
-    setSessionCookie(res, session.id, parsed.token);
-    return { user: me, session };
-    const users = await loadUsers();
-    const me = await getUserById(users, req.user.id);
-    if (!me) return res.status(404).json({ error: 'User not found' });
-    const refreshed = await refreshSessionFromCookie(req, res);
-    if (!refreshed?.user || !refreshed?.session) return res.status(401).json({ error: 'Session expired' });
-
-    const { user, session } = refreshed;
-    other.friends.accepted = other.friends.accepted.filter(id => id !== me.id);
-    req.me = me;
+    me.updatedAt = target.updatedAt = new Date().toISOString();
+    recordFriendEvent('sent');
     await saveUsers(users);
+    res.json({ success: true });
+});
+
 app.post('/api/friends/block', requireAuth, async (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'Username is required' });

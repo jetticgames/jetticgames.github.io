@@ -91,11 +91,25 @@
 
     const api = {
         async request(path, options = {}) {
-            const res = await fetch(`${backendUrl}${path}`, {
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-                ...options
-            });
+            if (!backendUrl) throw new Error('Backend URL is not configured');
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+            let res;
+            try {
+                res = await fetch(`${backendUrl}${path}`, {
+                    credentials: 'include',
+                    cache: 'no-store',
+                    mode: 'cors',
+                    signal: options.signal || controller.signal,
+                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                    ...options
+                });
+            } catch (err) {
+                clearTimeout(timer);
+                const name = err?.name || '';
+                throw new Error(name === 'AbortError' ? 'Backend request timed out' : 'Backend is offline or unreachable');
+            }
+            clearTimeout(timer);
             if (!res.ok) {
                 let msg = res.statusText;
                 try { msg = (await res.json()).error || msg; } catch (_) {}
@@ -3550,6 +3564,11 @@
     }
 
     async function updateHealth() {
+        if (!backendUrl) {
+            setStatus(false, 'Backend not configured');
+            handleConnectivityChange(false, 'Backend URL is not configured. Update config.js or ?api query.');
+            return;
+        }
         try {
             const health = await api.get('/health');
             const players = Number.isFinite(health.players) ? health.players : (Number.isFinite(health.games) ? health.games : null);
