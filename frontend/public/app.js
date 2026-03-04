@@ -571,6 +571,7 @@
         els.adminReportsSearch = document.getElementById('adminReportsSearch');
         els.adminTabNav = document.getElementById('adminTabNav');
         els.adminTabPanels = Array.from(document.querySelectorAll('#adminTabPanels .friends-tab-panel'));
+        els.adminSubpageTitle = document.getElementById('adminSubpageTitle');
         els.adminGamesList = document.getElementById('adminGamesList');
         els.adminGamesEmpty = document.getElementById('adminGamesEmpty');
         els.adminGamesRefresh = document.getElementById('adminGamesRefresh');
@@ -2934,6 +2935,18 @@
         state.adminTab = tab;
         els.adminTabNavButtons?.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
         els.adminTabPanels?.forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+        const adminTabTitles = {
+            requests: 'Game Requests',
+            reports: 'Reports',
+            games: 'Games',
+            users: 'Users',
+            notice: 'Homepage Notice Bar',
+            defaults: 'Default Settings & Presets',
+            analytics: 'Analytics'
+        };
+        if (els.adminSubpageTitle) {
+            els.adminSubpageTitle.textContent = adminTabTitles[tab] || 'Requests';
+        }
         if (tab === 'requests') loadAdminRequests(true);
         if (tab === 'reports') loadAdminReports(true);
         if (tab === 'games') loadAdminGames(true);

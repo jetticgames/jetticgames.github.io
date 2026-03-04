@@ -1255,7 +1255,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 /* Content Area */
 .content-area {
-    padding: 16px 32px 48px;
+    padding: 32px 32px 48px;
     /* In case some element introduced margin collapse, enforce min offset */
     margin-top: 0;
     overflow: hidden;
@@ -1313,6 +1313,29 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .friend-action-btn {width:34px; height:34px; border-radius:10px; border:1px solid #30363d; background:#1b1f24; color:#c9d1d9; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:.2s ease;}
 .friend-action-btn:hover {background:#262e38;}
 .friend-action-btn.positive {background:#1f6f3f; border-color:#2ea043; color:#d5f6df;}
+
+.admin-page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-title-dot {
+    color: var(--text-muted);
+}
+
+#adminSubpageTitle {
+    color: var(--text-secondary);
+    font-size: 0.92em;
+}
+
+#adminTabPanels {
+    margin-top: 14px;
+}
+
+#adminTabPanels > .friends-tab-panel > .section-header > .section-title {
+    display: none;
+}
 .friend-action-btn.danger {background:#2a1515; border-color:#432020; color:#f1c0c0;}
 .friend-action-btn i {pointer-events:none;}
 
