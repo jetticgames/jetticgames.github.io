@@ -34,7 +34,6 @@ const GUEST_COOKIE = 'jg_guest';
 const LEGACY_SESSION_COOKIE = 'ww_session';
 const LEGACY_GUEST_COOKIE = 'ww_guest';
 const SESSION_FILE = path.join(DATA_DIR, 'sessions.json');
-const ACCESS_TOKEN_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60 * 60; // default 1h to reduce churn
 const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 14; // keep users logged in for two weeks by default
 const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 const COOKIE_SECURE = process.env.COOKIE_SECURE
@@ -450,27 +449,6 @@ function hashToken(token) {
     return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
 
-function getAccessToken(req) {
-    return req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
-}
-
-function parseRefreshCookie(req) {
-    const raw = req.cookies[REFRESH_COOKIE_NAME];
-    if (!raw) return null;
-    const [sessionId, ...rest] = String(raw).split('.');
-    const token = rest.join('.');
-    if (!sessionId || !token) return null;
-    return { sessionId, token };
-}
-
-function signAccessToken(user, sessionId) {
-    return jwt.sign(
-        { sid: sessionId, id: user.id, username: user.username, admin: !!user.admin },
-        JWT_SECRET,
-        { expiresIn: ACCESS_TOKEN_TTL_SECONDS }
-    );
-}
-
 function cookieOptions(maxAge) {
     const opts = {
         httpOnly: true,
@@ -482,20 +460,20 @@ function cookieOptions(maxAge) {
     return opts;
 }
 
-function setAccessCookie(res, token) {
-    res.cookie(COOKIE_NAME, token, cookieOptions(ACCESS_TOKEN_TTL_SECONDS * 1000));
-    res.clearCookie(LEGACY_SESSION_COOKIE);
+function parseSessionCookie(req) {
+    const raw = req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
+    if (!raw) return null;
+    const [sessionId, ...rest] = String(raw).split('.');
+    const token = rest.join('.');
+    if (!sessionId || !token) return null;
+    return { sessionId, token };
 }
 
-function setRefreshCookie(res, sessionId, refreshToken) {
-    res.cookie(REFRESH_COOKIE_NAME, `${sessionId}.${refreshToken}`, cookieOptions(REFRESH_TOKEN_TTL_MS));
+function setSessionCookie(res, sessionId, sessionToken, maxAge = REFRESH_TOKEN_TTL_MS) {
+    res.cookie(COOKIE_NAME, `${sessionId}.${sessionToken}`, cookieOptions(maxAge));
     res.clearCookie(LEGACY_GUEST_COOKIE);
     res.clearCookie(LEGACY_SESSION_COOKIE);
-}
-
-function setAuthCookies(res, { accessToken, sessionId, refreshToken }) {
-    setAccessCookie(res, accessToken);
-    if (refreshToken) setRefreshCookie(res, sessionId, refreshToken);
+    res.clearCookie(REFRESH_COOKIE_NAME);
 }
 
 function clearAuthCookies(res) {
@@ -531,12 +509,12 @@ async function persistSessions(sessions) {
 
 async function createSession(user, meta = {}) {
     const sessions = await loadSessions();
-    const refreshToken = crypto.randomBytes(48).toString('hex');
+    const sessionToken = crypto.randomBytes(48).toString('hex');
     const now = new Date();
     const session = {
         id: crypto.randomUUID(),
         userId: user.id,
-        refreshHash: hashToken(refreshToken),
+        sessionHash: hashToken(sessionToken),
         createdAt: now.toISOString(),
         lastSeenAt: now.toISOString(),
         expiresAt: new Date(now.getTime() + REFRESH_TOKEN_TTL_MS).toISOString(),
@@ -546,7 +524,7 @@ async function createSession(user, meta = {}) {
     };
     sessions.push(session);
     await persistSessions(sessions);
-    return { session, refreshToken };
+    return { session, sessionToken };
 }
 
 async function replaceSessionForUser(user, req, res) {
@@ -557,22 +535,14 @@ async function replaceSessionForUser(user, req, res) {
         if (existing) existing.revokedAt = new Date().toISOString();
         await persistSessions(sessions);
     }
-    const { session, refreshToken } = await createSession(user, meta);
-    const accessToken = signAccessToken(user, session.id);
-    setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    const { session, sessionToken } = await createSession(user, meta);
+    setSessionCookie(res, session.id, sessionToken);
     req.session = session;
     return session;
 }
 
-function accessTokenStale(decoded) {
-    if (!decoded?.exp) return false;
-    const msLeft = decoded.exp * 1000 - Date.now();
-    const threshold = Math.max(ACCESS_TOKEN_TTL_SECONDS * 250, 5 * 60 * 1000); // refresh when ~<5m left
-    return msLeft > 0 && msLeft < threshold;
-}
-
 async function refreshSessionFromCookie(req, res) {
-    const parsed = parseRefreshCookie(req);
+    const parsed = parseSessionCookie(req);
     if (!parsed) return null;
     const sessions = await loadSessions();
     const session = sessions.find((s) => s.id === parsed.sessionId);
@@ -589,7 +559,7 @@ async function refreshSessionFromCookie(req, res) {
         return null;
     }
 
-    if (session.refreshHash !== hashToken(parsed.token)) return null;
+    if (session.sessionHash !== hashToken(parsed.token)) return null;
 
     const users = await loadUsers();
     const me = await getUserById(users, session.userId);
@@ -603,76 +573,19 @@ async function refreshSessionFromCookie(req, res) {
     session.expiresAt = new Date(now + REFRESH_TOKEN_TTL_MS).toISOString();
     await persistSessions(sessions);
 
-    // Keep the refresh token stable but refresh both cookies so the session slides with activity.
-    const accessToken = signAccessToken(me, session.id);
-    setAccessCookie(res, accessToken);
-    setRefreshCookie(res, session.id, parsed.token);
+    // Refresh the session cookie so the window slides without rotating the token.
+    setSessionCookie(res, session.id, parsed.token);
     return { user: me, session };
 }
 
 async function requireAuth(req, res, next) {
-    const token = getAccessToken(req);
-    const refreshCookie = parseRefreshCookie(req);
-    let decoded = null;
+    const refreshed = await refreshSessionFromCookie(req, res);
+    if (!refreshed?.user || !refreshed?.session) return res.status(401).json({ error: 'Session expired' });
 
-    if (token) {
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (_) {
-            decoded = null; // fall through to refresh flow
-        }
-    }
-
-    const tryRefresh = async () => {
-        const refreshed = await refreshSessionFromCookie(req, res);
-        if (refreshed?.user && refreshed?.session) {
-            req.user = { id: refreshed.user.id, username: refreshed.user.username, admin: !!refreshed.user.admin };
-            req.me = refreshed.user;
-            req.session = refreshed.session;
-            return true;
-        }
-        return false;
-    };
-
-    if (!decoded) {
-        if (await tryRefresh()) return next();
-        return res.status(401).json({ error: 'Session expired' });
-    }
-
-    const sessions = await loadSessions();
-    const session = sessions.find((s) => s.id === decoded.sid);
-    const now = Date.now();
-    const expiresAt = Date.parse(session?.expiresAt || 0);
-    if (!session || session.revokedAt || (Number.isFinite(expiresAt) && expiresAt <= now)) {
-        if (session && !session.revokedAt) session.revokedAt = new Date().toISOString();
-        await persistSessions(sessions);
-        if (await tryRefresh()) return next();
-        return res.status(401).json({ error: 'Session expired' });
-    }
-
-    const users = await loadUsers();
-    const me = await getUserById(users, session.userId);
-    if (!me) {
-        if (await tryRefresh()) return next();
-        return res.status(401).json({ error: 'Session expired' });
-    }
-
-    session.lastSeenAt = new Date().toISOString();
-    session.expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS).toISOString();
-    await persistSessions(sessions);
-
-    // Refresh the refresh-cookie max-age when we have the raw token and it matches.
-    if (refreshCookie && session.refreshHash === hashToken(refreshCookie.token)) {
-        setRefreshCookie(res, session.id, refreshCookie.token);
-    }
-
-    req.user = { id: me.id, username: me.username, admin: !!me.admin };
-    req.me = me;
+    const { user, session } = refreshed;
+    req.user = { id: user.id, username: user.username, admin: !!user.admin };
+    req.me = user;
     req.session = session;
-    if (accessTokenStale(decoded)) {
-        const fresh = signAccessToken(me, session.id);
-        setAccessCookie(res, fresh);
-    }
     return next();
 }
 
@@ -754,14 +667,6 @@ function addPlaytime(user, gameId, deltaMs) {
     user.profile.playtime = normalizePlaytime(user.profile.playtime);
     const key = String(gameId);
     user.profile.playtime[key] = (user.profile.playtime[key] || 0) + delta;
-}
-
-function decodeSessionToken(token) {
-    try {
-        return jwt.verify(token, JWT_SECRET);
-    } catch (_) {
-        return null;
-    }
 }
 
 function pruneGuestHeartbeats(now = Date.now()) {
@@ -1516,12 +1421,11 @@ app.post('/api/auth/register', async (req, res) => {
         recordAccountEvent('signups');
         await saveUsers(users);
 
-        const { session, refreshToken } = await createSession(user, {
+        const { session, sessionToken } = await createSession(user, {
             ip: getClientIp(req),
             userAgent: req.headers['user-agent']
         });
-        const accessToken = signAccessToken(user, session.id);
-        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+        setSessionCookie(res, session.id, sessionToken);
         res.status(201).json({ user: sanitizeUser(user) });
     } catch (err) {
         res.status(400).json({ error: err.message || 'Invalid registration' });
@@ -1548,12 +1452,11 @@ app.post('/api/auth/login', async (req, res) => {
     setPresence(user, { online: !user.banned?.active });
     user.updatedAt = new Date().toISOString();
     await saveUsers(users);
-    const { session, refreshToken } = await createSession(user, {
+    const { session, sessionToken } = await createSession(user, {
         ip: getClientIp(req),
         userAgent: req.headers['user-agent']
     });
-    const accessToken = signAccessToken(user, session.id);
-    setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
+    setSessionCookie(res, session.id, sessionToken);
     const payload = { user: sanitizeUser(user) };
     if (user.banned?.active) {
         payload.banned = true;
@@ -1566,25 +1469,22 @@ app.post('/api/auth/logout', async (req, res) => {
     clearAuthCookies(res);
     try {
         const sessions = await loadSessions();
-        const parsed = parseRefreshCookie(req);
+        const parsed = parseSessionCookie(req);
         if (parsed) {
             const session = sessions.find((s) => s.id === parsed.sessionId);
             if (session) session.revokedAt = new Date().toISOString();
             await persistSessions(sessions);
         }
 
-        const token = getAccessToken(req);
-        if (token) {
-            try {
-                const decoded = jwt.verify(token, JWT_SECRET);
-                const users = await loadUsers();
-                const me = await getUserById(users, decoded.id);
-                if (me) {
-                    setPresence(me, { online: false, gameId: null });
-                    me.updatedAt = new Date().toISOString();
-                    await saveUsers(users);
-                }
-            } catch (_) {}
+        const refreshed = await refreshSessionFromCookie(req, res);
+        if (refreshed?.user) {
+            const users = await loadUsers();
+            const me = await getUserById(users, refreshed.user.id);
+            if (me) {
+                setPresence(me, { online: false, gameId: null });
+                me.updatedAt = new Date().toISOString();
+                await saveUsers(users);
+            }
         }
     } catch (_) {}
 
@@ -1625,17 +1525,7 @@ app.put('/api/profile', requireAuth, async (req, res) => {
     }
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
-    if (req.session) {
-        const accessToken = signAccessToken(me, req.session.id);
-        setAccessCookie(res, accessToken);
-    } else {
-        const { session, refreshToken } = await createSession(me, {
-            ip: getClientIp(req),
-            userAgent: req.headers['user-agent']
-        });
-        const accessToken = signAccessToken(me, session.id);
-        setAuthCookies(res, { accessToken, sessionId: session.id, refreshToken });
-    }
+    await replaceSessionForUser(me, req, res);
     res.json({ user: sanitizeUser(me) });
 });
 
@@ -1905,79 +1795,23 @@ app.post('/api/friends/request', requireAuth, async (req, res) => {
 
     me.friends.outgoing.push(target.id);
     target.friends.incoming.push(me.id);
-    me.updatedAt = target.updatedAt = new Date().toISOString();
-    recordFriendEvent('sent');
-    await saveUsers(users);
-    res.status(201).json({ success: true });
-});
+    session.lastSeenAt = new Date().toISOString();
+    session.expiresAt = new Date(now + REFRESH_TOKEN_TTL_MS).toISOString();
+    await persistSessions(sessions);
 
-app.post('/api/friends/respond', requireAuth, async (req, res) => {
-    const { username, action } = req.body || {};
-    if (!username || !action) return res.status(400).json({ error: 'Username and action are required' });
+    // Refresh the session cookie to slide expiry without rotating the token.
+    setSessionCookie(res, session.id, parsed.token);
+    return { user: me, session };
     const users = await loadUsers();
     const me = await getUserById(users, req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
-    const other = await getUserByUsername(users, username);
-    if (!other) return res.status(404).json({ error: 'User not found' });
+    const refreshed = await refreshSessionFromCookie(req, res);
+    if (!refreshed?.user || !refreshed?.session) return res.status(401).json({ error: 'Session expired' });
 
-    ensureFriendStruct(me);
-    ensureFriendStruct(other);
-
-    me.friends.incoming = me.friends.incoming.filter(id => id !== other.id);
-    other.friends.outgoing = other.friends.outgoing.filter(id => id !== me.id);
-
-    if (action === 'accept') {
-        if (!me.friends.accepted.includes(other.id)) me.friends.accepted.push(other.id);
-        if (!other.friends.accepted.includes(me.id)) other.friends.accepted.push(me.id);
-        recordFriendEvent('accepted');
-    } else {
-        recordFriendEvent('rejected');
-    }
-
-    me.updatedAt = other.updatedAt = new Date().toISOString();
-    await saveUsers(users);
-    res.json({ success: true });
-});
-
-app.post('/api/friends/cancel', requireAuth, async (req, res) => {
-    const { username } = req.body || {};
-    if (!username) return res.status(400).json({ error: 'Username is required' });
-    const users = await loadUsers();
-    const me = await getUserById(users, req.user.id);
-    if (!me) return res.status(404).json({ error: 'User not found' });
-    const other = await getUserByUsername(users, username);
-    if (!other) return res.status(404).json({ error: 'User not found' });
-
-    ensureFriendStruct(me);
-    ensureFriendStruct(other);
-
-    me.friends.outgoing = me.friends.outgoing.filter(id => id !== other.id);
-    other.friends.incoming = other.friends.incoming.filter(id => id !== me.id);
-    me.updatedAt = other.updatedAt = new Date().toISOString();
-    await saveUsers(users);
-    res.json({ success: true });
-});
-
-app.post('/api/friends/remove', requireAuth, async (req, res) => {
-    const { username } = req.body || {};
-    if (!username) return res.status(400).json({ error: 'Username is required' });
-    const users = await loadUsers();
-    const me = await getUserById(users, req.user.id);
-    if (!me) return res.status(404).json({ error: 'User not found' });
-    const other = await getUserByUsername(users, username);
-    if (!other) return res.status(404).json({ error: 'User not found' });
-
-    ensureFriendStruct(me);
-    ensureFriendStruct(other);
-
-    me.friends.accepted = me.friends.accepted.filter(id => id !== other.id);
+    const { user, session } = refreshed;
     other.friends.accepted = other.friends.accepted.filter(id => id !== me.id);
-    me.updatedAt = other.updatedAt = new Date().toISOString();
+    req.me = me;
     await saveUsers(users);
-    res.json({ success: true });
-});
-
-// Block / Unblock
 app.post('/api/friends/block', requireAuth, async (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'Username is required' });
@@ -2025,21 +1859,13 @@ app.post('/api/online/ping', async (req, res) => {
     const now = Date.now();
     pruneGuestHeartbeats(now);
 
-    const token = getAccessToken(req);
-    let decoded = token ? decodeSessionToken(token) : null;
+    const refreshed = await refreshSessionFromCookie(req, res);
     let users = null;
     let me = null;
 
-    if (decoded?.id) {
+    if (refreshed?.user?.id) {
         users = await loadUsers();
-        me = await getUserById(users, decoded.id);
-    } else {
-        const refreshed = await refreshSessionFromCookie(req, res);
-        if (refreshed?.user?.id) {
-            decoded = { id: refreshed.user.id };
-            users = await loadUsers();
-            me = await getUserById(users, refreshed.user.id);
-        }
+        me = await getUserById(users, refreshed.user.id);
     }
 
     if (me) {
