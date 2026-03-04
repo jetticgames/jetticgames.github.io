@@ -1259,6 +1259,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     /* In case some element introduced margin collapse, enforce min offset */
     margin-top: 0;
     overflow: hidden;
+    position: relative;
 }
 .friends-columns {margin-top:8px;}
 .friends-panel {background: var(--bg-secondary); border:1px solid var(--border-primary); padding:16px 18px 18px; border-radius:14px; position:relative; overflow:hidden; margin-bottom: 24px;}
@@ -1692,6 +1693,16 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     opacity: 0;
     transform: translateY(8px);
 }
+
+.page.overlay-enter,
+.page.overlay-leave {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+}
+
+.page.overlay-enter { z-index: 2; }
+.page.overlay-leave { z-index: 1; }
 
 /* Games Section */
 .games-section {

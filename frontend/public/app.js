@@ -3632,13 +3632,19 @@
         }
 
         const wasGame = runtime.currentPage === 'game' && state.currentGame;
+        const container = next.parentElement;
+        if (container && current) {
+            const lockHeight = Math.max(current.offsetHeight || 0, next.offsetHeight || 0);
+            if (lockHeight > 0) container.style.minHeight = `${lockHeight}px`;
+        }
 
         if (current) {
             current.classList.remove('active');
-            current.classList.add('leaving', 'is-visible');
+            current.classList.add('leaving', 'is-visible', 'overlay-leave');
             const hideCurrent = () => {
-                current.classList.remove('leaving', 'is-visible');
+                current.classList.remove('leaving', 'is-visible', 'overlay-leave');
                 current.style.display = 'none';
+                if (container) container.style.minHeight = '';
             };
             const onLeaveEnd = (event) => {
                 if (event.target !== current) return;
@@ -3651,10 +3657,11 @@
 
         next.style.display = 'block';
         next.classList.remove('leaving');
-        next.classList.add('is-visible', 'entering');
+        next.classList.add('is-visible', 'entering', 'overlay-enter');
         requestAnimationFrame(() => {
             next.classList.add('active');
             next.classList.remove('entering');
+            setTimeout(() => next.classList.remove('overlay-enter'), 280);
         });
         runtime.currentPage = page;
         const leavingGame = wasGame && page !== 'game';
