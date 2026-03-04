@@ -40,6 +40,7 @@
         adminAnalyticsRetention: null,
         adminAnalyticsRange: '24h',
         adminAnalyticsSearch: '',
+        adminSearchQueries: { requests: '', reports: '', games: '', users: '' },
         adminTab: 'requests'
     };
 
@@ -529,7 +530,7 @@
             adminNotifyWarning: document.getElementById('adminNotifyWarning'),
             adminNotifyError: document.getElementById('adminNotifyError'),
             adminNotifyInfo: document.getElementById('adminNotifyInfo'),
-            analyticsGameSearch: document.getElementById('analyticsGameSearch'),
+            adminTabSearch: document.getElementById('adminTabSearch'),
             analyticsPlayerCounts: document.getElementById('analyticsPlayerCounts'),
             analyticsAccountsTotal: document.getElementById('analyticsAccountsTotal'),
             analyticsSystemStatus: document.getElementById('analyticsSystemStatus'),
@@ -550,12 +551,10 @@
         els.adminRequestsEmpty = document.getElementById('adminRequestsEmpty');
         els.adminRequestsError = document.getElementById('adminRequestsError');
         els.adminRequestsRefresh = document.getElementById('adminRequestsRefresh');
-        els.adminRequestsSearch = document.getElementById('adminRequestsSearch');
         els.adminReportsList = document.getElementById('adminReportsList');
         els.adminReportsEmpty = document.getElementById('adminReportsEmpty');
         els.adminReportsError = document.getElementById('adminReportsError');
         els.adminReportsRefresh = document.getElementById('adminReportsRefresh');
-        els.adminReportsSearch = document.getElementById('adminReportsSearch');
         els.adminTabNav = document.getElementById('adminTabNav');
         els.adminTabActions = document.getElementById('adminTabActions');
         els.adminTabPanels = Array.from(document.querySelectorAll('#adminTabPanels .friends-tab-panel'));
@@ -563,7 +562,6 @@
         els.adminGamesList = document.getElementById('adminGamesList');
         els.adminGamesEmpty = document.getElementById('adminGamesEmpty');
         els.adminGamesRefresh = document.getElementById('adminGamesRefresh');
-        els.adminGamesSearch = document.getElementById('adminGamesSearch');
         els.adminGameNew = document.getElementById('adminGameNew');
         els.adminGameModal = document.getElementById('adminGameModal');
         els.adminGameModalClose = document.getElementById('adminGameModalClose');
@@ -585,7 +583,6 @@
         els.adminUsersList = document.getElementById('adminUsersList');
         els.adminUsersEmpty = document.getElementById('adminUsersEmpty');
         els.adminUsersRefresh = document.getElementById('adminUsersRefresh');
-        els.adminUsersSearch = document.getElementById('adminUsersSearch');
         els.adminUserNew = document.getElementById('adminUserNew');
         els.adminUserModal = document.getElementById('adminUserModal');
         els.adminUserModalClose = document.getElementById('adminUserModalClose');
@@ -747,10 +744,22 @@
         els.adminReportsRefresh?.addEventListener('click', () => loadAdminReports(true));
         els.adminGamesRefresh?.addEventListener('click', () => loadAdminGames(true));
         els.adminUsersRefresh?.addEventListener('click', () => loadAdminUsers(true));
-        els.adminRequestsSearch?.addEventListener('input', () => renderAdminRequests());
-        els.adminReportsSearch?.addEventListener('input', () => renderAdminReports());
-        els.adminGamesSearch?.addEventListener('input', () => renderAdminGames());
-        els.adminUsersSearch?.addEventListener('input', () => renderAdminUsers());
+        els.adminTabSearch?.addEventListener('input', (e) => {
+            const value = (e.target.value || '').trim().toLowerCase();
+            const tab = state.adminTab || 'requests';
+            if (tab === 'requests' || tab === 'reports' || tab === 'games' || tab === 'users') {
+                state.adminSearchQueries[tab] = value;
+                if (tab === 'requests') renderAdminRequests();
+                if (tab === 'reports') renderAdminReports();
+                if (tab === 'games') renderAdminGames();
+                if (tab === 'users') renderAdminUsers();
+                return;
+            }
+            if (tab === 'analytics') {
+                state.adminAnalyticsSearch = value;
+                renderAdminAnalytics();
+            }
+        });
 
         els.adminGameNew?.addEventListener('click', () => openAdminGameModal());
         els.adminGameModalClose?.addEventListener('click', closeAdminGameModal);
@@ -776,10 +785,6 @@
         els.adminLoginModal?.addEventListener('click', (e) => { if (e.target === els.adminLoginModal || e.target === els.adminLoginOverlay) closeLoginHistoryModal(); });
         els.adminRelationsClose?.addEventListener('click', closeAdminRelationsModal);
         els.adminRelationsModal?.addEventListener('click', (e) => { if (e.target === els.adminRelationsModal || e.target === els.adminRelationsOverlay) closeAdminRelationsModal(); });
-        els.analyticsGameSearch?.addEventListener('input', (e) => {
-            state.adminAnalyticsSearch = (e.target.value || '').trim().toLowerCase();
-            renderAdminAnalytics();
-        });
         (els.analyticsMaxButtons || []).forEach((btn) => {
             btn.addEventListener('click', () => {
                 const type = btn.dataset.analyticsModal;
@@ -2242,7 +2247,7 @@
     function renderAdminRequests() {
         if (!els.adminRequestsList) return;
         const list = Array.isArray(state.adminRequests) ? state.adminRequests.slice() : [];
-        const query = (els.adminRequestsSearch?.value || '').trim().toLowerCase();
+        const query = (state.adminSearchQueries?.requests || '').trim().toLowerCase();
         const filtered = (query
             ? list.filter((req) => (req.title || '').toLowerCase().includes(query) || (req.username || '').toLowerCase().includes(query) || (req.description || '').toLowerCase().includes(query))
             : list).sort((a, b) => {
@@ -2331,7 +2336,7 @@
     function renderAdminReports() {
         if (!els.adminReportsList) return;
         const list = Array.isArray(state.adminReports) ? state.adminReports.slice() : [];
-        const query = (els.adminReportsSearch?.value || '').trim().toLowerCase();
+        const query = (state.adminSearchQueries?.reports || '').trim().toLowerCase();
         const filtered = (query
             ? list.filter((rep) =>
                 (rep.summary || '').toLowerCase().includes(query) ||
@@ -2423,7 +2428,7 @@
         if (!els.adminGamesList) return;
         els.adminGamesList.innerHTML = '';
         const list = Array.isArray(state.adminGames) ? state.adminGames.slice() : [];
-        const query = (els.adminGamesSearch?.value || '').trim().toLowerCase();
+        const query = (state.adminSearchQueries?.games || '').trim().toLowerCase();
         const filtered = query
             ? list.filter((game) => (game.title || '').toLowerCase().includes(query) || (game.category || '').toLowerCase().includes(query))
             : list;
@@ -2552,7 +2557,7 @@
         if (!els.adminUsersList) return;
         els.adminUsersList.innerHTML = '';
         const list = Array.isArray(state.adminUsers) ? state.adminUsers.slice() : [];
-        const query = (els.adminUsersSearch?.value || '').trim().toLowerCase();
+        const query = (state.adminSearchQueries?.users || '').trim().toLowerCase();
         const filtered = query
             ? list.filter((u) => (u.username || '').toLowerCase().includes(query) || (u.email || '').toLowerCase().includes(query))
             : list;
@@ -2719,6 +2724,23 @@
             const visible = allowedTabs.includes(tab);
             btn.style.display = visible ? '' : 'none';
         });
+        if (els.adminTabSearch) {
+            const searchable = tab === 'requests' || tab === 'reports' || tab === 'games' || tab === 'users' || tab === 'analytics';
+            const placeholders = {
+                requests: 'Search requests...',
+                reports: 'Search reports...',
+                games: 'Search games...',
+                users: 'Search users...',
+                analytics: 'Search games...'
+            };
+            els.adminTabSearch.style.display = searchable ? '' : 'none';
+            if (searchable) {
+                els.adminTabSearch.placeholder = placeholders[tab] || 'Search...';
+                els.adminTabSearch.value = tab === 'analytics'
+                    ? (state.adminAnalyticsSearch || '')
+                    : (state.adminSearchQueries?.[tab] || '');
+            }
+        }
         const adminTabTitles = {
             requests: 'Game Requests',
             reports: 'Reports',

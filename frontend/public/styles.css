@@ -1312,6 +1312,15 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     margin-left: auto;
     justify-content: flex-end;
 }
+
+.admin-tab-search {
+    width: 240px;
+    max-width: 32vw;
+    height: 34px;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 13px;
+}
 .friends-tab-panels {width:100%;}
 .friends-tab-panel {display:none;}
 .friends-tab-panel.active {display:block;}

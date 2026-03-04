@@ -501,6 +501,7 @@
                                     <button class="friends-tab cat-tab" data-tab="analytics">Analytics</button>
                                 </div>
                                 <div class="admin-tab-actions" id="adminTabActions">
+                                    <input type="search" id="adminTabSearch" class="admin-tab-search" style="display:none;" placeholder="Search..." aria-label="Search admin subpage" />
                                     <button type="button" class="friends-tab cat-tab" id="adminRequestsRefresh" data-admin-tabs="requests">Refresh</button>
                                     <button type="button" class="friends-tab cat-tab" id="adminReportsRefresh" data-admin-tabs="reports">Refresh</button>
                                     <button type="button" class="friends-tab cat-tab" id="adminGamesRefresh" data-admin-tabs="games">Refresh</button>
@@ -516,7 +517,6 @@
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Game Requests</h3>
                                     </div>
-                                    <input type="search" id="adminRequestsSearch" placeholder="Search requests..." class="admin-search" />
                                     <div id="adminRequestsError" class="form-feedback" style="color:#f85149;"></div>
                                     <div id="adminRequestsEmpty" class="muted-hint" style="display:none;">No requests yet.</div>
                                     <ul id="adminRequestsList" class="friends-list"></ul>
@@ -526,7 +526,6 @@
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Reports</h3>
                                     </div>
-                                    <input type="search" id="adminReportsSearch" placeholder="Search reports..." class="admin-search" />
                                     <div id="adminReportsError" class="form-feedback" style="color:#f85149;"></div>
                                     <div id="adminReportsEmpty" class="muted-hint" style="display:none;">No reports yet.</div>
                                     <ul id="adminReportsList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
@@ -536,7 +535,6 @@
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Games</h3>
                                     </div>
-                                        <input type="search" id="adminGamesSearch" placeholder="Search games..." class="admin-search" />
                                         <div id="adminGameFeedback" class="form-feedback"></div>
                                         <div id="adminGamesEmpty" class="muted-hint" style="display:none;">No games yet.</div>
                                         <ul id="adminGamesList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
@@ -546,7 +544,6 @@
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Users</h3>
                                     </div>
-                                    <input type="search" id="adminUsersSearch" placeholder="Search users..." class="admin-search" />
                                     <div id="adminUserFeedback" class="form-feedback"></div>
                                     <div id="adminUsersEmpty" class="muted-hint" style="display:none;">No users yet.</div>
                                     <ul id="adminUsersList" class="friends-list" style="display:flex; flex-direction:column; gap:10px;"></ul>
@@ -690,9 +687,6 @@
                                     <div class="settings-card" style="margin-top:12px;">
                                         <div class="analytics-card-header">
                                             <h3>Per-Game Metrics</h3>
-                                            <div class="analytics-search-inline">
-                                                <input type="search" id="analyticsGameSearch" placeholder="Search games..." aria-label="Search games" />
-                                            </div>
                                         </div>
                                         <div class="analytics-card-body" id="analyticsGameTable">Data unavailable</div>
                                     </div>
