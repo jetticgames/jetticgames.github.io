@@ -1292,6 +1292,26 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .friends-tab-nav {display:flex; gap:10px; flex-wrap:wrap; margin-left:auto;}
 .section-header .friends-tab-nav {margin-bottom:0;}
 .friends-tab {padding:6px 14px; border-radius:999px; font-weight:600;}
+
+#adminTabNav {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+#adminTabNav .admin-tab-buttons,
+#adminTabNav .admin-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#adminTabNav .admin-tab-actions {
+    margin-left: auto;
+    justify-content: flex-end;
+}
 .friends-tab-panels {width:100%;}
 .friends-tab-panel {display:none;}
 .friends-tab-panel.active {display:block;}

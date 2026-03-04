@@ -570,6 +570,7 @@
         els.adminReportsRefresh = document.getElementById('adminReportsRefresh');
         els.adminReportsSearch = document.getElementById('adminReportsSearch');
         els.adminTabNav = document.getElementById('adminTabNav');
+        els.adminTabActions = document.getElementById('adminTabActions');
         els.adminTabPanels = Array.from(document.querySelectorAll('#adminTabPanels .friends-tab-panel'));
         els.adminSubpageTitle = document.getElementById('adminSubpageTitle');
         els.adminGamesList = document.getElementById('adminGamesList');
@@ -2935,6 +2936,12 @@
         state.adminTab = tab;
         els.adminTabNavButtons?.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
         els.adminTabPanels?.forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+        const actionButtons = Array.from(els.adminTabActions?.querySelectorAll('[data-admin-tabs]') || []);
+        actionButtons.forEach((btn) => {
+            const allowedTabs = String(btn.dataset.adminTabs || '').split(',').map((v) => v.trim()).filter(Boolean);
+            const visible = allowedTabs.includes(tab);
+            btn.style.display = visible ? '' : 'none';
+        });
         const adminTabTitles = {
             requests: 'Game Requests',
             reports: 'Reports',

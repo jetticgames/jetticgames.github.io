@@ -491,19 +491,30 @@
                                 <h2 class="section-title admin-page-title"><i class="fas fa-shield" style="color:#e3b341;"></i> <span>Admin</span><span class="admin-title-dot" aria-hidden="true">·</span><span id="adminSubpageTitle">Requests</span></h2>
                             </div>
                             <div class="friends-tab-nav" id="adminTabNav">
-                                <button class="friends-tab cat-tab active" data-tab="requests">Requests</button>
-                                <button class="friends-tab cat-tab" data-tab="reports">Reports</button>
-                                <button class="friends-tab cat-tab" data-tab="games">Games</button>
-                                <button class="friends-tab cat-tab" data-tab="users">Users</button>
-                                <button class="friends-tab cat-tab" data-tab="notice">Notice</button>
-                                <button class="friends-tab cat-tab" data-tab="defaults">Defaults</button>
-                                <button class="friends-tab cat-tab" data-tab="analytics">Analytics</button>
+                                <div class="admin-tab-buttons">
+                                    <button class="friends-tab cat-tab active" data-tab="requests">Requests</button>
+                                    <button class="friends-tab cat-tab" data-tab="reports">Reports</button>
+                                    <button class="friends-tab cat-tab" data-tab="games">Games</button>
+                                    <button class="friends-tab cat-tab" data-tab="users">Users</button>
+                                    <button class="friends-tab cat-tab" data-tab="notice">Notice</button>
+                                    <button class="friends-tab cat-tab" data-tab="defaults">Defaults</button>
+                                    <button class="friends-tab cat-tab" data-tab="analytics">Analytics</button>
+                                </div>
+                                <div class="admin-tab-actions" id="adminTabActions">
+                                    <button type="button" class="friends-tab cat-tab" id="adminRequestsRefresh" data-admin-tabs="requests">Refresh</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminReportsRefresh" data-admin-tabs="reports">Refresh</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminGamesRefresh" data-admin-tabs="games">Refresh</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminGameNew" data-admin-tabs="games">New Game</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminUsersRefresh" data-admin-tabs="users">Refresh</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminUserNew" data-admin-tabs="users">New User</button>
+                                    <button type="button" class="friends-tab cat-tab" id="adminNoticeSave" data-admin-tabs="notice">Save</button>
+                                    <button type="submit" form="adminDefaultsForm" class="friends-tab cat-tab" id="adminDefaultsSaveBtn" data-admin-tabs="defaults">Save</button>
+                                </div>
                             </div>
                             <div class="friends-tab-panels" id="adminTabPanels">
                                 <div class="friends-tab-panel active" data-panel="requests">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Game Requests</h3>
-                                        <button type="button" class="update-check-btn" id="adminRequestsRefresh">Refresh</button>
                                     </div>
                                     <input type="search" id="adminRequestsSearch" placeholder="Search requests..." class="admin-search" />
                                     <div id="adminRequestsError" class="form-feedback" style="color:#f85149;"></div>
@@ -514,7 +525,6 @@
                                 <div class="friends-tab-panel" data-panel="reports">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Reports</h3>
-                                        <button type="button" class="update-check-btn" id="adminReportsRefresh">Refresh</button>
                                     </div>
                                     <input type="search" id="adminReportsSearch" placeholder="Search reports..." class="admin-search" />
                                     <div id="adminReportsError" class="form-feedback" style="color:#f85149;"></div>
@@ -525,10 +535,6 @@
                                 <div class="friends-tab-panel" data-panel="games">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Games</h3>
-                                        <div style="display:flex; gap:10px; align-items:center;">
-                                            <button type="button" class="update-check-btn" id="adminGamesRefresh">Refresh</button>
-                                            <button type="button" class="update-check-btn" id="adminGameNew">New Game</button>
-                                        </div>
                                     </div>
                                         <input type="search" id="adminGamesSearch" placeholder="Search games..." class="admin-search" />
                                         <div id="adminGameFeedback" class="form-feedback"></div>
@@ -539,10 +545,6 @@
                                 <div class="friends-tab-panel" data-panel="users">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Users</h3>
-                                        <div style="display:flex; gap:10px; align-items:center;">
-                                            <button type="button" class="update-check-btn" id="adminUsersRefresh">Refresh</button>
-                                            <button type="button" class="update-check-btn" id="adminUserNew">New User</button>
-                                        </div>
                                     </div>
                                     <input type="search" id="adminUsersSearch" placeholder="Search users..." class="admin-search" />
                                     <div id="adminUserFeedback" class="form-feedback"></div>
@@ -553,7 +555,6 @@
                                 <div class="friends-tab-panel" data-panel="notice" id="adminNoticePanel">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Homepage Notice Bar</h3>
-                                        <button type="button" class="update-check-btn" id="adminNoticeSave">Save</button>
                                     </div>
                                     <div id="adminNoticeFeedback" class="form-feedback"></div>
                                     <form id="adminNoticeForm" class="profile-form admin-notice-grid" autocomplete="off">
@@ -604,7 +605,6 @@
                                 <div class="friends-tab-panel" data-panel="defaults" id="adminDefaultsPanel">
                                     <div class="section-header" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Default Settings & Presets</h3>
-                                        <button type="submit" form="adminDefaultsForm" class="update-check-btn" id="adminDefaultsSaveBtn">Save</button>
                                     </div>
                                     <div id="adminDefaultsFeedback" class="form-feedback"></div>
                                     <form id="adminDefaultsForm" class="profile-form" autocomplete="off">
