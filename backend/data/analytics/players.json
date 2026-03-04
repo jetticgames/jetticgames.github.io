@@ -10313,6 +10313,30 @@
       "players": 2,
       "onlineUsers": 0,
       "onlineGuests": 2
+    },
+    {
+      "time": "2026-03-04T00:52:39.667Z",
+      "players": 4,
+      "onlineUsers": 0,
+      "onlineGuests": 4
+    },
+    {
+      "time": "2026-03-04T00:53:39.668Z",
+      "players": 1,
+      "onlineUsers": 0,
+      "onlineGuests": 1
+    },
+    {
+      "time": "2026-03-04T00:54:39.668Z",
+      "players": 3,
+      "onlineUsers": 0,
+      "onlineGuests": 3
+    },
+    {
+      "time": "2026-03-04T00:55:39.675Z",
+      "players": 1,
+      "onlineUsers": 0,
+      "onlineGuests": 1
     }
   ]
 }
