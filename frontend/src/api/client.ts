@@ -70,7 +70,7 @@ export class ApiClient {
       response = await fetch(this.buildUrl(path), {
         ...init,
         headers,
-        credentials: 'omit',
+        credentials: 'include',
         signal: init.signal || controller.signal
       });
     } catch (err: any) {

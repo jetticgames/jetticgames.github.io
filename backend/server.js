@@ -20,7 +20,10 @@ const JWT_SECRET = process.env.JWT_SECRET || loadSessionSecret();
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.json');
-const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const CONFIG_GENERAL_FILE = path.join(DATA_DIR, 'config.yml');
+const FEATURES_FILE = path.join(DATA_DIR, 'features.yml');
+const DEFAULTS_FILE = path.join(DATA_DIR, 'default-settings.yml');
+const LEGACY_CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REQUESTS_FILE = path.join(DATA_DIR, 'requests.json');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
@@ -117,6 +120,37 @@ async function ensureFile(file, fallback) {
     }
 }
 
+async function fileExists(file) {
+    try {
+        await fs.access(file);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+async function readYaml(file, fallback) {
+    try {
+        const raw = await fs.readFile(file, 'utf8');
+        return yaml.load(raw);
+    } catch (_) {
+        return fallback;
+    }
+}
+
+async function writeYaml(file, data) {
+    const serialized = yaml.dump(data || {}, { noRefs: true, lineWidth: 120 });
+    await fs.writeFile(file, serialized, 'utf8');
+}
+
+async function ensureYamlFile(file, fallback) {
+    try {
+        await fs.access(file);
+    } catch (_) {
+        await writeYaml(file, fallback);
+    }
+}
+
 function loadSessionSecret() {
     if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
     try {
@@ -174,17 +208,48 @@ async function analyticsEnabled() {
 }
 
 async function loadConfig() {
-    return readJson(CONFIG_FILE, {
-        version: APP_VERSION,
-        maintenanceMode: { enabled: false },
-        features: {},
-        uiControls: {},
-        defaults: { presets: BUILT_IN_PRESETS }
-    });
+    const legacy = await readJson(LEGACY_CONFIG_FILE, null);
+    const general = await readYaml(CONFIG_GENERAL_FILE, legacy || {});
+    const features = await readYaml(FEATURES_FILE, legacy?.features || {});
+    const defaults = await readYaml(DEFAULTS_FILE, legacy?.defaults || {});
+    return {
+        version: general?.version || APP_VERSION,
+        maintenanceMode: general?.maintenanceMode || { enabled: false },
+        uiControls: general?.uiControls || {},
+        features: features || {},
+        defaults: (defaults && Object.keys(defaults).length ? defaults : { presets: BUILT_IN_PRESETS })
+    };
 }
 
 async function saveConfig(config) {
-    await writeJson(CONFIG_FILE, config);
+    const general = {
+        version: config?.version || APP_VERSION,
+        maintenanceMode: config?.maintenanceMode || { enabled: false },
+        uiControls: config?.uiControls || {}
+    };
+    await writeYaml(CONFIG_GENERAL_FILE, general);
+    await writeYaml(FEATURES_FILE, config?.features || {});
+    await writeYaml(DEFAULTS_FILE, config?.defaults || { presets: BUILT_IN_PRESETS });
+}
+
+async function migrateLegacyConfig() {
+    if (!(await fileExists(LEGACY_CONFIG_FILE))) return;
+    const legacy = await readJson(LEGACY_CONFIG_FILE, null);
+    if (!legacy) return;
+
+    if (!(await fileExists(CONFIG_GENERAL_FILE))) {
+        await writeYaml(CONFIG_GENERAL_FILE, {
+            version: legacy.version || APP_VERSION,
+            maintenanceMode: legacy.maintenanceMode || { enabled: false },
+            uiControls: legacy.uiControls || {}
+        });
+    }
+    if (!(await fileExists(FEATURES_FILE)) && legacy.features) {
+        await writeYaml(FEATURES_FILE, legacy.features || {});
+    }
+    if (!(await fileExists(DEFAULTS_FILE)) && legacy.defaults) {
+        await writeYaml(DEFAULTS_FILE, legacy.defaults || { presets: BUILT_IN_PRESETS });
+    }
 }
 
 function isHttpUrl(url) {
@@ -767,26 +832,31 @@ setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
     await fs.mkdir(DATA_DIR, { recursive: true });
     await ensureFile(USERS_FILE, { users: [] });
     await ensureFile(GAMES_FILE, []);
-    await ensureFile(CONFIG_FILE, {});
+    await migrateLegacyConfig();
+    await ensureYamlFile(CONFIG_GENERAL_FILE, { version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} });
+    await ensureYamlFile(FEATURES_FILE, {});
+    await ensureYamlFile(DEFAULTS_FILE, { presets: BUILT_IN_PRESETS });
     await ensureFile(REQUESTS_FILE, { requests: [] });
     await ensureFile(REPORTS_FILE, { reports: [] });
     await ensureFile(SESSION_FILE, { sessions: [] });
     await ensureAnalyticsFiles();
-        await ensureFile(BANNER_FILE, `enabled: true
-id: default
-message: "Welcome to Jettic Games!"
-description: "Play and save your favorites."
-background: "#11161f"
-textColor: "#e5e7eb"
-dismissible: true
-dismissCooldownHours: 24
-button:
-    enabled: true
-    label: "Visit Store"
-    url: "https://example.com"
-    background: "#1f6feb"
-    textColor: "#ffffff"
-`);
+    await ensureYamlFile(BANNER_FILE, {
+        enabled: true,
+        id: 'default',
+        message: 'Welcome to Jettic Games!',
+        description: 'Play and save your favorites.',
+        background: '#11161f',
+        textColor: '#e5e7eb',
+        dismissible: true,
+        dismissCooldownHours: 24,
+        button: {
+            enabled: true,
+            label: 'Visit Store',
+            url: 'https://example.com',
+            background: '#1f6feb',
+            textColor: '#ffffff'
+        }
+    });
 })();
 
 // --- Core endpoints
