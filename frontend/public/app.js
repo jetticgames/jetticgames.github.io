@@ -4215,8 +4215,6 @@
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
             card.style.animation = 'notifOut .7s cubic-bezier(.22,1,.36,1) forwards';
-            // Animate remaining toasts sliding down to fill the gap
-            animateStackShift('down', card);
             const cleanup = () => card.remove();
             const onExitEnd = (event) => {
                 if (event.target !== card) return;

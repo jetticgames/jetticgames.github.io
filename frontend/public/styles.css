@@ -888,7 +888,6 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 /* App Container */
 .app-container {
     display: flex;
-    min-height: 100vh;
     flex: 1;
 }
 
@@ -3803,8 +3802,17 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .settings-footer-meta {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 4px;
-    padding: 0 14px 6px;
+    padding: 0 0 6px;
+    margin-top: 10px;
+}
+
+.settings-footer-meta .muted-hint {
+    font-style: normal;
+    text-align: left;
+    padding: 0;
+    margin: 0;
 }
 
 .setting-group {
