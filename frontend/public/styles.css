@@ -2127,10 +2127,10 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .game-main-area {
-    width: 75%;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px 16px 40px 16px;
+    padding: 0 0 40px 0;
 }
 
 .game-frame-wrapper {
@@ -3422,7 +3422,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     
     .game-main-area {
         width: 100%;
-        padding: 16px;
+        padding: 0 0 16px 0;
     }
     
     .game-frame-wrapper {
