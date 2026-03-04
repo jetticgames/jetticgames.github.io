@@ -68,7 +68,9 @@
         offlineNotified: false,
         handlingRoute: false,
         pendingRoute: null,
-        lastPlayedCache: []
+        lastPlayedCache: [],
+        pageTransitionId: 0,
+        panelTransitionId: 0
     };
 
     const HOME_PATH = '/';
@@ -1214,14 +1216,17 @@
         if (!targetPanel) return;
         const current = panels.find((p) => p.classList.contains('active'));
         if (current === targetPanel) return;
+        const transitionId = ++runtime.panelTransitionId;
 
         const finishCurrent = () => {
+            if (transitionId !== runtime.panelTransitionId) return;
             if (!current) return;
             current.classList.remove('active', 'leaving', 'animating');
             current.style.display = 'none';
         };
 
         const finishNext = () => {
+            if (transitionId !== runtime.panelTransitionId) return;
             targetPanel.classList.remove('entering', 'animating');
         };
 
@@ -1230,6 +1235,7 @@
             const onCurrentEnd = (event) => {
                 if (event.target !== current) return;
                 current.removeEventListener('transitionend', onCurrentEnd);
+                if (transitionId !== runtime.panelTransitionId) return;
                 finishCurrent();
             };
             current.addEventListener('transitionend', onCurrentEnd);
@@ -1242,6 +1248,7 @@
         const onNextEnd = (event) => {
             if (event.target !== targetPanel) return;
             targetPanel.removeEventListener('transitionend', onNextEnd);
+            if (transitionId !== runtime.panelTransitionId) return;
             finishNext();
         };
         targetPanel.addEventListener('transitionend', onNextEnd);
@@ -3632,6 +3639,7 @@
         }
 
         const wasGame = runtime.currentPage === 'game' && state.currentGame;
+        const transitionId = ++runtime.pageTransitionId;
         const container = next.parentElement;
         if (container && current) {
             const lockHeight = Math.max(current.offsetHeight || 0, next.offsetHeight || 0);
@@ -3640,6 +3648,7 @@
 
         let finalized = false;
         const finalizeTransition = () => {
+            if (transitionId !== runtime.pageTransitionId) return;
             if (finalized) return;
             finalized = true;
             if (current) {
@@ -3651,11 +3660,12 @@
         };
 
         if (current) {
-            current.classList.remove('active');
             current.classList.add('leaving', 'is-visible', 'overlay-leave');
+            current.classList.remove('active');
             const onLeaveEnd = (event) => {
                 if (event.target !== current) return;
                 current.removeEventListener('transitionend', onLeaveEnd);
+                if (transitionId !== runtime.pageTransitionId) return;
                 finalizeTransition();
             };
             current.addEventListener('transitionend', onLeaveEnd);
@@ -3666,6 +3676,7 @@
         next.classList.remove('leaving');
         next.classList.add('is-visible', 'entering', 'overlay-enter');
         requestAnimationFrame(() => {
+            if (transitionId !== runtime.pageTransitionId) return;
             next.classList.add('active');
             next.classList.remove('entering');
             if (!current) {
