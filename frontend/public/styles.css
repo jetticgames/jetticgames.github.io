@@ -1405,7 +1405,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .notification-close:hover {color:#fff; background:rgba(255,255,255,0.06);}
 .notification-progress {position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,0.08); overflow:hidden;}
 .notification-progress-bar {display:block; height:100%; width:100%; background:var(--notif-accent); animation:notifProgress var(--notif-duration) linear forwards; transform-origin:left center;}
-.notification-card.exiting {animation:notifOut 2s cubic-bezier(.2,.9,.2,1) forwards;}
+.notification-card.exiting {animation:notifOut 2s cubic-bezier(.2,.9,.2,1) forwards !important;}
 @keyframes notifIn {0% {opacity:0; transform:translateX(60px) scale(.94);} 25% {opacity:1; transform:translateX(-10px) scale(1.05);} 45% {transform:translateX(6px) scale(.98);} 65% {transform:translateX(-4px) scale(1.02);} 85% {transform:translateX(2px) scale(.995);} 100% {opacity:1; transform:translateX(0) scale(1);} }
 @keyframes notifOut {0% {opacity:1; transform:translateX(0) scale(1);} 20% {transform:translateX(-6px) scale(1.02);} 45% {transform:translateX(10px) scale(.96);} 70% {opacity:.55; transform:translateX(50px) scale(.94);} 100% {opacity:0; transform:translateX(90px) scale(.92);} }
 @keyframes notifProgress {from {transform:scaleX(1);} to {transform:scaleX(0);} }
