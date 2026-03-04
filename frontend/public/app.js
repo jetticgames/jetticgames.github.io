@@ -78,7 +78,8 @@
         offlineNotified: false,
         handlingRoute: false,
         pendingRoute: null,
-        lastPlayedCache: []
+        lastPlayedCache: [],
+        friendsUnreadEvents: 0
     };
 
     const HOME_PATH = '/';
@@ -434,6 +435,9 @@
             friendsContent: document.getElementById('friendsContent'),
             friendsTabNav: document.getElementById('friendsTabNav'),
             friendsTabPanels: Array.from(document.querySelectorAll('.friends-tab-panel')),
+            friendsManageTabBtn: document.getElementById('friendsManageTabBtn'),
+            friendsUnreadBadge: document.getElementById('friendsUnreadBadge'),
+            friendsManageUnreadBadge: document.getElementById('friendsManageUnreadBadge'),
             friendsList: document.getElementById('friendsList'),
             manageFriendsList: document.getElementById('manageFriendsList'),
             manageIncomingList: document.getElementById('manageIncomingList'),
@@ -1243,6 +1247,39 @@
             current?.classList.remove('active', 'slide-out', 'animating');
             next.classList.remove('slide-in', 'animating');
         }, 260);
+
+        if (tab === 'manage') {
+            clearFriendsUnreadEvents();
+        }
+    }
+
+    function isFriendsManageActive() {
+        const active = els.friendsTabNav?.querySelector('.friends-tab.active');
+        return active?.dataset?.tab === 'manage';
+    }
+
+    function setFriendsUnreadEvents(count) {
+        runtime.friendsUnreadEvents = Math.max(0, Number(count) || 0);
+        renderFriendsUnreadBadges();
+    }
+
+    function incrementFriendsUnreadEvents(by = 1) {
+        if (isFriendsManageActive()) return;
+        setFriendsUnreadEvents((runtime.friendsUnreadEvents || 0) + Math.max(0, Number(by) || 0));
+    }
+
+    function clearFriendsUnreadEvents() {
+        setFriendsUnreadEvents(0);
+    }
+
+    function renderFriendsUnreadBadges() {
+        const count = runtime.friendsUnreadEvents || 0;
+        const text = count > 99 ? '99+' : String(count);
+        [els.friendsUnreadBadge, els.friendsManageUnreadBadge].forEach((el) => {
+            if (!el) return;
+            el.textContent = text;
+            el.style.display = count > 0 ? 'inline-flex' : 'none';
+        });
     }
 
     function bindGameControls() {
@@ -1860,6 +1897,7 @@
                 }
                 runtime.friendsSnapshot = null;
                 runtime.friendsPlayingMap = new Map();
+                clearFriendsUnreadEvents();
                 state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
                 renderFriends();
                 if (els.friendsContent) els.friendsContent.style.display = 'none';
@@ -2377,6 +2415,9 @@
         const accepted = (next.friends || []).filter((u) => prev.outgoing?.includes(u.username));
         accepted.forEach((u) => pushNotification('Request accepted', `${u.username} accepted your friend request`, 'success'));
 
+        const newEvents = incomingNew.length + accepted.length;
+        if (newEvents > 0) incrementFriendsUnreadEvents(newEvents);
+
         const prevPresence = prev.presence || {};
         const nextPresence = {};
         (next.friends || []).forEach((u) => { nextPresence[u.username] = u.presence || {}; });
@@ -2409,6 +2450,7 @@
             els.friendsAuthNotice.style.display = 'block';
             els.friendsContent.style.display = 'none';
             if (els.friendsTabNav) els.friendsTabNav.style.display = 'none';
+                renderFriendsUnreadBadges();
             return;
         }
 
@@ -2417,6 +2459,11 @@
         els.friendsAuthNotice.style.display = 'none';
         els.friendsContent.style.display = 'grid';
         if (els.friendsTabNav) els.friendsTabNav.style.display = 'flex';
+        if (isFriendsManageActive()) {
+            clearFriendsUnreadEvents();
+        } else {
+            renderFriendsUnreadBadges();
+        }
         if (els.addFriendModal) els.addFriendModal.style.display = 'none';
 
         renderUserList(els.friendsList, friends, { statusText: 'Friend', emptyText: 'No friends yet.' });
@@ -3939,6 +3986,7 @@
         state.adminAnalytics = null;
         state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
         runtime.friendsSnapshot = null;
+        clearFriendsUnreadEvents();
         if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
         runtime.friendsPlayingMap = new Map();
         runtime.lastPlayedCache = [];

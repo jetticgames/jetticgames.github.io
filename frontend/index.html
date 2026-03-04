@@ -63,7 +63,7 @@
                         <a href="#" class="nav-link"><i class="nav-icon fas fa-heart"></i><span>Favorites</span></a>
                     </li>
                     <li class="nav-item" data-page="friends">
-                        <a href="#" class="nav-link"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span></a>
+                        <a href="#" class="nav-link" id="friendsNavLink"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span><span class="unread-badge" id="friendsUnreadBadge" style="display:none;">0</span></a>
                     </li>
                     <li class="sidebar-section-item" id="sidebarOnlineSection">
                         <div class="sidebar-section">
@@ -169,7 +169,7 @@
                         <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
                         <div class="friends-tab-nav" id="friendsTabNav" style="display:none;">
                             <button class="friends-tab cat-tab active" data-tab="overview">Overview</button>
-                            <button class="friends-tab cat-tab" data-tab="manage">Manage</button>
+                            <button class="friends-tab cat-tab" data-tab="manage" id="friendsManageTabBtn">Manage <span class="unread-badge" id="friendsManageUnreadBadge" style="display:none;">0</span></button>
                             <button class="friends-tab cat-tab" data-tab="add">Add Friend</button>
                         </div>
                     </div>
