@@ -1313,20 +1313,26 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     justify-content: flex-end;
 }
 
+#adminTabNav .admin-tab-actions .friends-tab {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+}
+
 .admin-tab-search {
     width: 240px;
     max-width: 32vw;
+    height: 34px;
+    box-sizing: border-box;
     border-radius: 999px !important;
     padding: 6px 14px;
     font-size: 13px;
 }
 .friends-tab-panels {width:100%;}
-.friends-tab-panel {display:none;}
-.friends-tab-panel.active {display:block;}
-.friends-tab-panel.slide-in {animation:friendsSlideIn .25s ease forwards;}
-.friends-tab-panel.slide-out {animation:friendsSlideOut .25s ease forwards;}
-@keyframes friendsSlideIn {from {opacity:0; transform:translateX(12px);} to {opacity:1; transform:translateX(0);} }
-@keyframes friendsSlideOut {from {opacity:1; transform:translateX(0);} to {opacity:0; transform:translateX(-12px);} }
+.friends-tab-panel {display:none; opacity:0; transform:translateY(8px); transition:opacity .24s ease, transform .24s cubic-bezier(.22,.61,.36,1);}
+.friends-tab-panel.active {display:block; opacity:1; transform:translateY(0);}
+.friends-tab-panel.entering {opacity:0; transform:translateY(8px);}
+.friends-tab-panel.leaving {opacity:0; transform:translateY(8px);}
 .manage-header-row {display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px;}
 .friends-add-panel {background:var(--bg-secondary); border:1px solid var(--border-primary); padding:16px; border-radius:12px; display:flex; align-items:center; justify-content:space-between; gap:10px;}
 .friends-add-panel p {margin:0; color:var(--text-secondary);}
@@ -1658,7 +1664,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     width: 100%;
     opacity: 0;
     transform: translateY(12px);
-    transition: opacity 0.28s ease, transform 0.32s cubic-bezier(.4, .8, .2, 1);
+    transition: opacity 0.26s ease, transform 0.26s cubic-bezier(.22, .61, .36, 1);
     pointer-events: none;
     will-change: opacity, transform;
     position: relative;
@@ -1678,10 +1684,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .page.leaving {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
     pointer-events: none;
-    position: absolute;
-    inset: 0;
+}
+
+.page.entering {
+    opacity: 0;
+    transform: translateY(8px);
 }
 
 /* Games Section */
@@ -2904,7 +2913,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     width: 100%;
     opacity: 0;
     transform: translateY(12px);
-    transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.4, 0.8, 0.2, 1);
+    transition: opacity 0.26s ease, transform 0.26s cubic-bezier(.22, .61, .36, 1);
     pointer-events: none;
     will-change: opacity, transform;
     position: relative;
@@ -2924,10 +2933,13 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .page.leaving {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(8px);
     pointer-events: none;
-    position: absolute;
-    inset: 0;
+}
+
+.page.entering {
+    opacity: 0;
+    transform: translateY(8px);
 }
 
 /* Homepage Game Grid */
@@ -3283,20 +3295,6 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 /* Animations */
-@keyframes fadeInSlide {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.page.active {
-    animation: fadeInSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 /* Responsive Design */
 @media (max-width: 1200px) {

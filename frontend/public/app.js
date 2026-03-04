@@ -1210,21 +1210,51 @@
         els.favoritesLoginBtn?.addEventListener('click', () => openAuthModal('login'));
     }
 
+    function switchPanelWithTransition(panels = [], targetPanel) {
+        if (!targetPanel) return;
+        const current = panels.find((p) => p.classList.contains('active'));
+        if (current === targetPanel) return;
+
+        const finishCurrent = () => {
+            if (!current) return;
+            current.classList.remove('active', 'leaving', 'animating');
+            current.style.display = 'none';
+        };
+
+        const finishNext = () => {
+            targetPanel.classList.remove('entering', 'animating');
+        };
+
+        if (current) {
+            current.classList.add('animating', 'leaving');
+            const onCurrentEnd = (event) => {
+                if (event.target !== current) return;
+                current.removeEventListener('transitionend', onCurrentEnd);
+                finishCurrent();
+            };
+            current.addEventListener('transitionend', onCurrentEnd);
+            setTimeout(finishCurrent, 280);
+        }
+
+        targetPanel.style.display = 'block';
+        targetPanel.classList.add('active', 'animating', 'entering');
+        requestAnimationFrame(() => targetPanel.classList.remove('entering'));
+        const onNextEnd = (event) => {
+            if (event.target !== targetPanel) return;
+            targetPanel.removeEventListener('transitionend', onNextEnd);
+            finishNext();
+        };
+        targetPanel.addEventListener('transitionend', onNextEnd);
+        setTimeout(finishNext, 280);
+    }
+
     function switchFriendsPanel(tab, btn) {
-        const current = els.friendsTabPanels.find((p) => p.classList.contains('active'));
         const next = els.friendsTabPanels.find((p) => p.dataset.panel === tab);
-        if (!next || current === next) return;
+        if (!next) return;
 
         els.friendsTabNav.querySelectorAll('.friends-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
 
-        [current, next].forEach((p) => p?.classList.add('animating'));
-        current?.classList.add('slide-out');
-        next.classList.add('slide-in', 'active');
-
-        setTimeout(() => {
-            current?.classList.remove('active', 'slide-out', 'animating');
-            next.classList.remove('slide-in', 'animating');
-        }, 260);
+        switchPanelWithTransition(els.friendsTabPanels, next);
     }
 
     function bindGameControls() {
@@ -2717,7 +2747,8 @@
         if (!tab) return;
         state.adminTab = tab;
         els.adminTabNavButtons?.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-        els.adminTabPanels?.forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+        const nextPanel = els.adminTabPanels?.find((p) => p.dataset.panel === tab);
+        switchPanelWithTransition(els.adminTabPanels || [], nextPanel);
         const actionButtons = Array.from(els.adminTabActions?.querySelectorAll('[data-admin-tabs]') || []);
         actionButtons.forEach((btn) => {
             const allowedTabs = String(btn.dataset.adminTabs || '').split(',').map((v) => v.trim()).filter(Boolean);
@@ -3604,17 +3635,27 @@
 
         if (current) {
             current.classList.remove('active');
-            current.classList.add('leaving');
-            setTimeout(() => {
+            current.classList.add('leaving', 'is-visible');
+            const hideCurrent = () => {
                 current.classList.remove('leaving', 'is-visible');
                 current.style.display = 'none';
-            }, 340);
+            };
+            const onLeaveEnd = (event) => {
+                if (event.target !== current) return;
+                current.removeEventListener('transitionend', onLeaveEnd);
+                hideCurrent();
+            };
+            current.addEventListener('transitionend', onLeaveEnd);
+            setTimeout(hideCurrent, 360);
         }
 
         next.style.display = 'block';
         next.classList.remove('leaving');
-        next.classList.add('is-visible');
-        requestAnimationFrame(() => next.classList.add('active'));
+        next.classList.add('is-visible', 'entering');
+        requestAnimationFrame(() => {
+            next.classList.add('active');
+            next.classList.remove('entering');
+        });
         runtime.currentPage = page;
         const leavingGame = wasGame && page !== 'game';
         if (page !== 'game' && !skipHistory && !runtime.handlingRoute) {
