@@ -1407,7 +1407,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .notification-progress-bar {display:block; height:100%; width:100%; background:var(--notif-accent); animation:notifProgress var(--notif-duration) linear forwards; transform-origin:left center;}
 .notification-card.exiting {animation:notifOut .7s cubic-bezier(.22,1,.36,1) forwards !important;}
 @keyframes notifIn {0% {opacity:0; transform:translate3d(48px,0,0);} 72% {opacity:1; transform:translate3d(-6px,0,0);} 100% {opacity:1; transform:translate3d(0,0,0);} }
-@keyframes notifOut {0% {opacity:1; transform:translate3d(0,0,0);} 28% {opacity:1; transform:translate3d(6px,0,0);} 100% {opacity:0; transform:translate3d(48px,0,0);} }
+@keyframes notifOut {0% {opacity:1; transform:translate3d(0,0,0);} 100% {opacity:0; transform:translate3d(48px,0,0);} }
 @keyframes notifProgress {from {transform:scaleX(1);} to {transform:scaleX(0);} }
 
 /* Add Friend Form primary button styling */
