@@ -3645,6 +3645,29 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
 
+/* Page-level shells should not hide the site background */
+.page > .profile-card,
+.page > .legal-card {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* Smaller section cards use glass blur instead of flat solid fills */
+.settings-card,
+.friends-panel,
+.friends-add-panel,
+.stat-card,
+.notice-box,
+.setting-group,
+.profile-row .profile-card,
+.profile-playtime,
+.profile-achievements {
+    background: rgba(22, 27, 34, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
 .settings-card h3 {
     margin: 0 0 6px;
     font-size: 15px;
