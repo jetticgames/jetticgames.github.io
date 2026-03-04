@@ -4209,27 +4209,16 @@
         progress.className = 'notification-progress-bar';
         progressWrap?.appendChild(progress);
 
-        // Shift existing toasts up to make room (animated stack motion)
-        Array.from(els.notificationStack.children)
-            .filter((node) => !node.classList.contains('exiting'))
-            .forEach((node) => {
-                node.classList.remove('stack-shift-down');
-                node.classList.add('stack-shift-up');
-                node.addEventListener('animationend', () => node.classList.remove('stack-shift-up'), { once: true });
-            });
+        animateStackShift('up');
 
         const remove = () => {
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
             // Animate remaining toasts sliding down to fill the gap
-            Array.from(els.notificationStack.children)
-                .filter((node) => node !== card && !node.classList.contains('exiting'))
-                .forEach((node) => {
-                    node.classList.remove('stack-shift-up');
-                    node.classList.add('stack-shift-down');
-                    node.addEventListener('animationend', () => node.classList.remove('stack-shift-down'), { once: true });
-                });
-            card.addEventListener('animationend', () => card.remove(), { once: true });
+            animateStackShift('down', card);
+            const cleanup = () => card.remove();
+            card.addEventListener('animationend', cleanup, { once: true });
+            setTimeout(cleanup, 2200); // fallback if animationend doesn't fire
         };
 
         card.querySelector('.notification-close')?.addEventListener('click', remove);
@@ -4255,6 +4244,20 @@
 
         card.addEventListener('mouseenter', pause);
         card.addEventListener('mouseleave', resume);
+    }
+
+    function animateStackShift(direction = 'up', excludeNode = null) {
+        const delta = direction === 'up' ? -14 : 14;
+        const nodes = Array.from(els.notificationStack?.children || []).filter((node) => node !== excludeNode && !node.classList.contains('exiting'));
+        const keyframes = [
+            { transform: 'translateY(0)', offset: 0 },
+            { transform: `translateY(${delta}px)`, offset: 0.35 },
+            { transform: `translateY(${delta * -0.5}px)`, offset: 0.65 },
+            { transform: 'translateY(0)', offset: 1 }
+        ];
+        nodes.forEach((node) => {
+            node.animate(keyframes, { duration: 600, easing: 'cubic-bezier(.25,.75,.35,1.15)', fill: 'none' });
+        });
     }
 
     function normalizeTone(type = 'info') {
