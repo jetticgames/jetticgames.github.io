@@ -63,7 +63,7 @@
                         <a href="#" class="nav-link"><i class="nav-icon fas fa-heart"></i><span>Favorites</span></a>
                     </li>
                     <li class="nav-item" data-page="friends">
-                        <a href="#" class="nav-link" id="friendsNavLink"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span><span class="unread-badge" id="friendsUnreadBadge" style="display:none;">0</span></a>
+                        <a href="#" class="nav-link"><i class="nav-icon fas fa-user-friends"></i><span>Friends</span></a>
                     </li>
                     <li class="sidebar-section-item" id="sidebarOnlineSection">
                         <div class="sidebar-section">
@@ -169,7 +169,7 @@
                         <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
                         <div class="friends-tab-nav" id="friendsTabNav" style="display:none;">
                             <button class="friends-tab cat-tab active" data-tab="overview">Overview</button>
-                            <button class="friends-tab cat-tab" data-tab="manage" id="friendsManageTabBtn">Manage <span class="unread-badge" id="friendsManageUnreadBadge" style="display:none;">0</span></button>
+                            <button class="friends-tab cat-tab" data-tab="manage">Manage</button>
                             <button class="friends-tab cat-tab" data-tab="add">Add Friend</button>
                         </div>
                     </div>
@@ -666,55 +666,25 @@
                                 <div class="friends-tab-panel" data-panel="analytics" id="adminAnalyticsPanel">
                                     <div class="section-header analytics-toolbar" style="margin:0 0 12px 0;">
                                         <h3 class="section-title">Analytics</h3>
-                                        <div class="analytics-range-control">
-                                            <label for="analyticsRangeSelect" class="analytics-range-label">History</label>
-                                            <select id="analyticsRangeSelect">
-                                                <option value="1h">Last hour</option>
-                                                <option value="24h" selected>Last 24 hours</option>
-                                                <option value="7d">Last 7 days</option>
-                                                <option value="14d">Last 14 days</option>
-                                                <option value="30d">Last 30 days</option>
-                                                <option value="6m">Last 6 months</option>
-                                                <option value="12m">Last 12 months</option>
-                                                <option value="all">All time</option>
-                                            </select>
-                                        </div>
                                     </div>
                                     <div class="settings-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
                                         <div class="settings-card">
                                             <div class="analytics-card-header">
-                                                <h3>Player Counts</h3>
-                                                <div class="analytics-card-actions">
-                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
-                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="players">Maximise</button>
-                                                </div>
+                                                <h3>Online Players</h3>
                                             </div>
                                             <div id="analyticsPlayerCounts" class="analytics-card-body">Data unavailable</div>
                                         </div>
                                         <div class="settings-card">
                                             <div class="analytics-card-header">
-                                                <h3>Friend Requests</h3>
-                                                <div class="analytics-card-actions">
-                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
-                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="friends">Maximise</button>
-                                                </div>
+                                                <h3>Accounts</h3>
                                             </div>
-                                            <div id="analyticsFriendRequests" class="analytics-card-body">Data unavailable</div>
+                                            <div id="analyticsAccountsTotal" class="analytics-card-body">Data unavailable</div>
                                         </div>
                                         <div class="settings-card">
                                             <div class="analytics-card-header">
-                                                <h3>User Accounts</h3>
-                                                <div class="analytics-card-actions">
-                                                    <span class="analytics-range-pill" data-analytics-range>Last 24 hours</span>
-                                                    <button type="button" class="analytics-max-btn" data-analytics-modal="accounts">Maximise</button>
-                                                </div>
+                                                <h3>System Status</h3>
                                             </div>
-                                            <div id="analyticsUserAccounts" class="analytics-card-body">Data unavailable</div>
-                                        </div>
-                                        <div class="settings-card">
-                                            <h3>Outages</h3>
-                                            <p class="analytics-note">Recent downtime or maintenance</p>
-                                            <div id="analyticsOutages" class="analytics-note">Data unavailable</div>
+                                            <div id="analyticsSystemStatus" class="analytics-card-body">Data unavailable</div>
                                         </div>
                                     </div>
                                     <div class="settings-card" style="margin-top:12px;">
@@ -728,13 +698,6 @@
                                     </div>
                                 </div>
 
-                                <div id="analyticsModal" class="analytics-modal" aria-hidden="true" role="dialog" aria-label="Enlarged analytics chart">
-                                    <div class="analytics-modal-overlay" data-analytics-modal-close></div>
-                                    <div class="analytics-modal-content">
-                                        <button type="button" class="analytics-modal-close" id="analyticsModalClose" aria-label="Close">×</button>
-                                        <div id="analyticsModalBody"></div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </section>

@@ -47,16 +47,11 @@ const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 const ONLINE_WINDOW_MS = 20 * 1000; // users must ping within last 20 seconds to count as online
 const ANALYTICS_DIR = path.join(DATA_DIR, 'analytics');
 const ANALYTICS_PLAYERS_FILE = path.join(ANALYTICS_DIR, 'players.json');
-const ANALYTICS_FRIENDS_FILE = path.join(ANALYTICS_DIR, 'friends.json');
-const ANALYTICS_ACCOUNTS_FILE = path.join(ANALYTICS_DIR, 'accounts.json');
 const ANALYTICS_GAMES_FILE = path.join(ANALYTICS_DIR, 'games.json');
 const ANALYTICS_RETENTION_MINUTES = 365 * 24 * 60; // keep up to ~12 months of minute snapshots (bounded by disk; tune as needed)
 const ANALYTICS_FLUSH_INTERVAL_MS = 60 * 1000;
 let analyticsFlushInFlight = false;
-const analyticsCounters = {
-    friends: { sent: 0, accepted: 0, rejected: 0 },
-    accounts: { signups: 0, deletions: 0, bans: 0, unbans: 0 }
-};
+const analyticsCounters = {};
 
 const BUILT_IN_PRESETS = {
     panicButtons: [
@@ -181,8 +176,6 @@ async function writeJson(file, data) {
 async function ensureAnalyticsFiles() {
     await fs.mkdir(ANALYTICS_DIR, { recursive: true });
     await ensureFile(ANALYTICS_PLAYERS_FILE, { entries: [] });
-    await ensureFile(ANALYTICS_FRIENDS_FILE, { entries: [] });
-    await ensureFile(ANALYTICS_ACCOUNTS_FILE, { entries: [] });
     await ensureFile(ANALYTICS_GAMES_FILE, { entries: [] });
 }
 
@@ -751,13 +744,11 @@ function guestOnlineCount(now = Date.now()) {
 }
 
 function recordFriendEvent(type) {
-    if (!analyticsCounters.friends[type] && analyticsCounters.friends[type] !== 0) return;
-    analyticsCounters.friends[type] += 1;
+    return;
 }
 
 function recordAccountEvent(type) {
-    if (!analyticsCounters.accounts[type] && analyticsCounters.accounts[type] !== 0) return;
-    analyticsCounters.accounts[type] += 1;
+    return;
 }
 
 function countPlayersByGame(users = [], now = Date.now()) {
@@ -800,14 +791,6 @@ async function flushAnalytics() {
             onlineUsers,
             onlineGuests
         });
-
-        const friendCounts = { ...analyticsCounters.friends };
-        analyticsCounters.friends = { sent: 0, accepted: 0, rejected: 0 };
-        await appendAnalyticsEntry(ANALYTICS_FRIENDS_FILE, { time: nowIso, ...friendCounts });
-
-        const accountCounts = { ...analyticsCounters.accounts };
-        analyticsCounters.accounts = { signups: 0, deletions: 0, bans: 0, unbans: 0 };
-        await appendAnalyticsEntry(ANALYTICS_ACCOUNTS_FILE, { time: nowIso, ...accountCounts });
 
         const favorites = countFavoritesByGame(users);
         const playersByGame = countPlayersByGame(users, now);
@@ -1367,24 +1350,28 @@ app.put('/api/admin/defaults', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
     const limit = Math.max(1, Math.min(Number(req.query.limit) || 288, ANALYTICS_RETENTION_MINUTES));
-    const [config, players, friends, accounts, games] = await Promise.all([
+    const [config, users, players, games] = await Promise.all([
         loadConfig(),
+        loadUsers(),
         loadAnalyticsFile(ANALYTICS_PLAYERS_FILE),
-        loadAnalyticsFile(ANALYTICS_FRIENDS_FILE),
-        loadAnalyticsFile(ANALYTICS_ACCOUNTS_FILE),
         loadAnalyticsFile(ANALYTICS_GAMES_FILE)
     ]);
     const enabled = config?.features?.analyticsEnabled !== false;
     if (!enabled) return res.json({ enabled: false });
 
     const sliceEntries = (data) => (Array.isArray(data?.entries) ? data.entries.slice(-limit) : []);
+    const playersEntries = sliceEntries(players);
+    const latestPlayers = playersEntries.length ? playersEntries[playersEntries.length - 1] : null;
     res.json({
         enabled,
         retentionMinutes: ANALYTICS_RETENTION_MINUTES,
-        players: sliceEntries(players),
-        friends: sliceEntries(friends),
-        accounts: sliceEntries(accounts),
-        games: sliceEntries(games)
+        players: playersEntries,
+        games: sliceEntries(games),
+        summary: {
+            onlinePlayers: Number(latestPlayers?.players) || 0,
+            totalAccounts: Array.isArray(users) ? users.length : 0,
+            systemStatus: config?.maintenanceMode?.enabled ? 'Maintenance' : 'Operational'
+        }
     });
 });
 

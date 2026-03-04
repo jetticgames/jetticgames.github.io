@@ -43,17 +43,6 @@
         adminTab: 'requests'
     };
 
-    const ANALYTICS_RANGES = {
-        '1h': { label: 'Last hour', minutes: 60 },
-        '24h': { label: 'Last 24 hours', minutes: 24 * 60 },
-        '7d': { label: 'Last 7 days', minutes: 7 * 24 * 60 },
-        '14d': { label: 'Last 14 days', minutes: 14 * 24 * 60 },
-        '30d': { label: 'Last 30 days', minutes: 30 * 24 * 60 },
-        '6m': { label: 'Last 6 months', minutes: 180 * 24 * 60 },
-        '12m': { label: 'Last 12 months', minutes: 365 * 24 * 60 },
-        all: { label: 'All time', minutes: Infinity }
-    };
-
     const runtime = {
         cursorEl: null,
         cursorHandler: null,
@@ -78,8 +67,7 @@
         offlineNotified: false,
         handlingRoute: false,
         pendingRoute: null,
-        lastPlayedCache: [],
-        friendsUnreadEvents: 0
+        lastPlayedCache: []
     };
 
     const HOME_PATH = '/';
@@ -435,9 +423,6 @@
             friendsContent: document.getElementById('friendsContent'),
             friendsTabNav: document.getElementById('friendsTabNav'),
             friendsTabPanels: Array.from(document.querySelectorAll('.friends-tab-panel')),
-            friendsManageTabBtn: document.getElementById('friendsManageTabBtn'),
-            friendsUnreadBadge: document.getElementById('friendsUnreadBadge'),
-            friendsManageUnreadBadge: document.getElementById('friendsManageUnreadBadge'),
             friendsList: document.getElementById('friendsList'),
             manageFriendsList: document.getElementById('manageFriendsList'),
             manageIncomingList: document.getElementById('manageIncomingList'),
@@ -545,11 +530,9 @@
             adminNotifyError: document.getElementById('adminNotifyError'),
             adminNotifyInfo: document.getElementById('adminNotifyInfo'),
             analyticsGameSearch: document.getElementById('analyticsGameSearch'),
-            analyticsRangeSelect: document.getElementById('analyticsRangeSelect'),
             analyticsPlayerCounts: document.getElementById('analyticsPlayerCounts'),
-            analyticsFriendRequests: document.getElementById('analyticsFriendRequests'),
-            analyticsUserAccounts: document.getElementById('analyticsUserAccounts'),
-            analyticsOutages: document.getElementById('analyticsOutages'),
+            analyticsAccountsTotal: document.getElementById('analyticsAccountsTotal'),
+            analyticsSystemStatus: document.getElementById('analyticsSystemStatus'),
             analyticsGameTable: document.getElementById('analyticsGameTable'),
             analyticsModal: document.getElementById('analyticsModal'),
             analyticsModalBody: document.getElementById('analyticsModalBody'),
@@ -557,7 +540,7 @@
             analyticsMaxButtons: Array.from(document.querySelectorAll('[data-analytics-modal]'))
         });
 
-        els.analyticsRangeLabels = Array.from(document.querySelectorAll('[data-analytics-range]'));
+        els.analyticsRangeLabels = [];
 
         els.openRequestGameBtn = document.getElementById('openRequestGameBtn');
         els.openAdminPageBtn = document.getElementById('openAdminPageBtn');
@@ -796,16 +779,6 @@
         els.analyticsGameSearch?.addEventListener('input', (e) => {
             state.adminAnalyticsSearch = (e.target.value || '').trim().toLowerCase();
             renderAdminAnalytics();
-        });
-        els.analyticsRangeSelect?.addEventListener('change', (e) => {
-            const next = e.target.value;
-            if (!ANALYTICS_RANGES[next]) {
-                e.target.value = state.adminAnalyticsRange;
-                return;
-            }
-            state.adminAnalyticsRange = next;
-            renderAdminAnalytics();
-            loadAdminAnalytics(true);
         });
         (els.analyticsMaxButtons || []).forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -1247,39 +1220,6 @@
             current?.classList.remove('active', 'slide-out', 'animating');
             next.classList.remove('slide-in', 'animating');
         }, 260);
-
-        if (tab === 'manage') {
-            clearFriendsUnreadEvents();
-        }
-    }
-
-    function isFriendsManageActive() {
-        const active = els.friendsTabNav?.querySelector('.friends-tab.active');
-        return active?.dataset?.tab === 'manage';
-    }
-
-    function setFriendsUnreadEvents(count) {
-        runtime.friendsUnreadEvents = Math.max(0, Number(count) || 0);
-        renderFriendsUnreadBadges();
-    }
-
-    function incrementFriendsUnreadEvents(by = 1) {
-        if (isFriendsManageActive()) return;
-        setFriendsUnreadEvents((runtime.friendsUnreadEvents || 0) + Math.max(0, Number(by) || 0));
-    }
-
-    function clearFriendsUnreadEvents() {
-        setFriendsUnreadEvents(0);
-    }
-
-    function renderFriendsUnreadBadges() {
-        const count = runtime.friendsUnreadEvents || 0;
-        const text = count > 99 ? '99+' : String(count);
-        [els.friendsUnreadBadge, els.friendsManageUnreadBadge].forEach((el) => {
-            if (!el) return;
-            el.textContent = text;
-            el.style.display = count > 0 ? 'inline-flex' : 'none';
-        });
     }
 
     function bindGameControls() {
@@ -1897,7 +1837,6 @@
                 }
                 runtime.friendsSnapshot = null;
                 runtime.friendsPlayingMap = new Map();
-                clearFriendsUnreadEvents();
                 state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
                 renderFriends();
                 if (els.friendsContent) els.friendsContent.style.display = 'none';
@@ -1975,17 +1914,9 @@
         }
     }
 
-    function computeAnalyticsLimit(rangeKey) {
-        const range = ANALYTICS_RANGES[rangeKey] || ANALYTICS_RANGES['24h'];
-        const minutes = range.minutes;
-        const retention = state.adminAnalyticsRetention || Infinity;
-        if (!Number.isFinite(minutes)) return Math.min(retention, ANALYTICS_RANGES['12m'].minutes); // cap "all" to 12m server retention
-        return Math.min(minutes, retention);
-    }
-
     async function loadAdminAnalytics(force = false) {
         if (!state.user?.admin) return;
-        const limit = Math.max(1, Math.floor(computeAnalyticsLimit(state.adminAnalyticsRange)) || 1);
+        const limit = 288;
         if (state.adminAnalytics && !force) { renderAdminAnalytics(); return; }
         setAnalyticsPlaceholders('Loading analytics...');
         try {
@@ -1998,225 +1929,17 @@
         }
     }
 
-    function entriesInWindow(entries = [], minutes = 60) {
-        const cutoff = Date.now() - minutes * 60 * 1000;
-        return entries
-            .map((e) => ({ ...e, __ts: Date.parse(e.time || e.timestamp || e.date || '') }))
-            .filter((e) => Number.isFinite(e.__ts) && e.__ts >= cutoff)
-            .sort((a, b) => a.__ts - b.__ts);
-    }
-
-    function sumFields(entries = [], fields = [], minutes = 60) {
-        const windowed = entriesInWindow(entries, minutes);
-        return windowed.reduce((acc, entry) => {
-            fields.forEach((f) => {
-                acc[f] = (acc[f] || 0) + (Number(entry[f]) || 0);
-            });
-            return acc;
-        }, {});
-    }
-
-    function averageField(entries = [], field = 'players', minutes = 60) {
-        const windowed = entriesInWindow(entries, minutes);
-        if (!windowed.length) return 0;
-        const total = windowed.reduce((acc, e) => acc + (Number(e[field]) || 0), 0);
-        return Math.round(total / windowed.length);
-    }
-
-    function peakField(entries = [], field = 'players', minutes = 1440) {
-        const windowed = entriesInWindow(entries, minutes);
-        if (!windowed.length) return 0;
-        return windowed.reduce((max, e) => Math.max(max, Number(e[field]) || 0), 0);
-    }
-
-    function niceCeil(value = 0) {
-        if (value <= 10) return Math.ceil(value || 0);
-        const magnitude = 10 ** Math.floor(Math.log10(value));
-        const scaled = value / magnitude;
-        const nice = scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 5 ? 5 : 10;
-        return nice * magnitude;
-    }
-
-    function formatWindowLabel(minutes) {
-        if (!Number.isFinite(minutes)) return 'all time';
-        const days = minutes / (24 * 60);
-        if (minutes % (24 * 60) === 0 && days >= 1) {
-            return `${Math.round(days)}d`;
-        }
-        if (minutes % 60 === 0 && minutes >= 60) {
-            return `${Math.round(minutes / 60)}h`;
-        }
-        return `${Math.round(minutes)}m`;
-    }
-
-    function formatTickLabel(ts, spanMinutes) {
-        const d = new Date(ts);
-        if (spanMinutes <= 180) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (spanMinutes <= 24 * 60) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        if (spanMinutes <= 7 * 24 * 60) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        if (spanMinutes <= 60 * 24 * 60) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
-    }
-
-    function formatTickValue(val) {
-        if (!Number.isFinite(val)) return '0';
-        const rounded = Number(val.toFixed(2));
-        return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`.replace(/\.0+$/, '');
-    }
-
-    function buildLineChart(entries = [], series = [], { minutes = 1440, height = 140 } = {}) {
-        const windowed = entriesInWindow(entries, minutes);
-        if (!windowed.length) return '<div class="analytics-subtext">No data captured yet.</div>';
-        if (windowed.length === 1) {
-            const clone = { ...windowed[0], __ts: windowed[0].__ts + 60000 };
-            windowed.push(clone);
-        }
-        const minTs = windowed[0].__ts;
-        const maxTs = windowed[windowed.length - 1].__ts;
-        const tsRange = Math.max(1, maxTs - minTs);
-        const maxVal = Math.max(
-            1,
-            ...series.map((s) => windowed.reduce((m, e) => Math.max(m, Number(e[s.key]) || 0), 0))
-        );
-        const scaleMax = Math.max(1, niceCeil(maxVal));
-        const yTickCount = 4; // minimum of 5 labels (includes zero)
-        const xTickCount = 3;
-        const tickStep = scaleMax / yTickCount;
-        const ticks = Array.from({ length: yTickCount + 1 }, (_, i) => {
-            if (i === yTickCount) return 0;
-            const val = Math.max(0, scaleMax - tickStep * i);
-            return Number(val.toFixed(2));
-        });
-        const xTicks = Array.from({ length: xTickCount + 1 }, (_, i) => minTs + (tsRange * i) / xTickCount);
-        const gridLines = ticks.map((val) => {
-            const y = height - (val / scaleMax) * height;
-            return `<line x1="0" y1="${y.toFixed(2)}" x2="100" y2="${y.toFixed(2)}" stroke="var(--border-primary)" stroke-width="0.5" opacity="0.35"></line>`;
-        }).join('');
-        const vGridLines = xTicks.map((ts) => {
-            const x = ((ts - minTs) / tsRange) * 100;
-            return `<line x1="${x.toFixed(2)}" y1="0" x2="${x.toFixed(2)}" y2="${height}" stroke="var(--border-primary)" stroke-width="0.5" opacity="0.25"></line>`;
-        }).join('');
-        const paths = series.map((s) => {
-            const points = windowed.map((e) => {
-                const val = Math.max(0, Number(e[s.key]) || 0);
-                const x = ((e.__ts - minTs) / tsRange) * 100;
-                const y = height - (val / scaleMax) * height;
-                return `${x.toFixed(2)},${y.toFixed(2)}`;
-            }).join(' ');
-            return `<polyline fill="none" stroke="${s.color}" stroke-width="2" points="${points}"></polyline>`;
-        }).join('');
-        const legend = series.map((s) => `
-            <div class="analytics-legend-item">
-                <span class="analytics-legend-swatch" style="background:${s.color};"></span>${s.label}
-            </div>`).join('');
-        const axis = ticks.map((t) => `<span class="analytics-y-label">${formatTickValue(t)}</span>`).join('');
-        const xAxis = xTicks.map((ts) => `<span class="analytics-x-label">${formatTickLabel(ts, minutes)}</span>`).join('');
-        return `
-            <div class="analytics-chart">
-                <div class="analytics-chart-plot">
-                    <div class="analytics-y-axis">${axis}</div>
-                    <div class="analytics-chart-svg">
-                        <svg viewBox="0 0 100 ${height}" preserveAspectRatio="none" role="img" aria-label="trend chart">
-                            ${gridLines}
-                            ${vGridLines}
-                            ${paths}
-                        </svg>
-                        <div class="analytics-x-axis">${xAxis}</div>
-                    </div>
-                </div>
-                <div class="analytics-legend">${legend}</div>
-            </div>
-        `;
-    }
-
-    function getActiveAnalyticsRange() {
-        return ANALYTICS_RANGES[state.adminAnalyticsRange] || ANALYTICS_RANGES['24h'];
-    }
-
-    function composePlayersChart(data, range, height = 140) {
-        const players = Array.isArray(data.players) ? data.players : [];
-        const latestPlayers = players.length ? players[players.length - 1] : null;
-        if (!latestPlayers) return '<div class="analytics-subtext">No player data captured yet.</div>';
-        const avgWindow = Number.isFinite(range.minutes) ? Math.min(range.minutes, 60) : 60;
-        const avgLabel = formatWindowLabel(avgWindow);
-        const avgRange = averageField(players, 'players', avgWindow);
-        const peakRange = peakField(players, 'players', range.minutes);
-        const line1 = `${latestPlayers.players || 0} total • Users ${latestPlayers.onlineUsers || 0} • Guests ${latestPlayers.onlineGuests || 0}`;
-        const line2 = `${range.label} peak ${peakRange} • Avg (${avgLabel}) ${avgRange}`;
-        const chart = buildLineChart(players, [
-            { key: 'players', label: 'Total', color: 'var(--accent-color)' },
-            { key: 'onlineUsers', label: 'Users', color: '#7ee787' },
-            { key: 'onlineGuests', label: 'Guests', color: '#f2cc60' }
-        ], { minutes: range.minutes, height });
-        return `
-            <div class="analytics-chart-text">
-                <div>${line1}</div>
-                <div class="analytics-subtext">${line2}</div>
-            </div>
-            ${chart}
-        `;
-    }
-
-    function composeFriendsChart(data, range, height = 140) {
-        const totals = sumFields(data.friends || [], ['sent', 'accepted', 'rejected'], range.minutes);
-        const line1 = `Sent ${totals.sent || 0} • Accepted ${totals.accepted || 0} • Rejected ${totals.rejected || 0}`;
-        const line2 = range.label;
-        const chart = buildLineChart(data.friends || [], [
-            { key: 'sent', label: 'Sent', color: 'var(--accent-color)' },
-            { key: 'accepted', label: 'Accepted', color: '#7ee787' },
-            { key: 'rejected', label: 'Rejected', color: '#f2cc60' }
-        ], { minutes: range.minutes, height });
-        return `
-            <div class="analytics-chart-text">
-                <div>${line1}</div>
-                <div class="analytics-subtext">${line2}</div>
-            </div>
-            ${chart}
-        `;
-    }
-
-    function composeAccountsChart(data, range, height = 140) {
-        const totals = sumFields(data.accounts || [], ['signups', 'deletions', 'bans', 'unbans'], range.minutes);
-        const line1 = `Signups ${totals.signups || 0} • Deletions ${totals.deletions || 0}`;
-        const line2 = `${range.label} • Bans ${totals.bans || 0} • Unbans ${totals.unbans || 0}`;
-        const chart = buildLineChart(data.accounts || [], [
-            { key: 'signups', label: 'Signups', color: 'var(--accent-color)' },
-            { key: 'deletions', label: 'Deletions', color: '#f85149' },
-            { key: 'bans', label: 'Bans', color: '#d29922' },
-            { key: 'unbans', label: 'Unbans', color: '#7ee787' }
-        ], { minutes: range.minutes, height });
-        return `
-            <div class="analytics-chart-text">
-                <div>${line1}</div>
-                <div class="analytics-subtext">${line2}</div>
-            </div>
-            ${chart}
-        `;
-    }
-
     function setAnalyticsPlaceholders(text = 'Data unavailable') {
         [
             els.analyticsPlayerCounts,
-            els.analyticsFriendRequests,
-            els.analyticsUserAccounts,
-            els.analyticsOutages,
+            els.analyticsAccountsTotal,
+            els.analyticsSystemStatus,
             els.analyticsGameTable
         ].forEach((el) => { if (el) el.textContent = text; });
     }
 
     function openAnalyticsModal(type) {
-        if (!els.analyticsModal || !els.analyticsModalBody) return;
-        const data = state.adminAnalytics || {};
-        const range = getActiveAnalyticsRange();
-        let content = '';
-        if (type === 'players') content = composePlayersChart(data, range, 230);
-        else if (type === 'friends') content = composeFriendsChart(data, range, 230);
-        else if (type === 'accounts') content = composeAccountsChart(data, range, 230);
-        else content = '<div class="analytics-subtext">Select a chart to enlarge.</div>';
-        els.analyticsModalBody.innerHTML = content;
-        els.analyticsModal.style.display = 'flex';
-        els.analyticsModal.classList.add('open');
-        els.analyticsModal.setAttribute('aria-hidden', 'false');
+        return;
     }
 
     function closeAnalyticsModal() {
@@ -2233,21 +1956,37 @@
             return;
         }
 
-        const range = getActiveAnalyticsRange();
-        const rangeMinutes = range.minutes;
-        const rangeLabel = range.label;
+        const summary = data.summary || {};
+        const latestPlayers = Array.isArray(data.players) && data.players.length ? data.players[data.players.length - 1] : null;
+        const onlinePlayers = Number(summary.onlinePlayers ?? latestPlayers?.players) || 0;
+        const onlineUsers = Number(latestPlayers?.onlineUsers) || 0;
+        const onlineGuests = Number(latestPlayers?.onlineGuests) || 0;
+        const totalAccounts = Number(summary.totalAccounts) || 0;
+        const status = summary.systemStatus || 'Operational';
 
-        if (els.analyticsRangeSelect && els.analyticsRangeSelect.value !== state.adminAnalyticsRange) {
-            els.analyticsRangeSelect.value = state.adminAnalyticsRange;
+        if (els.analyticsPlayerCounts) {
+            els.analyticsPlayerCounts.innerHTML = `
+                <div class="analytics-chart-text">
+                    <div>${onlinePlayers} online now</div>
+                    <div class="analytics-subtext">Users ${onlineUsers} • Guests ${onlineGuests}</div>
+                </div>
+            `;
         }
-        (els.analyticsRangeLabels || []).forEach((el) => { el.textContent = rangeLabel; });
-
-        if (els.analyticsPlayerCounts) els.analyticsPlayerCounts.innerHTML = composePlayersChart(data, range, 140);
-        if (els.analyticsFriendRequests) els.analyticsFriendRequests.innerHTML = composeFriendsChart(data, range, 140);
-        if (els.analyticsUserAccounts) els.analyticsUserAccounts.innerHTML = composeAccountsChart(data, range, 140);
-
-        if (els.analyticsOutages) {
-            els.analyticsOutages.textContent = 'Outage tracking is handled by external monitoring.';
+        if (els.analyticsAccountsTotal) {
+            els.analyticsAccountsTotal.innerHTML = `
+                <div class="analytics-chart-text">
+                    <div>${totalAccounts} total accounts</div>
+                    <div class="analytics-subtext">Current registered users</div>
+                </div>
+            `;
+        }
+        if (els.analyticsSystemStatus) {
+            els.analyticsSystemStatus.innerHTML = `
+                <div class="analytics-chart-text">
+                    <div>${escapeHtml(status)}</div>
+                    <div class="analytics-subtext">Based on server maintenance mode</div>
+                </div>
+            `;
         }
 
         if (els.analyticsGameTable) {
@@ -2415,9 +2154,6 @@
         const accepted = (next.friends || []).filter((u) => prev.outgoing?.includes(u.username));
         accepted.forEach((u) => pushNotification('Request accepted', `${u.username} accepted your friend request`, 'success'));
 
-        const newEvents = incomingNew.length + accepted.length;
-        if (newEvents > 0) incrementFriendsUnreadEvents(newEvents);
-
         const prevPresence = prev.presence || {};
         const nextPresence = {};
         (next.friends || []).forEach((u) => { nextPresence[u.username] = u.presence || {}; });
@@ -2450,7 +2186,6 @@
             els.friendsAuthNotice.style.display = 'block';
             els.friendsContent.style.display = 'none';
             if (els.friendsTabNav) els.friendsTabNav.style.display = 'none';
-                renderFriendsUnreadBadges();
             return;
         }
 
@@ -2459,11 +2194,6 @@
         els.friendsAuthNotice.style.display = 'none';
         els.friendsContent.style.display = 'grid';
         if (els.friendsTabNav) els.friendsTabNav.style.display = 'flex';
-        if (isFriendsManageActive()) {
-            clearFriendsUnreadEvents();
-        } else {
-            renderFriendsUnreadBadges();
-        }
         if (els.addFriendModal) els.addFriendModal.style.display = 'none';
 
         renderUserList(els.friendsList, friends, { statusText: 'Friend', emptyText: 'No friends yet.' });
@@ -3986,7 +3716,6 @@
         state.adminAnalytics = null;
         state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
         runtime.friendsSnapshot = null;
-        clearFriendsUnreadEvents();
         if (runtime.friendsPoll) { clearInterval(runtime.friendsPoll); runtime.friendsPoll = null; }
         runtime.friendsPlayingMap = new Map();
         runtime.lastPlayedCache = [];
