@@ -15,7 +15,7 @@
 
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
-    const ONLINE_PING_INTERVAL = 30 * 1000;
+    const ONLINE_PING_INTERVAL = 10 * 1000;
 
     const state = {
         games: [],

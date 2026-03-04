@@ -41,10 +41,10 @@ const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 14;
 const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 const COOKIE_SECURE = process.env.COOKIE_SECURE
     ? process.env.COOKIE_SECURE === 'true'
-    : process.env.NODE_ENV === 'production'; // secure in prod by default; can be disabled for local http
+    : (process.env.PUBLIC_BASE_URL || '').startsWith('https://'); // default to secure only when an https public URL is set
 const COOKIE_SAME_SITE = (process.env.COOKIE_SAME_SITE || (COOKIE_SECURE ? 'none' : 'lax')).toLowerCase();
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
-const ONLINE_WINDOW_MS = 60 * 1000; // users must ping within last 60 seconds to count as online
+const ONLINE_WINDOW_MS = 20 * 1000; // users must ping within last 20 seconds to count as online
 const ANALYTICS_DIR = path.join(DATA_DIR, 'analytics');
 const ANALYTICS_PLAYERS_FILE = path.join(ANALYTICS_DIR, 'players.json');
 const ANALYTICS_FRIENDS_FILE = path.join(ANALYTICS_DIR, 'friends.json');
@@ -514,11 +514,15 @@ function hashToken(token) {
     return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
 
-function cookieOptions(maxAge) {
+function cookieOptions(maxAge, req) {
+    const protoHeader = req?.get ? (req.get('x-forwarded-proto') || '').split(',')[0].trim() : '';
+    const isHttps = (protoHeader || req?.protocol || '').toLowerCase() === 'https';
+    const secureFlag = COOKIE_SECURE || isHttps;
+    const sameSiteFlag = (process.env.COOKIE_SAME_SITE || (secureFlag ? 'none' : 'lax')).toLowerCase();
     const opts = {
         httpOnly: true,
-        secure: COOKIE_SECURE,
-        sameSite: COOKIE_SAME_SITE,
+        secure: secureFlag,
+        sameSite: sameSiteFlag,
         maxAge
     };
     if (COOKIE_DOMAIN) opts.domain = COOKIE_DOMAIN;
@@ -535,7 +539,7 @@ function parseSessionCookie(req) {
 }
 
 function setSessionCookie(res, sessionId, sessionToken, maxAge = REFRESH_TOKEN_TTL_MS) {
-    res.cookie(COOKIE_NAME, `${sessionId}.${sessionToken}`, cookieOptions(maxAge));
+    res.cookie(COOKIE_NAME, `${sessionId}.${sessionToken}`, cookieOptions(maxAge, res.req));
     res.clearCookie(LEGACY_GUEST_COOKIE);
     res.clearCookie(LEGACY_SESSION_COOKIE);
     res.clearCookie(REFRESH_COOKIE_NAME);
@@ -1869,6 +1873,50 @@ app.post('/api/friends/request', requireAuth, async (req, res) => {
     recordFriendEvent('sent');
     await saveUsers(users);
     res.json({ success: true });
+});
+
+app.post('/api/friends/respond', requireAuth, async (req, res) => {
+    const { username, accept, action } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+    const users = await loadUsers();
+    const me = await getUserById(users, req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const other = await getUserByUsername(users, username);
+    if (!other) return res.status(404).json({ error: 'User not found' });
+
+    ensureFriendStruct(me);
+    ensureFriendStruct(other);
+
+    // Must have an incoming request from other
+    if (!me.friends.incoming.includes(other.id)) {
+        return res.status(404).json({ error: 'No incoming request from this user' });
+    }
+
+    // Normalize accept/decline signal to support legacy boolean and current action string
+    let shouldAccept = accept;
+    if (shouldAccept === undefined) {
+        if (action === 'accept') shouldAccept = true;
+        else if (action === 'decline' || action === 'reject') shouldAccept = false;
+    }
+    if (shouldAccept === undefined) {
+        return res.status(400).json({ error: 'Action is required' });
+    }
+
+    // Remove pending request entries
+    me.friends.incoming = me.friends.incoming.filter((id) => id !== other.id);
+    other.friends.outgoing = other.friends.outgoing.filter((id) => id !== me.id);
+
+    if (shouldAccept) {
+        if (!me.friends.accepted.includes(other.id)) me.friends.accepted.push(other.id);
+        if (!other.friends.accepted.includes(me.id)) other.friends.accepted.push(me.id);
+        recordFriendEvent('accepted');
+    } else {
+        recordFriendEvent('rejected');
+    }
+
+    me.updatedAt = other.updatedAt = new Date().toISOString();
+    await saveUsers(users);
+    res.json({ success: true, status: shouldAccept ? 'accepted' : 'rejected' });
 });
 
 app.post('/api/friends/block', requireAuth, async (req, res) => {
