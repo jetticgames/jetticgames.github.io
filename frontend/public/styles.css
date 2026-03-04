@@ -1696,7 +1696,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .overlay-enter,
 .overlay-leave {
-    position: absolute;
+    position: absolute !important;
     inset: 0;
     width: 100%;
 }
