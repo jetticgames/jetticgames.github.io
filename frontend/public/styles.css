@@ -1255,7 +1255,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 /* Content Area */
 .content-area {
-    padding: 16px 32px 16px;
+    padding: 0;
     /* In case some element introduced margin collapse, enforce min offset */
     margin-top: 0;
     overflow: hidden;
@@ -1661,6 +1661,8 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .save-indicator.error {color:#f85149;}
 
 .page {
+    padding: 16px 32px 16px;
+    box-sizing: border-box;
     display: none;
     width: 100%;
     opacity: 0;
@@ -2698,7 +2700,10 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 @media (max-width: 768px) {
     .content-area {
-        padding: 16px 16px 48px;
+        padding: 0;
+    }
+    .page {
+        padding: 16px 16px 48px !important;
     }
 
     .floating-footer {
@@ -2920,6 +2925,8 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 }
 
 .page {
+    padding: 16px 32px 16px;
+    box-sizing: border-box;
     display: none;
     width: 100%;
     opacity: 0;
