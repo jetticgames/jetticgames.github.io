@@ -4218,7 +4218,13 @@
             // Animate remaining toasts sliding down to fill the gap
             animateStackShift('down', card);
             const cleanup = () => card.remove();
-            card.addEventListener('animationend', cleanup, { once: true });
+            const onExitEnd = (event) => {
+                if (event.target !== card) return;
+                if (event.animationName && event.animationName !== 'notifOut') return;
+                card.removeEventListener('animationend', onExitEnd);
+                cleanup();
+            };
+            card.addEventListener('animationend', onExitEnd);
             setTimeout(cleanup, 2200); // fallback if animationend doesn't fire
         };
 
