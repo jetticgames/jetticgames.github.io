@@ -4214,7 +4214,7 @@
         const remove = () => {
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
-            card.style.animation = 'notifOut 2s cubic-bezier(.2,.9,.2,1) forwards';
+            card.style.animation = 'notifOut .7s cubic-bezier(.22,1,.36,1) forwards';
             // Animate remaining toasts sliding down to fill the gap
             animateStackShift('down', card);
             const cleanup = () => card.remove();
@@ -4225,7 +4225,7 @@
                 cleanup();
             };
             card.addEventListener('animationend', onExitEnd);
-            setTimeout(cleanup, 2200); // fallback if animationend doesn't fire
+            setTimeout(cleanup, 900); // fallback if animationend doesn't fire
         };
 
         card.querySelector('.notification-close')?.addEventListener('click', remove);
