@@ -4214,6 +4214,7 @@
         const remove = () => {
             if (card.classList.contains('exiting')) return;
             card.classList.add('exiting');
+            card.style.animation = 'notifOut 2s cubic-bezier(.2,.9,.2,1) forwards';
             // Animate remaining toasts sliding down to fill the gap
             animateStackShift('down', card);
             const cleanup = () => card.remove();
@@ -4240,7 +4241,7 @@
             start = performance.now();
             hideTimer = setTimeout(remove, remaining);
             if (progress) progress.style.animationPlayState = 'running';
-            card.style.animation = 'notifOut 2s cubic-bezier(.2,.9,.2,1) forwards';
+        };
 
         card.addEventListener('mouseenter', pause);
         card.addEventListener('mouseleave', resume);
