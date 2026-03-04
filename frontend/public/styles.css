@@ -1391,7 +1391,7 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 /* Notification stack */
 .notification-stack {position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; justify-content:flex-end; gap:10px; z-index:12000; pointer-events:none;}
-.notification-card {--notif-accent:#58a6ff; --notif-duration:4500ms; min-width:260px; max-width:360px; background:#11161f; border:1px solid var(--border-primary); border-radius:12px; padding:12px 14px 16px 16px; box-shadow:0 14px 36px rgba(0,0,0,0.45); color:var(--text-primary); display:flex; gap:12px; align-items:flex-start; opacity:0; transform:translateX(36px); animation:notifIn .35s cubic-bezier(.4,.8,.2,1) forwards; pointer-events:auto; position:relative; overflow:hidden;}
+.notification-card {--notif-accent:#58a6ff; --notif-duration:4500ms; width:340px; max-width:calc(100vw - 32px); background:#11161f; border:1px solid var(--border-primary); border-radius:12px; padding:12px 14px 16px 16px; box-shadow:0 14px 36px rgba(0,0,0,0.45); color:var(--text-primary); display:flex; gap:12px; align-items:flex-start; opacity:0; transform:translateX(36px); animation:notifIn .35s cubic-bezier(.4,.8,.2,1) forwards; pointer-events:auto; position:relative; overflow:hidden;}
 .notification-card::before {content:""; position:absolute; inset:0 auto 0 0; width:6px; background:var(--notif-accent); border-top-left-radius:12px; border-bottom-left-radius:12px;}
 .notification-card.info {--notif-accent:#58a6ff;}
 .notification-card.success {--notif-accent:#2ea043;}
@@ -1405,12 +1405,10 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .notification-close:hover {color:#fff; background:rgba(255,255,255,0.06);}
 .notification-progress {position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,0.08); overflow:hidden;}
 .notification-progress-bar {display:block; height:100%; width:100%; background:var(--notif-accent); animation:notifProgress var(--notif-duration) linear forwards; transform-origin:left center;}
-.notification-card.exiting {animation:notifOut .25s ease forwards;}
-.notification-card.exiting {animation:notifOut .3s ease forwards;}
+.notification-card.exiting {animation:notifOut .32s cubic-bezier(.4,.8,.2,1) forwards;}
 @keyframes notifIn {from {opacity:0; transform:translateX(36px) scale(.98);} to {opacity:1; transform:translateX(0) scale(1);} }
-@keyframes notifOut {from {opacity:1; transform:translateX(0) scale(1);} to {opacity:0; transform:translateX(36px) scale(.98);} }
+@keyframes notifOut {from {opacity:1; transform:translateX(0) scale(1);} to {opacity:0; transform:translateX(36px) scale(.97);} }
 @keyframes notifProgress {from {transform:scaleX(1);} to {transform:scaleX(0);} }
-@keyframes notifOut {to {opacity:0; transform:translateY(16px) scale(.97);} }
 
 /* Add Friend Form primary button styling */
 .add-friend-form button.primary {
