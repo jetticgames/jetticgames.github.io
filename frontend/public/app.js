@@ -3638,21 +3638,28 @@
             if (lockHeight > 0) container.style.minHeight = `${lockHeight}px`;
         }
 
+        let finalized = false;
+        const finalizeTransition = () => {
+            if (finalized) return;
+            finalized = true;
+            if (current) {
+                current.classList.remove('leaving', 'is-visible', 'overlay-leave');
+                current.style.display = 'none';
+            }
+            next.classList.remove('entering', 'overlay-enter');
+            if (container) container.style.minHeight = '';
+        };
+
         if (current) {
             current.classList.remove('active');
             current.classList.add('leaving', 'is-visible', 'overlay-leave');
-            const hideCurrent = () => {
-                current.classList.remove('leaving', 'is-visible', 'overlay-leave');
-                current.style.display = 'none';
-                if (container) container.style.minHeight = '';
-            };
             const onLeaveEnd = (event) => {
                 if (event.target !== current) return;
                 current.removeEventListener('transitionend', onLeaveEnd);
-                hideCurrent();
+                finalizeTransition();
             };
             current.addEventListener('transitionend', onLeaveEnd);
-            setTimeout(hideCurrent, 360);
+            setTimeout(finalizeTransition, 360);
         }
 
         next.style.display = 'block';
@@ -3661,7 +3668,10 @@
         requestAnimationFrame(() => {
             next.classList.add('active');
             next.classList.remove('entering');
-            setTimeout(() => next.classList.remove('overlay-enter'), 280);
+            if (!current) {
+                next.classList.remove('overlay-enter');
+                if (container) container.style.minHeight = '';
+            }
         });
         runtime.currentPage = page;
         const leavingGame = wasGame && page !== 'game';
