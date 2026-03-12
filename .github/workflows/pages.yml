@@ -29,6 +29,18 @@ jobs:
           VERSION="${{ github.run_number }}-${SHORT_SHA}"
           echo "window.JETTIC_VERSION = '${VERSION}';" > frontend/public/version.js
 
+      - name: Write backend config from secret
+        env:
+          FRONTEND_BACKEND_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
+        run: |
+          URL="${FRONTEND_BACKEND_URL%/}"
+          cat > frontend/public/config.js <<EOF
+          // Auto-generated during GitHub Pages build from FRONTEND_BACKEND_URL.
+          window.JETTIC_CONFIG = {
+            backendUrl: '${URL}'
+          };
+          EOF
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -44,6 +56,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_BASE_PATH: /
+          VITE_API_BASE_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
         run: npm run build
 
       - name: Setup Pages

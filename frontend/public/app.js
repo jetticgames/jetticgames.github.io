@@ -16,6 +16,8 @@
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
+    const VERSION_CHECK_INTERVAL = 60 * 1000;
+    const UPTIME_POLL_INTERVAL = 60 * 1000;
 
     const state = {
         games: [],
@@ -64,8 +66,12 @@
         panicHandler: null,
         defaultTitle: document.title,
         defaultFavicon: null,
+        lastKnownVersion: (window.JETTIC_VERSION || '').toString().trim() || 'dev',
         lastOnlineState: navigator.onLine !== false,
         offlineNotified: false,
+        updateNoticeVisible: false,
+        versionPoll: null,
+        uptimePoll: null,
         handlingRoute: false,
         pendingRoute: null,
         lastPlayedCache: [],
@@ -351,11 +357,16 @@
         renderBackendInfo();
         window.addEventListener('resize', renderGameAds);
         registerServiceWorker();
+        startVersionPolling();
         applyClockSetting(true);
         applyCurrentSectionSetting(true);
         els.offlineReloadBtn?.addEventListener('click', () => window.location.reload());
+        els.updateReloadBtn?.addEventListener('click', () => window.location.reload());
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') sendOnlinePing();
+            if (document.visibilityState === 'visible') {
+                sendOnlinePing();
+                checkForFrontendUpdate();
+            }
         });
         window.addEventListener('focus', () => sendOnlinePing());
         window.addEventListener('offline', () => handleConnectivityChange(false));
@@ -370,6 +381,7 @@
         if (!els.settingsVersion) return;
         const raw = (window.JETTIC_VERSION || '').toString().trim();
         const version = raw || 'dev';
+        runtime.lastKnownVersion = version;
         els.settingsVersion.textContent = `Version: ${version}`;
     }
 
@@ -504,6 +516,12 @@
             gameOfflineOverlay: document.getElementById('gameOfflineOverlay'),
             offlineReloadBtn: document.getElementById('offlineReloadBtn'),
             offlineMessage: document.getElementById('offlineMessage'),
+            offlineUptimeStatus: document.getElementById('offlineUptimeStatus'),
+            offlineUptimeMeta: document.getElementById('offlineUptimeMeta'),
+            updateAvailableNotice: document.getElementById('updateAvailableNotice'),
+            updateAvailableTitle: document.getElementById('updateAvailableTitle'),
+            updateAvailableText: document.getElementById('updateAvailableText'),
+            updateReloadBtn: document.getElementById('updateReloadBtn'),
             authModal: document.getElementById('authModal'),
             authTabs: Array.from(document.querySelectorAll('.auth-tab')),
             authForm: document.getElementById('authForm'),
@@ -3498,6 +3516,7 @@
         els.offlineOverlays.style.pointerEvents = 'auto';
         els.mainOfflineOverlay.style.display = 'flex';
         document.body.classList.add('offline-mode');
+        startOfflineUptimePolling();
     }
 
     function hideOfflineOverlay() {
@@ -3507,6 +3526,7 @@
         if (els.mainOfflineOverlay) els.mainOfflineOverlay.style.display = 'none';
         if (els.gameOfflineOverlay) els.gameOfflineOverlay.style.display = 'none';
         document.body.classList.remove('offline-mode');
+        stopOfflineUptimePolling();
     }
 
     function refreshUserUI() {
@@ -4351,7 +4371,95 @@
 
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js').then((registration) => {
+            if (registration.waiting) {
+                showPersistentUpdateNotice();
+            }
+
+            registration.addEventListener('updatefound', () => {
+                const installing = registration.installing;
+                if (!installing) return;
+                installing.addEventListener('statechange', () => {
+                    if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                        showPersistentUpdateNotice();
+                    }
+                });
+            });
+        }).catch(() => {});
+    }
+
+    function startVersionPolling() {
+        if (runtime.versionPoll) clearInterval(runtime.versionPoll);
+        checkForFrontendUpdate();
+        runtime.versionPoll = setInterval(() => {
+            checkForFrontendUpdate();
+        }, VERSION_CHECK_INTERVAL);
+    }
+
+    async function checkForFrontendUpdate() {
+        const currentVersion = (window.JETTIC_VERSION || runtime.lastKnownVersion || '').toString().trim() || 'dev';
+        try {
+            const response = await fetch(`/version.js?ts=${Date.now()}`, { cache: 'no-store' });
+            if (!response.ok) return;
+            const body = await response.text();
+            const match = body.match(/JETTIC_VERSION\s*=\s*['\"]([^'\"]+)['\"]/);
+            const latestVersion = (match?.[1] || '').toString().trim();
+            if (!latestVersion || latestVersion === currentVersion) return;
+            showPersistentUpdateNotice(latestVersion);
+        } catch (_) {}
+    }
+
+    function showPersistentUpdateNotice(nextVersion) {
+        if (!els.updateAvailableNotice) return;
+        runtime.updateNoticeVisible = true;
+        if (els.updateAvailableTitle) {
+            els.updateAvailableTitle.textContent = 'Update available';
+        }
+        if (els.updateAvailableText) {
+            els.updateAvailableText.textContent = nextVersion
+                ? `Version ${nextVersion} is ready. Reload the site to update.`
+                : 'A newer version of Jettic is ready. Reload the site to update.';
+        }
+        els.updateAvailableNotice.style.display = 'flex';
+    }
+
+    function startOfflineUptimePolling() {
+        if (runtime.uptimePoll) clearInterval(runtime.uptimePoll);
+        refreshOfflineUptimeStatus();
+        runtime.uptimePoll = setInterval(() => {
+            refreshOfflineUptimeStatus();
+        }, UPTIME_POLL_INTERVAL);
+    }
+
+    function stopOfflineUptimePolling() {
+        if (runtime.uptimePoll) clearInterval(runtime.uptimePoll);
+        runtime.uptimePoll = null;
+    }
+
+    async function refreshOfflineUptimeStatus() {
+        if (!els.offlineUptimeStatus || !els.offlineUptimeMeta) return;
+        if (!backendUrl) {
+            els.offlineUptimeStatus.textContent = 'Monitor status: Unknown (backend URL not configured)';
+            els.offlineUptimeMeta.textContent = 'Set a backend URL to enable live uptime checks.';
+            return;
+        }
+
+        els.offlineUptimeStatus.textContent = 'Monitor status: Checking...';
+        els.offlineUptimeMeta.textContent = '';
+        try {
+            const data = await api.get('/api/uptime');
+            const label = data?.status?.label || 'Unknown';
+            const monitorName = data?.monitor?.friendlyName || 'Jettic monitor';
+            els.offlineUptimeStatus.textContent = `Monitor status: ${label}`;
+            const uptimeRatio = data?.uptimeRatio ? `Uptime ratio: ${data.uptimeRatio}%` : '';
+            els.offlineUptimeMeta.textContent = uptimeRatio
+                ? `${monitorName} · ${uptimeRatio}`
+                : monitorName;
+        } catch (err) {
+            const reason = err?.message || 'Unable to query monitor status';
+            els.offlineUptimeStatus.textContent = 'Monitor status: Unknown';
+            els.offlineUptimeMeta.textContent = reason;
+        }
     }
 
     function normalizeUser(user) {

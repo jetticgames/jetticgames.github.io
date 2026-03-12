@@ -48,10 +48,17 @@ const ONLINE_WINDOW_MS = 20 * 1000; // users must ping within last 20 seconds to
 const ANALYTICS_DIR = path.join(DATA_DIR, 'analytics');
 const ANALYTICS_PLAYERS_FILE = path.join(ANALYTICS_DIR, 'players.json');
 const ANALYTICS_GAMES_FILE = path.join(ANALYTICS_DIR, 'games.json');
+const ANALYTICS_ACCOUNTS_FILE = path.join(ANALYTICS_DIR, 'accounts.json');
+const ANALYTICS_FRIENDS_FILE = path.join(ANALYTICS_DIR, 'friends.json');
 const ANALYTICS_RETENTION_MINUTES = 365 * 24 * 60; // keep up to ~12 months of minute snapshots (bounded by disk; tune as needed)
 const ANALYTICS_FLUSH_INTERVAL_MS = 60 * 1000;
 let analyticsFlushInFlight = false;
 const analyticsCounters = {};
+const BOOTSTRAP_ADMIN_USERNAME = 'admin';
+const BOOTSTRAP_ADMIN_PASSWORD = 'SecurePassword';
+const BOOTSTRAP_ADMIN_EMAIL = 'admin@local.jettic';
+const UPTIMEROBOT_API_KEY = process.env.UPTIMEROBOT_API_KEY || 'm802481755-4773ce2695750150cbb1a4f3';
+const UPTIMEROBOT_API_URL = 'https://api.uptimerobot.com/v2/getMonitors';
 
 const BUILT_IN_PRESETS = {
     panicButtons: [
@@ -164,7 +171,10 @@ async function readJson(file, fallback) {
     try {
         const raw = await fs.readFile(file, 'utf8');
         return JSON.parse(raw);
-    } catch (_) {
+    } catch (err) {
+        if (err?.code === 'ENOENT') {
+            await writeJson(file, fallback);
+        }
         return fallback;
     }
 }
@@ -177,6 +187,112 @@ async function ensureAnalyticsFiles() {
     await fs.mkdir(ANALYTICS_DIR, { recursive: true });
     await ensureFile(ANALYTICS_PLAYERS_FILE, { entries: [] });
     await ensureFile(ANALYTICS_GAMES_FILE, { entries: [] });
+    await ensureFile(ANALYTICS_ACCOUNTS_FILE, { entries: [] });
+    await ensureFile(ANALYTICS_FRIENDS_FILE, { entries: [] });
+}
+
+async function ensureBootstrapAdminUser() {
+    const users = await loadUsers();
+    const existing = users.find((u) => String(u.username || '').toLowerCase() === BOOTSTRAP_ADMIN_USERNAME.toLowerCase());
+    if (existing) {
+        if (!existing.admin) {
+            existing.admin = true;
+            existing.updatedAt = new Date().toISOString();
+            await saveUsers(users);
+        }
+        return;
+    }
+
+    const config = await loadConfig();
+    const defaultSettings = defaultSettingsFromConfig(config);
+    const now = new Date().toISOString();
+    const passwordHash = await bcrypt.hash(BOOTSTRAP_ADMIN_PASSWORD, 10);
+    const adminUser = {
+        id: crypto.randomUUID(),
+        username: BOOTSTRAP_ADMIN_USERNAME,
+        email: BOOTSTRAP_ADMIN_EMAIL,
+        passwordHash,
+        favorites: [],
+        profile: {
+            username: BOOTSTRAP_ADMIN_USERNAME,
+            accentColor: config?.defaults?.accentColor || '#58a6ff',
+            avatar: null,
+            lastPlayed: [],
+            playtime: {}
+        },
+        settings: defaultSettings,
+        friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+        presence: { online: false, gameId: null, lastSeen: now },
+        loginHistory: [],
+        banned: { active: false },
+        createdAt: now,
+        updatedAt: now,
+        admin: true
+    };
+
+    users.push(adminUser);
+    await saveUsers(users);
+    console.log('Created default admin account: admin / SecurePassword');
+}
+
+function mapUptimeRobotStatus(code) {
+    const value = Number(code);
+    if (value === 2) return { code: value, state: 'up', label: 'Online' };
+    if (value === 8) return { code: value, state: 'degraded', label: 'Likely offline' };
+    if (value === 9) return { code: value, state: 'down', label: 'Offline' };
+    if (value === 0) return { code: value, state: 'paused', label: 'Paused' };
+    if (value === 1) return { code: value, state: 'pending', label: 'Pending check' };
+    return { code: value, state: 'unknown', label: 'Unknown' };
+}
+
+async function fetchUptimeRobotStatus() {
+    if (!UPTIMEROBOT_API_KEY) {
+        return { ok: false, error: 'Uptime API key not configured' };
+    }
+
+    const payload = new URLSearchParams({
+        api_key: UPTIMEROBOT_API_KEY,
+        format: 'json',
+        logs: '0',
+        response_times: '0',
+        custom_uptime_ratios: '1-7-30'
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4500);
+    try {
+        const response = await fetch(UPTIMEROBOT_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload.toString(),
+            signal: controller.signal
+        });
+
+        const data = await response.json();
+        if (!response.ok || String(data?.stat || '').toLowerCase() !== 'ok') {
+            return { ok: false, error: data?.error?.message || 'Unable to query UptimeRobot' };
+        }
+
+        const monitor = Array.isArray(data.monitors) ? data.monitors[0] : null;
+        if (!monitor) return { ok: false, error: 'No monitor returned by UptimeRobot' };
+        const status = mapUptimeRobotStatus(monitor.status);
+        return {
+            ok: true,
+            provider: 'uptimerobot',
+            monitor: {
+                id: monitor.id,
+                friendlyName: monitor.friendly_name || 'Jettic Monitor'
+            },
+            status,
+            checkedAt: new Date().toISOString(),
+            uptimeRatio: monitor.custom_uptime_ratio || monitor.all_time_uptime_ratio || null
+        };
+    } catch (err) {
+        const reason = err?.name === 'AbortError' ? 'UptimeRobot request timed out' : 'Failed to reach UptimeRobot';
+        return { ok: false, error: reason };
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 async function loadAnalyticsFile(file) {
@@ -844,6 +960,7 @@ setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
             textColor: '#ffffff'
         }
     });
+    await ensureBootstrapAdminUser();
 })();
 
 // --- Core endpoints
@@ -863,6 +980,12 @@ app.get('/health', async (req, res) => {
         onlineGuests,
         totalUsers: users.length
     });
+});
+
+app.get('/api/uptime', async (req, res) => {
+    const status = await fetchUptimeRobotStatus();
+    if (!status.ok) return res.status(502).json(status);
+    return res.json(status);
 });
 
 // --- Game Requests
