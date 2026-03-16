@@ -59,6 +59,16 @@ const BOOTSTRAP_ADMIN_PASSWORD = 'SecurePassword';
 const BOOTSTRAP_ADMIN_EMAIL = 'admin@local.jettic';
 const UPTIMEROBOT_API_KEY = process.env.UPTIMEROBOT_API_KEY || 'm802481755-4773ce2695750150cbb1a4f3';
 const UPTIMEROBOT_API_URL = 'https://api.uptimerobot.com/v2/getMonitors';
+const BACKEND_ROLE = (process.env.BACKEND_ROLE || 'child').toLowerCase();
+const IS_MAIN_BACKEND = BACKEND_ROLE === 'main';
+const MAIN_BACKEND_URL = (process.env.MAIN_BACKEND_URL || '').trim().replace(/\/+$/, '');
+const CLUSTER_SYNC_TOKEN = process.env.CLUSTER_SYNC_TOKEN || 'jettic-cluster-token';
+const CLUSTER_SYNC_INTERVAL_MS = 2 * 60 * 1000;
+let childReady = IS_MAIN_BACKEND;
+let childLastSyncAt = null;
+let childSyncInFlight = false;
+let childPushInFlight = false;
+let pendingChildPush = null;
 
 const BUILT_IN_PRESETS = {
     panicButtons: [
@@ -112,6 +122,34 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 app.use(['/api', '/proxy'], apiLimiter);
+
+// Child backends stay read-only unavailable until initial sync is complete.
+app.use((req, res, next) => {
+    if (IS_MAIN_BACKEND || childReady) return next();
+    const allowed = req.path === '/health' || req.path === '/api/uptime' || req.path.startsWith('/api/cluster/');
+    if (allowed) return next();
+    return res.status(503).json({
+        error: 'Child backend is still syncing from main backend',
+        status: 'syncing',
+        role: 'child'
+    });
+});
+
+// When a child backend accepts successful writes, push its latest snapshot to main.
+app.use((req, res, next) => {
+    if (IS_MAIN_BACKEND) return next();
+    const method = String(req.method || '').toUpperCase();
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return next();
+    if (!req.path.startsWith('/api/')) return next();
+    if (req.path.startsWith('/api/cluster/')) return next();
+    if (req.path === '/api/online/ping' || req.path === '/api/playtime' || req.path.startsWith('/api/presence')) return next();
+
+    res.on('finish', () => {
+        if (res.statusCode >= 400) return;
+        pushChildStateToMain(`write:${req.path}`).catch(() => {});
+    });
+    return next();
+});
 
 // --- Utility helpers
 async function ensureFile(file, fallback) {
@@ -292,6 +330,153 @@ async function fetchUptimeRobotStatus() {
         return { ok: false, error: reason };
     } finally {
         clearTimeout(timeout);
+    }
+}
+
+async function readText(file, fallback = '') {
+    try {
+        return await fs.readFile(file, 'utf8');
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function defaultClusterSnapshotMeta() {
+    return {
+        role: IS_MAIN_BACKEND ? 'main' : 'child',
+        generatedAt: new Date().toISOString()
+    };
+}
+
+async function collectClusterSnapshot() {
+    const [
+        users,
+        games,
+        requests,
+        reports,
+        sessions,
+        configGeneral,
+        features,
+        defaults,
+        banner
+    ] = await Promise.all([
+        readJson(USERS_FILE, { users: [] }),
+        readJson(GAMES_FILE, []),
+        readJson(REQUESTS_FILE, { requests: [] }),
+        readJson(REPORTS_FILE, { reports: [] }),
+        readJson(SESSION_FILE, { sessions: [] }),
+        readText(CONFIG_GENERAL_FILE, yaml.dump({ version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} })),
+        readText(FEATURES_FILE, yaml.dump({})),
+        readText(DEFAULTS_FILE, yaml.dump({ presets: BUILT_IN_PRESETS })),
+        readText(BANNER_FILE, yaml.dump({ enabled: true, id: 'default' }))
+    ]);
+
+    return {
+        meta: defaultClusterSnapshotMeta(),
+        files: {
+            users,
+            games,
+            requests,
+            reports,
+            sessions,
+            configGeneral,
+            features,
+            defaults,
+            banner
+        }
+    };
+}
+
+async function applyClusterSnapshot(snapshot = {}) {
+    const files = snapshot.files || {};
+    await Promise.all([
+        writeJson(USERS_FILE, files.users || { users: [] }),
+        writeJson(GAMES_FILE, files.games || []),
+        writeJson(REQUESTS_FILE, files.requests || { requests: [] }),
+        writeJson(REPORTS_FILE, files.reports || { reports: [] }),
+        writeJson(SESSION_FILE, files.sessions || { sessions: [] }),
+        fs.writeFile(CONFIG_GENERAL_FILE, files.configGeneral || yaml.dump({ version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} }), 'utf8'),
+        fs.writeFile(FEATURES_FILE, files.features || yaml.dump({}), 'utf8'),
+        fs.writeFile(DEFAULTS_FILE, files.defaults || yaml.dump({ presets: BUILT_IN_PRESETS }), 'utf8'),
+        fs.writeFile(BANNER_FILE, files.banner || yaml.dump({ enabled: true, id: 'default' }), 'utf8')
+    ]);
+    childLastSyncAt = new Date().toISOString();
+}
+
+function clusterSyncHeaders() {
+    return {
+        'content-type': 'application/json',
+        'x-cluster-sync-token': CLUSTER_SYNC_TOKEN
+    };
+}
+
+async function syncChildFromMain(reason = 'periodic') {
+    if (IS_MAIN_BACKEND) return true;
+    if (!MAIN_BACKEND_URL) {
+        console.warn('Child backend has no MAIN_BACKEND_URL configured. Sync is unavailable.');
+        return false;
+    }
+    if (childSyncInFlight) return false;
+
+    childSyncInFlight = true;
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const response = await fetch(`${MAIN_BACKEND_URL}/api/cluster/export`, {
+            headers: clusterSyncHeaders(),
+            signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) throw new Error(`Main backend sync failed (${response.status})`);
+        const snapshot = await response.json();
+        await applyClusterSnapshot(snapshot);
+        childReady = true;
+        console.log(`Cluster sync from main completed (${reason}) at ${childLastSyncAt}`);
+        return true;
+    } catch (err) {
+        console.error('Cluster sync from main failed:', err?.message || err);
+        return false;
+    } finally {
+        childSyncInFlight = false;
+    }
+}
+
+async function pushChildStateToMain(reason = 'mutation') {
+    if (IS_MAIN_BACKEND) return true;
+    if (!MAIN_BACKEND_URL || !childReady) return false;
+    if (childPushInFlight) {
+        pendingChildPush = reason;
+        return false;
+    }
+
+    childPushInFlight = true;
+    try {
+        const snapshot = await collectClusterSnapshot();
+        snapshot.meta = { ...(snapshot.meta || {}), reason };
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const response = await fetch(`${MAIN_BACKEND_URL}/api/cluster/import`, {
+            method: 'POST',
+            headers: clusterSyncHeaders(),
+            body: JSON.stringify(snapshot),
+            signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) throw new Error(`Push to main failed (${response.status})`);
+        return true;
+    } catch (err) {
+        console.error('Push from child to main failed:', err?.message || err);
+        return false;
+    } finally {
+        childPushInFlight = false;
+        if (pendingChildPush) {
+            const queuedReason = pendingChildPush;
+            pendingChildPush = null;
+            setTimeout(() => pushChildStateToMain(queuedReason).catch(() => {}), 250);
+        }
     }
 }
 
@@ -931,7 +1116,7 @@ setInterval(() => { flushAnalytics().catch(() => {}); }, ANALYTICS_FLUSH_INTERVA
 setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
 
 // --- Ensure data files exist on startup
-(async () => {
+async function initializeDataStorage() {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await ensureFile(USERS_FILE, { users: [] });
     await ensureFile(GAMES_FILE, []);
@@ -961,7 +1146,25 @@ setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
         }
     });
     await ensureBootstrapAdminUser();
-})();
+}
+
+async function ensureChildReadyBeforeServing() {
+    if (IS_MAIN_BACKEND) {
+        childReady = true;
+        return;
+    }
+
+    if (!MAIN_BACKEND_URL) {
+        throw new Error('Child backend requires MAIN_BACKEND_URL to sync before serving traffic');
+    }
+
+    childReady = false;
+    while (!childReady) {
+        const ok = await syncChildFromMain('startup');
+        if (ok) break;
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+}
 
 // --- Core endpoints
 app.get('/health', async (req, res) => {
@@ -973,6 +1176,9 @@ app.get('/health', async (req, res) => {
     res.json({
         status: 'ok',
         version: APP_VERSION,
+        role: IS_MAIN_BACKEND ? 'main' : 'child',
+        childReady,
+        lastSyncAt: childLastSyncAt,
         time: new Date().toISOString(),
         games: games.length,
         players: onlineUsers + onlineGuests,
@@ -986,6 +1192,31 @@ app.get('/api/uptime', async (req, res) => {
     const status = await fetchUptimeRobotStatus();
     if (!status.ok) return res.status(502).json(status);
     return res.json(status);
+});
+
+app.get('/api/cluster/status', async (req, res) => {
+    res.json({
+        role: IS_MAIN_BACKEND ? 'main' : 'child',
+        childReady,
+        lastSyncAt: childLastSyncAt,
+        mainBackendUrl: MAIN_BACKEND_URL || null
+    });
+});
+
+app.get('/api/cluster/export', async (req, res) => {
+    const token = req.get('x-cluster-sync-token') || '';
+    if (token !== CLUSTER_SYNC_TOKEN) return res.status(401).json({ error: 'Invalid cluster sync token' });
+    const snapshot = await collectClusterSnapshot();
+    res.json(snapshot);
+});
+
+app.post('/api/cluster/import', async (req, res) => {
+    const token = req.get('x-cluster-sync-token') || '';
+    if (token !== CLUSTER_SYNC_TOKEN) return res.status(401).json({ error: 'Invalid cluster sync token' });
+    if (!IS_MAIN_BACKEND) return res.status(403).json({ error: 'Only main backend accepts cluster imports' });
+
+    await applyClusterSnapshot(req.body || {});
+    res.json({ ok: true, importedAt: new Date().toISOString() });
 });
 
 // --- Game Requests
@@ -2236,6 +2467,24 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`✅ Jettic Games backend running on http://localhost:${PORT}`);
-});
+async function startServer() {
+    try {
+        await initializeDataStorage();
+        await ensureChildReadyBeforeServing();
+
+        if (!IS_MAIN_BACKEND) {
+            setInterval(() => {
+                syncChildFromMain('interval').catch(() => {});
+            }, CLUSTER_SYNC_INTERVAL_MS);
+        }
+
+        app.listen(PORT, () => {
+            console.log(`✅ Jettic Games backend running on http://localhost:${PORT} (${IS_MAIN_BACKEND ? 'main' : 'child'})`);
+        });
+    } catch (err) {
+        console.error('Fatal startup error:', err?.message || err);
+        process.exit(1);
+    }
+}
+
+startServer();

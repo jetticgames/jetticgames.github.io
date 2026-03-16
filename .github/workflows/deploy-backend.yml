@@ -1,19 +1,71 @@
-name: Deploy Backend
+name: Deploy Backend Cluster
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
+    paths:
+      - backend/**
+      - .github/workflows/deploy-backend.yml
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{ fromJson(vars.BACKEND_NODES_JSON) }}
+
     steps:
-      - name: Deploy over SSH
+      - name: Deploy to ${{ matrix.node.name }}
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_URL: https://github.com/${{ github.repository }}.git
+          DEPLOY_REF: ${{ vars.BACKEND_DEPLOY_REF || 'main' }}
+          APP_DIR: ${{ matrix.node.appDir }}
+          SERVICE_NAME: ${{ matrix.node.service }}
+          BACKEND_ROLE: ${{ matrix.node.role }}
+          MAIN_BACKEND_URL: ${{ matrix.node.mainBackendUrl }}
+          PUBLIC_BASE_URL: ${{ matrix.node.publicBaseUrl }}
+          BACKEND_PORT: ${{ matrix.node.portEnv || '3000' }}
+          CLUSTER_SYNC_TOKEN: ${{ secrets.CLUSTER_SYNC_TOKEN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          UPTIMEROBOT_API_KEY: ${{ secrets.UPTIMEROBOT_API_KEY }}
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          host: ${{ matrix.node.host }}
+          username: ${{ matrix.node.user }}
+          key: ${{ secrets.BACKEND_SSH_PRIVATE_KEY }}
+          port: ${{ matrix.node.port || '22' }}
+          envs: REPO_URL,DEPLOY_REF,APP_DIR,SERVICE_NAME,BACKEND_ROLE,MAIN_BACKEND_URL,PUBLIC_BASE_URL,BACKEND_PORT,CLUSTER_SYNC_TOKEN,JWT_SECRET,UPTIMEROBOT_API_KEY
           script: |
-            /home/deploy/deploy-backend.sh
+            set -euo pipefail
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              mkdir -p "$APP_DIR"
+              git clone "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin
+            git checkout "$DEPLOY_REF"
+            git pull --ff-only origin "$DEPLOY_REF"
+
+            cd backend
+            npm ci --omit=dev
+
+            cat > .runtime.env <<EOF
+            BACKEND_ROLE=$BACKEND_ROLE
+            MAIN_BACKEND_URL=$MAIN_BACKEND_URL
+            CLUSTER_SYNC_TOKEN=$CLUSTER_SYNC_TOKEN
+            JWT_SECRET=$JWT_SECRET
+            UPTIMEROBOT_API_KEY=$UPTIMEROBOT_API_KEY
+            PUBLIC_BASE_URL=$PUBLIC_BASE_URL
+            PORT=$BACKEND_PORT
+            EOF
+
+            sudo systemctl stop "$SERVICE_NAME" || true
+            sudo cp .runtime.env "/etc/default/$SERVICE_NAME"
+            sudo systemctl start "$SERVICE_NAME"
+            sudo systemctl is-active --quiet "$SERVICE_NAME"
+
+            echo "Deployment complete on node ${{ matrix.node.name }}"

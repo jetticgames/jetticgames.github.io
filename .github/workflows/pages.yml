@@ -31,13 +31,20 @@ jobs:
 
       - name: Write backend config from secret
         env:
+          FRONTEND_BACKEND_URLS: ${{ secrets.FRONTEND_BACKEND_URLS }}
           FRONTEND_BACKEND_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
         run: |
-          URL="${FRONTEND_BACKEND_URL%/}"
+          RAW="${FRONTEND_BACKEND_URLS}"
+          if [ -z "$RAW" ] && [ -n "$FRONTEND_BACKEND_URL" ]; then
+            RAW="$FRONTEND_BACKEND_URL"
+          fi
+          URLS_JSON=$(printf '%s' "$RAW" | tr ',' '\n' | sed 's/[[:space:]]*$//' | sed 's/^[[:space:]]*//' | sed '/^$/d' | sed 's#/*$##' | jq -R . | jq -s .)
+          FIRST_URL=$(printf '%s' "$RAW" | tr ',' '\n' | sed 's/[[:space:]]*$//' | sed 's/^[[:space:]]*//' | sed '/^$/d' | head -n 1 | sed 's#/*$##')
           cat > frontend/public/config.js <<EOF
-          // Auto-generated during GitHub Pages build from FRONTEND_BACKEND_URL.
+          // Auto-generated during GitHub Pages build from FRONTEND_BACKEND_URLS.
           window.JETTIC_CONFIG = {
-            backendUrl: '${URL}'
+            backendUrl: '${FIRST_URL}',
+            backendUrls: ${URLS_JSON}
           };
           EOF
 
