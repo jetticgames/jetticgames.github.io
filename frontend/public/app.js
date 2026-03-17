@@ -124,6 +124,13 @@
         put: (p, b) => api.request(p, { method: 'PUT', body: JSON.stringify(b || {}) })
     };
 
+    function normalizeGamesPayload(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.games)) return payload.games;
+        console.warn('Unexpected /api/games payload:', payload);
+        return [];
+    }
+
     async function loadAdminDefaults(force = false) {
         if (!state.user?.admin) return;
         if (state.adminDefaults && !force) { renderAdminDefaults(); return; }
@@ -1335,13 +1342,13 @@
     async function loadInitial() {
         showLoader(true);
         try {
-            const [config, games, stats, me] = await Promise.all([
+            const [config, gamesResponse, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
                 api.get('/api/games'),
                 api.get('/api/stats').catch(() => null),
                 api.get('/api/auth/me').catch(() => null)
             ]);
-            state.games = games || [];
+            state.games = normalizeGamesPayload(gamesResponse);
             state.filtered = state.games.slice();
             state.categories = buildCategories(state.games);
             state.banner = config?.banner || null;
@@ -1482,6 +1489,7 @@
 
     function getCategories(games = []) {
         const cats = new Set(['all']);
+        if (!Array.isArray(games)) return Array.from(cats);
         games.forEach((g) => { if (g.category) cats.add(g.category); });
         return Array.from(cats);
     }
