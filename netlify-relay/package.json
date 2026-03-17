@@ -1,0 +1,17 @@
+{
+  "name": "jettic-netlify-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Netlify relay/proxy for forwarding HTTPS requests to an HTTP backend",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.37.0"
+  }
+}

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "."
+  functions = "functions"
+
+[[redirects]]
+  from = "/relay/*"
+  to = "/.netlify/functions/relay/:splat"
+  status = 200
+  force = true
