@@ -74,7 +74,15 @@ export class ApiClient {
         signal: init.signal || controller.signal
       });
     } catch (err: any) {
-      const message = err?.name === 'AbortError' ? 'Backend request timed out' : 'Backend is offline or unreachable';
+      const mixedContent =
+        typeof window !== 'undefined' &&
+        window.location.protocol === 'https:' &&
+        this.baseUrl.startsWith('http://');
+      const message = err?.name === 'AbortError'
+        ? 'Backend request timed out'
+        : mixedContent
+          ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+          : 'Backend is offline or unreachable';
       clearTimeout(timeout);
       throw new Error(message);
     }
@@ -95,7 +103,7 @@ export class ApiClient {
   }
 
   async login(payload: LoginRequest) {
-    const data = await this.request<LoginResponse>('/auth/login', {
+    const data = await this.request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(payload)
     });

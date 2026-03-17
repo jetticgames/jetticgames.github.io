@@ -99,7 +99,14 @@
             } catch (err) {
                 clearTimeout(timer);
                 const name = err?.name || '';
-                throw new Error(name === 'AbortError' ? 'Backend request timed out' : 'Backend is offline or unreachable');
+                const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                throw new Error(
+                    name === 'AbortError'
+                        ? 'Backend request timed out'
+                        : mixedContent
+                            ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+                            : 'Backend is offline or unreachable'
+                );
             }
             clearTimeout(timer);
             if (!res.ok) {
