@@ -2,70 +2,19 @@
 (() => {
     'use strict';
 
-    function normalizeBackendUrl(input) {
-        const value = String(input || '').trim().replace(/\/+$/, '');
-        if (!value) return '';
-        if (!/^https?:\/\//i.test(value)) return '';
-        return value;
-    }
-
-    function uniqueBackends(list = []) {
-        const seen = new Set();
-        const out = [];
-        list.forEach((item) => {
-            const normalized = normalizeBackendUrl(item);
-            if (!normalized || seen.has(normalized)) return;
-            seen.add(normalized);
-            out.push(normalized);
-        });
-        return out;
-    }
-
-    function resolveBackendUrls() {
+    function resolveBackendUrl() {
         const params = new URLSearchParams(window.location.search);
         const queryApi = (params.get('api') || '').trim();
-        if (queryApi) {
-            return uniqueBackends(queryApi.split(',').map((x) => x.trim()));
-        }
+        if (queryApi) return queryApi.replace(/\/+$/, '');
 
-        const configList = Array.isArray(window.JETTIC_CONFIG?.backendUrls)
-            ? window.JETTIC_CONFIG.backendUrls
-            : [];
-        const configApi = window.JETTIC_CONFIG?.backendUrl || '';
-        const combined = configList.concat(configApi ? [configApi] : []);
-        return uniqueBackends(combined);
+        const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
+        if (configApi) return configApi.replace(/\/+$/, '');
+
+        return '';
     }
 
-    function setActiveBackend(index) {
-        if (!backendCandidates.length) {
-            backendIndex = 0;
-            backendUrl = '';
-            window.JETTIC_BACKEND_URL = '';
-            window.JETTIC_BACKEND_URLS = [];
-            return;
-        }
-        backendIndex = ((index % backendCandidates.length) + backendCandidates.length) % backendCandidates.length;
-        backendUrl = backendCandidates[backendIndex];
-        window.JETTIC_BACKEND_URL = backendUrl;
-        window.JETTIC_BACKEND_URLS = backendCandidates.slice();
-        renderBackendInfo();
-    }
-
-    function rotateBackend(reason = '') {
-        if (backendCandidates.length <= 1) return false;
-        const previous = backendUrl;
-        setActiveBackend(backendIndex + 1);
-        if (previous !== backendUrl) {
-            console.warn(`Switched backend to ${backendUrl}${reason ? ` (${reason})` : ''}`);
-            return true;
-        }
-        return false;
-    }
-
-    let backendCandidates = resolveBackendUrls();
-    let backendIndex = 0;
-    let backendUrl = '';
-    setActiveBackend(0);
+    let backendUrl = resolveBackendUrl();
+    window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const VERSION_CHECK_INTERVAL = 60 * 1000;
     const UPTIME_POLL_INTERVAL = 60 * 1000;
@@ -139,7 +88,7 @@
     const els = {};
 
     const api = {
-        async request(path, options = {}, attempt = 0) {
+        async request(path, options = {}) {
             if (!backendUrl) throw new Error('Backend URL is not configured');
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 5000);
@@ -156,18 +105,12 @@
             } catch (err) {
                 clearTimeout(timer);
                 const name = err?.name || '';
-                if (attempt < (backendCandidates.length - 1) && rotateBackend('request failed')) {
-                    return api.request(path, options, attempt + 1);
-                }
                 throw new Error(name === 'AbortError' ? 'Backend request timed out' : 'Backend is offline or unreachable');
             }
             clearTimeout(timer);
             if (!res.ok) {
                 let msg = res.statusText;
                 try { msg = (await res.json()).error || msg; } catch (_) {}
-                if (res.status >= 500 && attempt < (backendCandidates.length - 1) && rotateBackend(`server ${res.status}`)) {
-                    return api.request(path, options, attempt + 1);
-                }
                 const err = new Error(msg);
                 err.status = res.status;
                 throw err;
@@ -444,13 +387,12 @@
 
     function renderBackendInfo() {
         if (!els.settingsBackend) return;
-        const active = (window.JETTIC_BACKEND_URL || backendUrl || '').trim();
-        const total = backendCandidates.length;
-        if (!active) {
-            els.settingsBackend.textContent = 'Backends: not configured';
-            return;
+        if (!backendUrl) {
+            backendUrl = resolveBackendUrl();
+            window.JETTIC_BACKEND_URL = backendUrl;
         }
-        els.settingsBackend.textContent = `Backend ${backendIndex + 1}/${total}: ${active}`;
+        const backend = (window.JETTIC_BACKEND_URL || backendUrl || '').trim();
+        els.settingsBackend.textContent = backend ? `Backend: ${backend}` : 'Backend: not configured';
     }
 
     function cacheElements() {
@@ -3525,7 +3467,7 @@
     async function updateHealth() {
         if (!backendUrl) {
             setStatus(false, 'Backend not configured');
-            handleConnectivityChange(false, 'No backend URLs are configured. Add backendUrls in config.js or use ?api=url1,url2.');
+            handleConnectivityChange(false, 'Backend URL is not configured. Update config.js or ?api query.');
             return;
         }
         try {
