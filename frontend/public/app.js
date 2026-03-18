@@ -123,6 +123,14 @@
         els.apiQueueIndicator.classList.toggle('visible', !!visible);
     }
 
+    function setSplashNetworkStatus(status) {
+        if (!els.splashNetworkText) return;
+        const normalized = String(status || '').toLowerCase();
+        if (normalized === 'online' || normalized === 'offline' || normalized === 'connecting') {
+            els.splashNetworkText.textContent = normalized;
+        }
+    }
+
     function buildBackendCandidates(baseUrl, path) {
         const safePath = String(path || '/').startsWith('/') ? String(path || '/') : `/${String(path || '')}`;
         const base = String(baseUrl || '').replace(/\/+$/, '');
@@ -478,6 +486,7 @@
 
     function init() {
         cacheElements();
+        setSplashNetworkStatus('connecting');
         const currentIcon = document.querySelector('link[rel~="icon"], link[rel="shortcut icon"]');
         runtime.defaultFavicon = currentIcon ? currentIcon.getAttribute('href') : null;
         runtime.pendingRoute = parseRouteFromPath(window.location.pathname);
@@ -564,6 +573,7 @@
             accountNavItem: document.getElementById('accountNavItem'),
             accountLabel: document.getElementById('accountLabel'),
             accountAvatar: document.getElementById('accountAvatar'),
+            splashNetworkText: document.getElementById('aplNetworkText'),
             profileDropdown: document.getElementById('profileDropdown'),
             openProfileSettingsBtn: document.getElementById('openProfileSettingsBtn'),
             openSettingsBtn: document.getElementById('openSettingsBtn'),
@@ -1755,7 +1765,7 @@
         els.allGames.appendChild(frag);
     }
 
-    const placeholderThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270" fill="none"><rect width="480" height="270" fill="%23161b22"/><path d="M70 190h340M70 150h200M70 110h140" stroke="%2330363d" stroke-width="14" stroke-linecap="round"/><circle cx="380" cy="110" r="38" stroke="%2358a6ff" stroke-width="12"/></svg>';
+    const placeholderThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270" fill="none"><rect width="480" height="270" fill="%23d1d5db"/><circle cx="380" cy="72" r="30" fill="%239ca3af"/><path d="M0 220h480v50H0z" fill="%239aa0a8"/><path d="M70 230 190 110l125 120H70Z" fill="%23737b84"/><path d="M185 230 280 135l130 95H185Z" fill="%23646b73"/><path d="M140 170 190 120l45 44" stroke="%23bfc5cc" stroke-width="8" stroke-linecap="round"/><rect x="28" y="24" width="424" height="222" rx="14" stroke="%23808790" stroke-width="10"/></svg>';
 
     function resolveAssetUrl(url) {
         if (!url) return '';
@@ -3635,11 +3645,13 @@
         els.statusText.textContent = text;
         els.statusText.classList.toggle('online', isOnline);
         els.statusText.classList.toggle('offline', !isOnline);
+        setSplashNetworkStatus(isOnline ? 'online' : 'offline');
     }
 
     function handleConnectivityChange(isOnline, reason) {
         if (runtime.lastOnlineState === isOnline && (isOnline || runtime.offlineNotified)) return;
         runtime.lastOnlineState = isOnline;
+        setSplashNetworkStatus(isOnline ? 'online' : 'offline');
         if (!isOnline) {
             runtime.offlineNotified = true;
             pushNotification('Offline', 'Jettic Online Services are unavailable while offline.', 'warning');
