@@ -17,7 +17,8 @@ User -> Netlify HTTPS relay -> HTTP backend
 - `RELAY_ALLOWED_ORIGINS` (optional but recommended)
   - Comma-separated frontend origins allowed to call relay
   - Example: `https://jetticgames.github.io,https://www.jetticgames.com`
-  - Use `*` to allow any origin
+  - If omitted, relay allows any origin by echoing the request origin (credential-safe)
+  - `*` is treated the same way for credential-safe behavior
 
 ## Deploy on Netlify
 
@@ -54,5 +55,5 @@ Then frontend call `/health` becomes:
 ## Notes
 
 - This is a relay, not end-to-end TLS to your backend.
-- `Set-Cookie` passthrough is intentionally disabled in this simple version.
-- If your backend relies on cookies, use token auth or extend the function to handle cookie forwarding securely.
+- Relay forwards `Set-Cookie` response headers so backend cookie sessions work through Netlify.
+- Relay CORS is credential-safe (`Access-Control-Allow-Origin` echoes request origin, not `*`).

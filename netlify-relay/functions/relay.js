@@ -25,9 +25,9 @@ function splitAllowedOrigins(raw) {
 }
 
 function getCorsOrigin(requestOrigin, allowedOrigins) {
-  if (!requestOrigin) return '*';
-  if (!allowedOrigins.length) return '*';
-  if (allowedOrigins.includes('*')) return '*';
+  if (!requestOrigin) return '';
+  if (!allowedOrigins.length) return requestOrigin;
+  if (allowedOrigins.includes('*')) return requestOrigin;
   return allowedOrigins.includes(requestOrigin) ? requestOrigin : '';
 }
 
@@ -46,7 +46,7 @@ function getPathSuffix(event) {
 
 function buildTargetUrl(baseUrl, event) {
   const suffix = getPathSuffix(event);
-  const query = String(event.rawQuery || '');
+  const query = String(event.rawQuery || event.rawQueryString || '');
   return `${baseUrl}${suffix}${query ? `?${query}` : ''}`;
 }
 
@@ -54,6 +54,24 @@ function decodeBody(event) {
   if (!event.body) return undefined;
   if (event.isBase64Encoded) return Buffer.from(event.body, 'base64');
   return event.body;
+}
+
+function splitSetCookieHeader(value) {
+  if (!value) return [];
+  return String(value)
+    .split(/,(?=\s*[^;,=\s]+=[^;,=\s]+)/g)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function getSetCookieValues(headers) {
+  if (!headers) return [];
+  if (typeof headers.getSetCookie === 'function') {
+    const values = headers.getSetCookie();
+    if (Array.isArray(values) && values.length) return values;
+  }
+  const combined = headers.get('set-cookie');
+  return splitSetCookieHeader(combined);
 }
 
 exports.handler = async (event) => {
@@ -68,19 +86,23 @@ exports.handler = async (event) => {
 
   const method = String(event.httpMethod || 'GET').toUpperCase();
   const requestOrigin = event.headers?.origin || event.headers?.Origin || '';
+  const requestedHeaders =
+    event.headers?.['access-control-request-headers'] ||
+    event.headers?.['Access-Control-Request-Headers'] ||
+    'Content-Type, Authorization, X-Requested-With';
   const allowedOrigins = splitAllowedOrigins(process.env.RELAY_ALLOWED_ORIGINS);
   const corsOrigin = getCorsOrigin(requestOrigin, allowedOrigins);
 
   const corsHeaders = {
-    'access-control-allow-origin': corsOrigin || 'null',
+    ...(corsOrigin ? { 'access-control-allow-origin': corsOrigin } : {}),
     'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'access-control-allow-headers': 'Content-Type, Authorization, X-Requested-With',
-    'access-control-allow-credentials': 'true',
+    'access-control-allow-headers': requestedHeaders,
+    ...(corsOrigin ? { 'access-control-allow-credentials': 'true' } : {}),
     'access-control-max-age': '86400',
-    vary: 'Origin'
+    vary: 'Origin, Access-Control-Request-Headers'
   };
 
-  if (!corsOrigin) {
+  if (requestOrigin && !corsOrigin) {
     return {
       statusCode: 403,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
@@ -129,6 +151,7 @@ exports.handler = async (event) => {
   }
 
   const responseHeaders = { ...corsHeaders };
+  const setCookieValues = getSetCookieValues(upstreamResponse.headers);
   upstreamResponse.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
     if (HOP_BY_HOP_HEADERS.has(lower)) return;
@@ -148,6 +171,7 @@ exports.handler = async (event) => {
     return {
       statusCode: upstreamResponse.status,
       headers: responseHeaders,
+      ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
       body: await upstreamResponse.text()
     };
   }
@@ -156,6 +180,7 @@ exports.handler = async (event) => {
   return {
     statusCode: upstreamResponse.status,
     headers: responseHeaders,
+    ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
     body: buffer.toString('base64'),
     isBase64Encoded: true
   };

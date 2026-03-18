@@ -10,6 +10,10 @@
         const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
         if (configApi) return configApi.replace(/\/+$/, '');
 
+        if (/\.netlify\.app$/i.test(window.location.hostname)) {
+            return '/relay';
+        }
+
         return '';
     }
 

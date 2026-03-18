@@ -10,6 +10,7 @@ type AuthForm = {
 
 function App() {
   const [token, setToken] = useState<string | null>(null)
+  const [sessionUser, setSessionUser] = useState<string | null>(null)
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
   const [authForm, setAuthForm] = useState<AuthForm>({ email: '', password: '' })
@@ -33,6 +34,24 @@ function App() {
     }
   }, [api])
 
+  useEffect(() => {
+    let cancelled = false
+    api
+      .me()
+      .then((data) => {
+        if (cancelled) return
+        const name = data.user?.username || data.user?.email || null
+        setSessionUser(name)
+      })
+      .catch(() => {
+        if (!cancelled) setSessionUser(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [api])
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoginError(null)
@@ -40,6 +59,7 @@ function App() {
     try {
       const result = await api.login(authForm)
       const name = result.user?.username || result.user?.email || 'user'
+      setSessionUser(name)
       setLoginSuccess(`Signed in as ${name}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to sign in'
@@ -47,8 +67,11 @@ function App() {
     }
   }
 
-  const handleLogout = () => {
-    api.logout()
+  const handleLogout = async () => {
+    try {
+      await api.logout()
+    } catch (_) {}
+    setSessionUser(null)
     setLoginSuccess(null)
   }
 
@@ -68,11 +91,11 @@ function App() {
           </p>
         </div>
         <div className="status">
-          <span className={token ? 'status__dot status__dot--on' : 'status__dot status__dot--off'} />
-          <span className="status__label">{token ? 'Bearer token ready' : 'Not authenticated'}</span>
-          {token && (
+          <span className={sessionUser ? 'status__dot status__dot--on' : 'status__dot status__dot--off'} />
+          <span className="status__label">{sessionUser ? `Signed in as ${sessionUser}` : 'Not authenticated'}</span>
+          {sessionUser && (
             <button className="ghost" type="button" onClick={handleLogout}>
-              Clear token
+              Sign out
             </button>
           )}
         </div>
@@ -131,7 +154,7 @@ function App() {
               <h2>Bearer login</h2>
             </div>
           </div>
-          <p className="muted">Submits credentials to /auth/login and keeps the returned access token in memory.</p>
+          <p className="muted">Submits credentials to /api/auth/login and relies on secure session cookies via the relay.</p>
           <form className="form" onSubmit={handleLogin}>
             <label className="field">
               <span>Email</span>
@@ -158,7 +181,7 @@ function App() {
             <div className="actions">
               <button type="submit">Sign in</button>
               <button type="button" className="ghost" onClick={handleLogout}>
-                Clear token
+                Sign out
               </button>
             </div>
           </form>

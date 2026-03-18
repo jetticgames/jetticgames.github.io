@@ -522,6 +522,14 @@ function cookieOptions(maxAge, req) {
     return opts;
 }
 
+function guestCookieOptions(req, maxAge = 1000 * 60 * 60 * 24 * 7) {
+    const opts = cookieOptions(maxAge, req);
+    return {
+        ...opts,
+        httpOnly: false
+    };
+}
+
 function parseSessionCookie(req) {
     const raw = req.cookies[COOKIE_NAME] || req.cookies[LEGACY_SESSION_COOKIE];
     if (!raw) return null;
@@ -1977,12 +1985,7 @@ app.post('/api/online/ping', async (req, res) => {
         } else {
             guestHeartbeats.set(guestId, now);
         }
-        res.cookie(GUEST_COOKIE, guestId, {
-            httpOnly: false,
-            secure: false,
-            sameSite: 'lax',
-            maxAge: 1000 * 60 * 60 * 24 * 7
-        });
+        res.cookie(GUEST_COOKIE, guestId, guestCookieOptions(req));
         res.clearCookie(LEGACY_GUEST_COOKIE);
     }
 

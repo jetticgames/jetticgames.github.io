@@ -17,9 +17,16 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  accessToken: string;
-  refreshToken?: string;
   user?: {
+    id: string;
+    username?: string;
+    email?: string;
+  };
+  accessToken?: string;
+}
+
+export interface MeResponse {
+  user: {
     id: string;
     username?: string;
     email?: string;
@@ -111,7 +118,12 @@ export class ApiClient {
     return data;
   }
 
-  logout() {
+  async me() {
+    return this.request<MeResponse>('/api/auth/me');
+  }
+
+  async logout() {
+    await this.request('/api/auth/logout', { method: 'POST' });
     this.setToken(null);
   }
 }
