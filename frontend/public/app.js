@@ -161,6 +161,30 @@
         panel.open = !!open;
     }
 
+    function buildBackendCandidates(baseUrl, path) {
+        const safePath = String(path || '/').startsWith('/') ? String(path || '/') : `/${String(path || '')}`;
+        const base = String(baseUrl || '').replace(/\/+$/, '');
+        const candidates = [`${base}${safePath}`];
+
+        if (base.endsWith('/relay')) {
+            candidates.push(`${base.slice(0, -'/relay'.length)}/.netlify/functions/relay${safePath}`);
+        }
+
+        if (base.endsWith('/.netlify/functions/relay')) {
+            candidates.push(`${base.slice(0, -'/.netlify/functions/relay'.length)}/relay${safePath}`);
+        }
+
+        return Array.from(new Set(candidates));
+    }
+
+    function shouldRetryWithAlternateRelayPath(response, attemptedUrl) {
+        if (!response) return false;
+        if (response.status !== 404) return false;
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.includes('text/html')) return false;
+        return /\/relay\//.test(String(attemptedUrl || ''));
+    }
+
     const api = {
         async request(path, options = {}) {
             if (!backendUrl) throw new Error('Backend URL is not configured');
@@ -170,40 +194,58 @@
                 headers['Content-Type'] = 'application/json';
             }
             return queueApiRequest(async () => {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 8000);
                 let res;
-                try {
-                    res = await fetch(`${backendUrl}${path}`, {
-                        credentials: 'include',
-                        cache: 'no-store',
-                        mode: 'cors',
-                        signal: options.signal || controller.signal,
-                        headers,
-                        ...options
-                    });
-                } catch (err) {
-                    clearTimeout(timer);
-                    const name = err?.name || '';
-                    const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
-                    const networkError = new Error(
-                        name === 'AbortError'
-                            ? 'Backend request timed out'
-                            : mixedContent
-                                ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-                                : 'Backend is offline or unreachable'
-                    );
-                    networkError.debug = {
-                        type: 'network',
-                        method,
-                        path,
-                        url: `${backendUrl}${path}`,
-                        message: networkError.message,
-                        reason: name || 'unknown'
-                    };
-                    throw networkError;
+                const urlCandidates = buildBackendCandidates(backendUrl, path);
+                let selectedUrl = urlCandidates[0] || `${backendUrl}${path}`;
+                let lastNetworkError = null;
+
+                for (let i = 0; i < urlCandidates.length; i += 1) {
+                    const candidate = urlCandidates[i];
+                    selectedUrl = candidate;
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 8000);
+                    try {
+                        res = await fetch(candidate, {
+                            credentials: 'include',
+                            cache: 'no-store',
+                            mode: 'cors',
+                            signal: options.signal || controller.signal,
+                            headers,
+                            ...options
+                        });
+                        clearTimeout(timer);
+
+                        if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
+                            continue;
+                        }
+                        break;
+                    } catch (err) {
+                        clearTimeout(timer);
+                        const name = err?.name || '';
+                        const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                        const networkError = new Error(
+                            name === 'AbortError'
+                                ? 'Backend request timed out'
+                                : mixedContent
+                                    ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+                                    : 'Backend is offline or unreachable'
+                        );
+                        networkError.debug = {
+                            type: 'network',
+                            method,
+                            path,
+                            url: candidate,
+                            attemptedUrls: urlCandidates,
+                            message: networkError.message,
+                            reason: name || 'unknown'
+                        };
+                        lastNetworkError = networkError;
+                        if (i === urlCandidates.length - 1) throw networkError;
+                    }
                 }
-                clearTimeout(timer);
+
+                if (!res && lastNetworkError) throw lastNetworkError;
+
                 const ct = res.headers.get('content-type') || '';
                 const isJson = ct.includes('application/json');
 
@@ -222,7 +264,8 @@
                         type: 'response',
                         method,
                         path,
-                        url: `${backendUrl}${path}`,
+                        url: selectedUrl,
+                        attemptedUrls: urlCandidates,
                         status: res.status,
                         statusText: res.statusText,
                         contentType: ct,
@@ -3961,6 +4004,7 @@
         const payload = mode === 'register'
             ? { username: identifier, password, email }
             : { identifier, password };
+        const urlCandidates = buildBackendCandidates(backendUrl, path);
         setAuthDebug({
             phase: 'request',
             at: new Date().toISOString(),
@@ -3968,7 +4012,8 @@
             request: {
                 method: 'POST',
                 path,
-                url: `${backendUrl}${path}`,
+                url: urlCandidates[0],
+                attemptedUrls: urlCandidates,
                 payload: {
                     identifier,
                     email: mode === 'register' ? email : undefined,

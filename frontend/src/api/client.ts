@@ -79,9 +79,24 @@ export class ApiClient {
     await queued;
   }
 
-  private buildUrl(path: string) {
+  private buildUrlCandidates(path: string) {
     const safePath = path.startsWith('/') ? path : `/${path}`;
-    return `${this.baseUrl}${safePath}`;
+    const base = this.baseUrl.replace(/\/+$/, '');
+    const candidates = [`${base}${safePath}`];
+
+    if (base.endsWith('/relay')) {
+      candidates.push(`${base.slice(0, -'/relay'.length)}/.netlify/functions/relay${safePath}`);
+    }
+    if (base.endsWith('/.netlify/functions/relay')) {
+      candidates.push(`${base.slice(0, -'/.netlify/functions/relay'.length)}/relay${safePath}`);
+    }
+
+    return Array.from(new Set(candidates));
+  }
+
+  private shouldRetryWithAlternateRelayPath(response: Response, attemptedUrl: string) {
+    const ct = (response.headers.get('content-type') || '').toLowerCase();
+    return response.status === 404 && ct.includes('text/html') && /\/relay\//.test(attemptedUrl);
   }
 
   private async parseJson(response: Response) {
@@ -109,30 +124,49 @@ export class ApiClient {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
-    let response: Response;
-    try {
-      response = await fetch(this.buildUrl(path), {
-        ...init,
-        headers,
-        credentials: 'include',
-        signal: init.signal || controller.signal
-      });
-    } catch (err: unknown) {
-      const errName = err instanceof Error ? err.name : '';
-      const mixedContent =
-        typeof window !== 'undefined' &&
-        window.location.protocol === 'https:' &&
-        this.baseUrl.startsWith('http://');
-      const message = errName === 'AbortError'
-        ? 'Backend request timed out'
-        : mixedContent
-          ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-          : 'Backend is offline or unreachable';
-      clearTimeout(timeout);
-      throw new Error(message);
+    const urlCandidates = this.buildUrlCandidates(path);
+    let response: Response | null = null;
+    let networkError: Error | null = null;
+
+    for (let i = 0; i < urlCandidates.length; i += 1) {
+      const candidate = urlCandidates[i];
+      try {
+        response = await fetch(candidate, {
+          ...init,
+          headers,
+          credentials: 'include',
+          signal: init.signal || controller.signal
+        });
+      } catch (err: unknown) {
+        const errName = err instanceof Error ? err.name : '';
+        const mixedContent =
+          typeof window !== 'undefined' &&
+          window.location.protocol === 'https:' &&
+          this.baseUrl.startsWith('http://');
+        const message = errName === 'AbortError'
+          ? 'Backend request timed out'
+          : mixedContent
+            ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+            : 'Backend is offline or unreachable';
+        networkError = new Error(message);
+        if (i === urlCandidates.length - 1) {
+          clearTimeout(timeout);
+          throw networkError;
+        }
+        continue;
+      }
+
+      if (this.shouldRetryWithAlternateRelayPath(response, candidate) && i < urlCandidates.length - 1) {
+        continue;
+      }
+      break;
     }
 
     clearTimeout(timeout);
+
+    if (!response) {
+      throw networkError || new Error('Backend is offline or unreachable');
+    }
 
     const data = (await this.parseJson(response)) as RelayEnvelope<T> | null;
     if (!response.ok) {
