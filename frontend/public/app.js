@@ -11,7 +11,7 @@
         if (configApi) return configApi.replace(/\/+$/, '');
 
         if (/\.netlify\.app$/i.test(window.location.hostname)) {
-            return '/relay';
+            return '/.netlify/functions/relay';
         }
 
         return '';
@@ -20,7 +20,6 @@
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
-    const AUTH_DEBUG_ENABLED = (window.JETTIC_CONFIG?.authDebug ?? true) !== false;
     const API_MIN_REQUEST_INTERVAL_MS = Math.max(0, Number(window.JETTIC_CONFIG?.minRequestIntervalMs) || 2000);
     let apiRequestQueue = Promise.resolve();
     let lastApiRequestAt = 0;
@@ -96,7 +95,9 @@
         pendingRoute: null,
         lastPlayedCache: [],
         pageTransitionId: 0,
-        panelTransitionId: 0
+        panelTransitionId: 0,
+        apiPendingRequests: 0,
+        favoritesLoading: false
     };
 
     const HOME_PATH = '/';
@@ -107,58 +108,29 @@
 
     const els = {};
 
-    function toDebugJson(value) {
-        try {
-            return JSON.stringify(value, null, 2);
-        } catch (_) {
-            return String(value);
-        }
+    function ensureApiQueueIndicator() {
+        if (els.apiQueueIndicator) return;
+        const indicator = document.createElement('div');
+        indicator.id = 'apiQueueIndicator';
+        indicator.className = 'api-queue-indicator';
+        indicator.innerHTML = '<span class="jg-inline-loading-spinner" aria-hidden="true"></span><span>Waiting for API queue...</span>';
+        document.body.appendChild(indicator);
+        els.apiQueueIndicator = indicator;
     }
 
-    function ensureAuthDebugPanel() {
-        if (!AUTH_DEBUG_ENABLED || !els.authForm) return null;
-        let panel = document.getElementById('authDebugPanel');
-        if (!panel) {
-            panel = document.createElement('details');
-            panel.id = 'authDebugPanel';
-            panel.className = 'auth-debug-panel';
-            panel.style.marginTop = '10px';
-            panel.style.border = '1px solid #30363d';
-            panel.style.borderRadius = '8px';
-            panel.style.padding = '8px 10px';
-            panel.style.background = 'rgba(0, 0, 0, 0.25)';
-
-            const summary = document.createElement('summary');
-            summary.textContent = 'Auth Debug';
-            summary.style.cursor = 'pointer';
-            summary.style.color = '#9ca3af';
-            summary.style.fontSize = '12px';
-            summary.style.fontWeight = '600';
-
-            const pre = document.createElement('pre');
-            pre.id = 'authDebugOutput';
-            pre.style.margin = '8px 0 0 0';
-            pre.style.whiteSpace = 'pre-wrap';
-            pre.style.wordBreak = 'break-word';
-            pre.style.fontSize = '11px';
-            pre.style.lineHeight = '1.4';
-            pre.style.maxHeight = '220px';
-            pre.style.overflow = 'auto';
-            pre.style.color = '#d1d5db';
-
-            panel.appendChild(summary);
-            panel.appendChild(pre);
-            els.authForm.appendChild(panel);
-        }
-        return panel;
+    function setApiQueueIndicatorVisible(visible) {
+        ensureApiQueueIndicator();
+        if (!els.apiQueueIndicator) return;
+        els.apiQueueIndicator.classList.toggle('visible', !!visible);
     }
 
-    function setAuthDebug(payload, open = true) {
-        const panel = ensureAuthDebugPanel();
-        if (!panel) return;
-        const output = panel.querySelector('#authDebugOutput');
-        if (output) output.textContent = toDebugJson(payload);
-        panel.open = !!open;
+    function buildLoadingMarkup(message = 'Loading...') {
+        return `<div class="loading-message jg-inline-loading"><span class="jg-inline-loading-spinner" aria-hidden="true"></span><span>${message}</span></div>`;
+    }
+
+    function setContainerLoading(container, message = 'Loading...') {
+        if (!container) return;
+        container.innerHTML = buildLoadingMarkup(message);
     }
 
     function buildBackendCandidates(baseUrl, path) {
@@ -194,93 +166,100 @@
                 headers['Content-Type'] = 'application/json';
             }
             return queueApiRequest(async () => {
+                runtime.apiPendingRequests += 1;
+                setApiQueueIndicatorVisible(runtime.apiPendingRequests > 0);
                 let res;
                 const urlCandidates = buildBackendCandidates(backendUrl, path);
                 let selectedUrl = urlCandidates[0] || `${backendUrl}${path}`;
                 let lastNetworkError = null;
 
-                for (let i = 0; i < urlCandidates.length; i += 1) {
-                    const candidate = urlCandidates[i];
-                    selectedUrl = candidate;
-                    const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 8000);
-                    try {
-                        res = await fetch(candidate, {
-                            credentials: 'include',
-                            cache: 'no-store',
-                            mode: 'cors',
-                            signal: options.signal || controller.signal,
-                            headers,
-                            ...options
-                        });
-                        clearTimeout(timer);
+                try {
+                    for (let i = 0; i < urlCandidates.length; i += 1) {
+                        const candidate = urlCandidates[i];
+                        selectedUrl = candidate;
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), 8000);
+                        try {
+                            res = await fetch(candidate, {
+                                credentials: 'include',
+                                cache: 'no-store',
+                                mode: 'cors',
+                                signal: options.signal || controller.signal,
+                                headers,
+                                ...options
+                            });
+                            clearTimeout(timer);
 
-                        if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
-                            continue;
+                            if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
+                                continue;
+                            }
+                            break;
+                        } catch (err) {
+                            clearTimeout(timer);
+                            const name = err?.name || '';
+                            const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                            const networkError = new Error(
+                                name === 'AbortError'
+                                    ? 'Backend request timed out'
+                                    : mixedContent
+                                        ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+                                        : 'Backend is offline or unreachable'
+                            );
+                            networkError.debug = {
+                                type: 'network',
+                                method,
+                                path,
+                                url: candidate,
+                                attemptedUrls: urlCandidates,
+                                message: networkError.message,
+                                reason: name || 'unknown'
+                            };
+                            lastNetworkError = networkError;
+                            if (i === urlCandidates.length - 1) throw networkError;
                         }
-                        break;
-                    } catch (err) {
-                        clearTimeout(timer);
-                        const name = err?.name || '';
-                        const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
-                        const networkError = new Error(
-                            name === 'AbortError'
-                                ? 'Backend request timed out'
-                                : mixedContent
-                                    ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-                                    : 'Backend is offline or unreachable'
-                        );
-                        networkError.debug = {
-                            type: 'network',
+                    }
+
+                    if (!res && lastNetworkError) throw lastNetworkError;
+
+                    const ct = res.headers.get('content-type') || '';
+                    const isJson = ct.includes('application/json');
+
+                    if (!res.ok) {
+                        let msg = res.statusText;
+                        let body = null;
+                        try {
+                            body = isJson ? await res.json() : null;
+                            if (body?.error?.message) msg = body.error.message;
+                            else if (body?.error) msg = body.error;
+                            else if (body?.message) msg = body.message;
+                        } catch (_) {}
+                        const responseError = new Error(msg || 'Request failed');
+                        responseError.status = res.status;
+                        responseError.debug = {
+                            type: 'response',
                             method,
                             path,
-                            url: candidate,
+                            url: selectedUrl,
                             attemptedUrls: urlCandidates,
-                            message: networkError.message,
-                            reason: name || 'unknown'
+                            status: res.status,
+                            statusText: res.statusText,
+                            contentType: ct,
+                            body
                         };
-                        lastNetworkError = networkError;
-                        if (i === urlCandidates.length - 1) throw networkError;
+                        throw responseError;
                     }
+
+                    if (!isJson) return res.text();
+
+                    const body = await res.json();
+                    if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
+                        return body.data;
+                    }
+                    return body;
+                } finally {
+                    runtime.apiPendingRequests = Math.max(0, runtime.apiPendingRequests - 1);
+                    setApiQueueIndicatorVisible(runtime.apiPendingRequests > 0);
                 }
-
-                if (!res && lastNetworkError) throw lastNetworkError;
-
-                const ct = res.headers.get('content-type') || '';
-                const isJson = ct.includes('application/json');
-
-                if (!res.ok) {
-                    let msg = res.statusText;
-                    let body = null;
-                    try {
-                        body = isJson ? await res.json() : null;
-                        if (body?.error?.message) msg = body.error.message;
-                        else if (body?.error) msg = body.error;
-                        else if (body?.message) msg = body.message;
-                    } catch (_) {}
-                    const responseError = new Error(msg || 'Request failed');
-                    responseError.status = res.status;
-                    responseError.debug = {
-                        type: 'response',
-                        method,
-                        path,
-                        url: selectedUrl,
-                        attemptedUrls: urlCandidates,
-                        status: res.status,
-                        statusText: res.statusText,
-                        contentType: ct,
-                        body
-                    };
-                    throw responseError;
-                }
-
-                if (!isJson) return res.text();
-
-                const body = await res.json();
-                if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
-                    return body.data;
-                }
-                return body;
             });
         },
         get: (p) => api.request(p),
@@ -685,6 +664,7 @@
             authModal: document.getElementById('authModal'),
             authTabs: Array.from(document.querySelectorAll('.auth-tab')),
             authForm: document.getElementById('authForm'),
+            authSubmitBtn: document.querySelector('#authForm button[type="submit"]'),
             authEmail: document.getElementById('authEmail'),
             authFeedback: document.getElementById('authFeedback'),
             closeAuthModal: document.getElementById('closeAuthModal'),
@@ -900,7 +880,6 @@
     }
 
     function bindAuthModal() {
-        ensureAuthDebugPanel();
         const updateAuthMode = (mode) => {
             els.authTabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === mode));
             if (els.authModal) els.authModal.dataset.mode = mode;
@@ -1506,6 +1485,8 @@
 
     async function loadInitial() {
         showLoader(true);
+        setContainerLoading(els.allGames, 'Loading games...');
+        setContainerLoading(els.favoritesGrid, 'Loading favorites...');
         try {
             const [config, gamesResponse, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
@@ -1553,7 +1534,7 @@
         if (runtime.friendsPoll) clearInterval(runtime.friendsPoll);
         if (!state.user) return;
         runtime.friendsPoll = setInterval(() => {
-            loadFriends();
+            loadFriends(true);
         }, 20000);
     }
 
@@ -1888,6 +1869,12 @@
         if (els.favoritesAuthHint) els.favoritesAuthHint.style.display = 'none';
         if (els.favoritesGrid) els.favoritesGrid.style.display = 'grid';
 
+        if (runtime.favoritesLoading) {
+            setContainerLoading(els.favoritesGrid, 'Loading favorites...');
+            if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'none';
+            return;
+        }
+
         if (!favGames.length) {
             if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'block';
             return;
@@ -2042,6 +2029,8 @@
             pushNotification('Sign in required', 'Create an account to save favorites to your profile.', 'warning');
             return;
         }
+        runtime.favoritesLoading = true;
+        renderFavoritesPage();
         api.post('/api/favorites/toggle', { gameId: String(gameId) })
             .then(({ favorites }) => {
                 state.favorites = new Set((favorites || []).map(String));
@@ -2050,7 +2039,11 @@
                 updateGameFavoriteButton(gameId);
                 if (state.currentGame?.id === gameId) renderGameFriends(gameId);
             })
-            .catch((err) => showToast(err.message || 'Failed to update favorites', true));
+            .catch((err) => showToast(err.message || 'Failed to update favorites', true))
+            .finally(() => {
+                runtime.favoritesLoading = false;
+                renderFavoritesPage();
+            });
     }
 
     function updateGameFavoriteButton(gameId) {
@@ -2067,8 +2060,19 @@
         btn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
     }
 
-    async function loadFriends() {
+    async function loadFriends(silent = false) {
         if (!state.user) return;
+        if (!silent) {
+            setContainerLoading(els.friendsList, 'Loading friends...');
+            setContainerLoading(els.manageFriendsList, 'Loading friends...');
+            setContainerLoading(els.manageIncomingList, 'Loading requests...');
+            setContainerLoading(els.manageOutgoingList, 'Loading outgoing requests...');
+            setContainerLoading(els.blockedList, 'Loading blocked users...');
+            if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'none';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'none';
+            if (els.friendsContent) els.friendsContent.style.display = 'grid';
+            if (els.friendsTabNav) els.friendsTabNav.style.display = 'flex';
+        }
         try {
             const data = await api.get('/api/friends');
             diffFriendsAndNotify(runtime.friendsSnapshot, data);
@@ -2103,6 +2107,7 @@
         if (!state.user?.admin) return;
         if (!force && state.adminRequests?.length) { renderAdminRequests(); return; }
         if (els.adminRequestsError) els.adminRequestsError.textContent = '';
+        setContainerLoading(els.adminRequestsList, 'Loading requests...');
         try {
             const { requests = [] } = await api.get('/api/requests');
             state.adminRequests = requests;
@@ -2116,6 +2121,7 @@
         if (!state.user?.admin) return;
         if (!force && state.adminReports?.length) { renderAdminReports(); return; }
         if (els.adminReportsError) els.adminReportsError.textContent = '';
+        setContainerLoading(els.adminReportsList, 'Loading reports...');
         try {
             const { reports = [] } = await api.get('/api/admin/reports');
             state.adminReports = reports;
@@ -2128,6 +2134,7 @@
     async function loadAdminGames(force = false) {
         if (!state.user?.admin) return;
         if (!force && state.adminGames?.length) { renderAdminGames(); return; }
+        setContainerLoading(els.adminGamesList, 'Loading games...');
         try {
             const { games = [] } = await api.get('/api/admin/games');
             state.adminGames = games;
@@ -2140,6 +2147,7 @@
     async function loadAdminUsers(force = false) {
         if (!state.user?.admin) return;
         if (!force && state.adminUsers?.length) { renderAdminUsers(); return; }
+        setContainerLoading(els.adminUsersList, 'Loading users...');
         try {
             const { users = [] } = await api.get('/api/admin/users');
             state.adminUsers = users;
@@ -3986,7 +3994,6 @@
         els.authModal.style.display = 'flex';
         els.authModal.dataset.mode = defaultTab;
         els.authTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === defaultTab));
-        setAuthDebug({ info: 'Auth debug ready', backendUrl, mode: defaultTab, at: new Date().toISOString() }, false);
     }
 
     function closeAuthModal() {
@@ -4004,23 +4011,7 @@
         const payload = mode === 'register'
             ? { username: identifier, password, email }
             : { identifier, password };
-        const urlCandidates = buildBackendCandidates(backendUrl, path);
-        setAuthDebug({
-            phase: 'request',
-            at: new Date().toISOString(),
-            mode,
-            request: {
-                method: 'POST',
-                path,
-                url: urlCandidates[0],
-                attemptedUrls: urlCandidates,
-                payload: {
-                    identifier,
-                    email: mode === 'register' ? email : undefined,
-                    passwordLength: password?.length || 0
-                }
-            }
-        });
+        setButtonLoading(els.authSubmitBtn, true);
         try {
             const res = await api.post(path, payload);
             const user = res.user;
@@ -4031,14 +4022,6 @@
                 refreshUserUI();
                 closeAuthModal();
                 showBannedModal(res.reason || 'Your account is banned');
-                setAuthDebug({
-                    phase: 'response',
-                    at: new Date().toISOString(),
-                    mode,
-                    status: 'banned',
-                    reason: res.reason || 'Your account is banned',
-                    user: { id: user?.id, username: user?.username, email: user?.email }
-                });
                 return;
             }
             hideBannedModal();
@@ -4054,24 +4037,11 @@
             refreshUserUI();
             renderPlayHistory();
             closeAuthModal();
-            setAuthDebug({
-                phase: 'response',
-                at: new Date().toISOString(),
-                mode,
-                status: 'success',
-                user: { id: user?.id, username: user?.username, email: user?.email }
-            }, false);
             showToast(mode === 'register' ? 'Account created' : 'Signed in');
         } catch (err) {
             els.authFeedback.textContent = err.message || 'Authentication failed';
-            setAuthDebug({
-                phase: 'response',
-                at: new Date().toISOString(),
-                mode,
-                status: 'failed',
-                message: err?.message || 'Authentication failed',
-                debug: err?.debug || null
-            }, true);
+        } finally {
+            setButtonLoading(els.authSubmitBtn, false);
         }
     }
 
