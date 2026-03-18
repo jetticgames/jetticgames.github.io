@@ -25,6 +25,17 @@ export interface LoginResponse {
   accessToken?: string;
 }
 
+type RelayEnvelope<T> = {
+  ok?: boolean;
+  status?: number;
+  data?: T;
+  error?: {
+    message?: string;
+    details?: unknown;
+  };
+  message?: string;
+};
+
 export interface MeResponse {
   user: {
     id: string;
@@ -80,12 +91,13 @@ export class ApiClient {
         credentials: 'include',
         signal: init.signal || controller.signal
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errName = err instanceof Error ? err.name : '';
       const mixedContent =
         typeof window !== 'undefined' &&
         window.location.protocol === 'https:' &&
         this.baseUrl.startsWith('http://');
-      const message = err?.name === 'AbortError'
+      const message = errName === 'AbortError'
         ? 'Backend request timed out'
         : mixedContent
           ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
@@ -96,10 +108,18 @@ export class ApiClient {
 
     clearTimeout(timeout);
 
-    const data = await this.parseJson(response);
+    const data = (await this.parseJson(response)) as RelayEnvelope<T> | null;
     if (!response.ok) {
-      const message = (data as any)?.error || (data as any)?.message || response.statusText;
+      const message =
+        data?.error?.message ||
+        (typeof data?.error === 'string' ? data.error : undefined) ||
+        data?.message ||
+        response.statusText;
       throw new Error(message || 'Request failed');
+    }
+
+    if (data && data.ok === true && Object.prototype.hasOwnProperty.call(data, 'data')) {
+      return data.data as T;
     }
 
     return data as T;

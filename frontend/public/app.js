@@ -91,13 +91,17 @@
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 5000);
             let res;
+            const headers = { ...(options.headers || {}) };
+            if (options.body && !headers['Content-Type'] && !headers['content-type']) {
+                headers['Content-Type'] = 'application/json';
+            }
             try {
                 res = await fetch(`${backendUrl}${path}`, {
                     credentials: 'include',
                     cache: 'no-store',
                     mode: 'cors',
                     signal: options.signal || controller.signal,
-                    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+                    headers,
                     ...options
                 });
             } catch (err) {
@@ -113,15 +117,29 @@
                 );
             }
             clearTimeout(timer);
+            const ct = res.headers.get('content-type') || '';
+            const isJson = ct.includes('application/json');
+
             if (!res.ok) {
                 let msg = res.statusText;
-                try { msg = (await res.json()).error || msg; } catch (_) {}
+                try {
+                    const body = isJson ? await res.json() : null;
+                    if (body?.error?.message) msg = body.error.message;
+                    else if (body?.error) msg = body.error;
+                    else if (body?.message) msg = body.message;
+                } catch (_) {}
                 const err = new Error(msg);
                 err.status = res.status;
                 throw err;
             }
-            const ct = res.headers.get('content-type') || '';
-            return ct.includes('application/json') ? res.json() : res.text();
+
+            if (!isJson) return res.text();
+
+            const body = await res.json();
+            if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
+                return body.data;
+            }
+            return body;
         },
         get: (p) => api.request(p),
         post: (p, b) => api.request(p, { method: 'POST', body: JSON.stringify(b || {}) }),

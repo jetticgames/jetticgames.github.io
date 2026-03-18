@@ -17,18 +17,8 @@ function normalizeBaseUrl(raw) {
   return value.replace(/\/+$/, '');
 }
 
-function splitAllowedOrigins(raw) {
-  return String(raw || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function getCorsOrigin(requestOrigin, allowedOrigins) {
-  if (!requestOrigin) return '';
-  if (!allowedOrigins.length) return requestOrigin;
-  if (allowedOrigins.includes('*')) return requestOrigin;
-  return allowedOrigins.includes(requestOrigin) ? requestOrigin : '';
+function getCorsOrigin(requestOrigin) {
+  return requestOrigin || '*';
 }
 
 function getPathSuffix(event) {
@@ -46,8 +36,18 @@ function getPathSuffix(event) {
 
 function buildTargetUrl(baseUrl, event) {
   const suffix = getPathSuffix(event);
-  const query = String(event.rawQuery || event.rawQueryString || '');
+  const query = String(event.rawQuery || event.rawQueryString || buildQueryString(event.queryStringParameters));
   return `${baseUrl}${suffix}${query ? `?${query}` : ''}`;
+}
+
+function buildQueryString(queryStringParameters) {
+  if (!queryStringParameters || typeof queryStringParameters !== 'object') return '';
+  const pairs = [];
+  for (const [key, value] of Object.entries(queryStringParameters)) {
+    if (value == null) continue;
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  }
+  return pairs.join('&');
 }
 
 function decodeBody(event) {
@@ -74,13 +74,56 @@ function getSetCookieValues(headers) {
   return splitSetCookieHeader(combined);
 }
 
+function normalizeRelayError(statusCode, payload, fallbackMessage) {
+  if (payload && typeof payload === 'object') {
+    const message = payload.message || payload.error || fallbackMessage;
+    return {
+      ok: false,
+      status: statusCode,
+      error: {
+        message: message || 'Request failed',
+        details: payload
+      }
+    };
+  }
+
+  return {
+    ok: false,
+    status: statusCode,
+    error: {
+      message: fallbackMessage || 'Request failed'
+    }
+  };
+}
+
+async function readJsonSafe(response) {
+  try {
+    return await response.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+function withRelayHeaders(baseHeaders = {}) {
+  return {
+    ...baseHeaders,
+    'x-relay-version': '2'
+  };
+}
+
 exports.handler = async (event) => {
   const baseUrl = normalizeBaseUrl(process.env.RELAY_TARGET_BASE_URL);
   if (!baseUrl) {
     return {
       statusCode: 500,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ error: 'Missing RELAY_TARGET_BASE_URL environment variable' })
+      headers: withRelayHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify({
+        ok: false,
+        status: 500,
+        error: {
+          message: 'Missing RELAY_TARGET_BASE_URL environment variable'
+        }
+      })
     };
   }
 
@@ -90,25 +133,17 @@ exports.handler = async (event) => {
     event.headers?.['access-control-request-headers'] ||
     event.headers?.['Access-Control-Request-Headers'] ||
     'Content-Type, Authorization, X-Requested-With';
-  const allowedOrigins = splitAllowedOrigins(process.env.RELAY_ALLOWED_ORIGINS);
-  const corsOrigin = getCorsOrigin(requestOrigin, allowedOrigins);
+  const corsOrigin = getCorsOrigin(requestOrigin);
 
   const corsHeaders = {
-    ...(corsOrigin ? { 'access-control-allow-origin': corsOrigin } : {}),
+    'access-control-allow-origin': corsOrigin,
     'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': requestedHeaders,
-    ...(corsOrigin ? { 'access-control-allow-credentials': 'true' } : {}),
+    'access-control-allow-credentials': 'true',
     'access-control-max-age': '86400',
-    vary: 'Origin, Access-Control-Request-Headers'
+    vary: 'Origin, Access-Control-Request-Headers',
+    'x-relay-version': '2'
   };
-
-  if (requestOrigin && !corsOrigin) {
-    return {
-      statusCode: 403,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-      body: JSON.stringify({ error: 'Origin not allowed' })
-    };
-  }
 
   if (method === 'OPTIONS') {
     return {
@@ -146,7 +181,14 @@ exports.handler = async (event) => {
     return {
       statusCode: 502,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
-      body: JSON.stringify({ error: 'Failed to reach backend', detail: error.message })
+      body: JSON.stringify({
+        ok: false,
+        status: 502,
+        error: {
+          message: 'Failed to reach backend',
+          detail: error.message
+        }
+      })
     };
   }
 
@@ -160,12 +202,40 @@ exports.handler = async (event) => {
   });
 
   const contentType = upstreamResponse.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
   const isText =
     contentType.startsWith('text/') ||
-    contentType.includes('application/json') ||
+    isJson ||
     contentType.includes('application/javascript') ||
     contentType.includes('application/xml') ||
     contentType.includes('application/x-www-form-urlencoded');
+
+  if (isJson) {
+    const payload = await readJsonSafe(upstreamResponse);
+
+    if (upstreamResponse.ok) {
+      return {
+        statusCode: upstreamResponse.status,
+        headers: { ...responseHeaders, 'content-type': 'application/json; charset=utf-8' },
+        ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
+        body: JSON.stringify({
+          ok: true,
+          status: upstreamResponse.status,
+          data: payload,
+          meta: {
+            via: 'netlify-relay'
+          }
+        })
+      };
+    }
+
+    return {
+      statusCode: upstreamResponse.status,
+      headers: { ...responseHeaders, 'content-type': 'application/json; charset=utf-8' },
+      ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
+      body: JSON.stringify(normalizeRelayError(upstreamResponse.status, payload, upstreamResponse.statusText))
+    };
+  }
 
   if (isText) {
     return {

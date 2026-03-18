@@ -14,11 +14,8 @@ User -> Netlify HTTPS relay -> HTTP backend
 
 - `RELAY_TARGET_BASE_URL` (required)
   - Example: `http://192.9.175.177:3000`
-- `RELAY_ALLOWED_ORIGINS` (optional but recommended)
-  - Comma-separated frontend origins allowed to call relay
-  - Example: `https://jetticgames.github.io,https://www.jetticgames.com`
-  - If omitted, relay allows any origin by echoing the request origin (credential-safe)
-  - `*` is treated the same way for credential-safe behavior
+
+The relay now allows cross-origin callers without an allowlist so you can iterate faster while you rework security.
 
 ## Deploy on Netlify
 
@@ -34,7 +31,7 @@ User -> Netlify HTTPS relay -> HTTP backend
 ```bash
 cd netlify-relay
 npm install
-RELAY_TARGET_BASE_URL=http://127.0.0.1:3000 RELAY_ALLOWED_ORIGINS=* npm run dev
+RELAY_TARGET_BASE_URL=http://127.0.0.1:3000 npm run dev
 ```
 
 ## Frontend config example
@@ -56,4 +53,26 @@ Then frontend call `/health` becomes:
 
 - This is a relay, not end-to-end TLS to your backend.
 - Relay forwards `Set-Cookie` response headers so backend cookie sessions work through Netlify.
-- Relay CORS is credential-safe (`Access-Control-Allow-Origin` echoes request origin, not `*`).
+- JSON responses are normalized to this shape:
+
+```json
+{
+  "ok": true,
+  "status": 200,
+  "data": { "...": "backend JSON payload" },
+  "meta": { "via": "netlify-relay" }
+}
+```
+
+- Error responses are normalized to this shape:
+
+```json
+{
+  "ok": false,
+  "status": 400,
+  "error": {
+    "message": "Readable error message",
+    "details": { "...": "backend JSON error payload" }
+  }
+}
+```

@@ -245,6 +245,103 @@ async function migrateLegacyConfig() {
     }
 }
 
+function buildLegacyConfigDefault() {
+    return {
+        version: APP_VERSION,
+        maintenanceMode: { enabled: false },
+        uiControls: {},
+        features: {},
+        defaults: { presets: BUILT_IN_PRESETS }
+    };
+}
+
+async function ensureBootstrapAdminUser() {
+    const users = await loadUsers();
+    const now = new Date().toISOString();
+    const passwordHash = await bcrypt.hash('admin', 10);
+    const config = await loadConfig();
+    const defaultSettings = defaultSettingsFromConfig(config);
+
+    let adminUser = users.find((u) => String(u.username || '').toLowerCase() === 'admin');
+    if (!adminUser) {
+        adminUser = {
+            id: crypto.randomUUID(),
+            username: 'admin',
+            email: null,
+            passwordHash,
+            favorites: [],
+            profile: {
+                username: 'admin',
+                accentColor: config?.defaults?.accentColor || '#58a6ff',
+                avatar: null,
+                lastPlayed: [],
+                playtime: {}
+            },
+            settings: defaultSettings,
+            friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+            presence: { online: false, gameId: null, lastSeen: now },
+            loginHistory: [],
+            banned: { active: false },
+            createdAt: now,
+            updatedAt: now,
+            admin: true
+        };
+        users.push(adminUser);
+    } else {
+        adminUser.username = 'admin';
+        adminUser.passwordHash = passwordHash;
+        adminUser.admin = true;
+        adminUser.banned = { active: false };
+        adminUser.favorites = Array.isArray(adminUser.favorites) ? adminUser.favorites : [];
+        adminUser.settings = adminUser.settings || defaultSettings;
+        adminUser.friends = adminUser.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] };
+        adminUser.profile = adminUser.profile || {};
+        adminUser.profile.username = 'admin';
+        adminUser.profile.accentColor = adminUser.profile.accentColor || config?.defaults?.accentColor || '#58a6ff';
+        adminUser.profile.avatar = adminUser.profile.avatar || null;
+        adminUser.profile.lastPlayed = Array.isArray(adminUser.profile.lastPlayed) ? adminUser.profile.lastPlayed : [];
+        adminUser.profile.playtime = normalizePlaytime(adminUser.profile.playtime);
+        ensurePresence(adminUser);
+        adminUser.presence.online = false;
+        adminUser.updatedAt = now;
+    }
+
+    await saveUsers(users);
+}
+
+async function ensureStartupDataFiles() {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await ensureFile(USERS_FILE, { users: [] });
+    await ensureFile(GAMES_FILE, []);
+    await ensureFile(LEGACY_CONFIG_FILE, buildLegacyConfigDefault());
+    await migrateLegacyConfig();
+    await ensureYamlFile(CONFIG_GENERAL_FILE, { version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} });
+    await ensureYamlFile(FEATURES_FILE, {});
+    await ensureYamlFile(DEFAULTS_FILE, { presets: BUILT_IN_PRESETS });
+    await ensureFile(REQUESTS_FILE, { requests: [] });
+    await ensureFile(REPORTS_FILE, { reports: [] });
+    await ensureFile(SESSION_FILE, { sessions: [] });
+    await ensureAnalyticsFiles();
+    await ensureYamlFile(BANNER_FILE, {
+        enabled: true,
+        id: 'default',
+        message: 'Welcome to Jettic Games!',
+        description: 'Play and save your favorites.',
+        background: '#11161f',
+        textColor: '#e5e7eb',
+        dismissible: true,
+        dismissCooldownHours: 24,
+        button: {
+            enabled: true,
+            label: 'Visit Store',
+            url: 'https://example.com',
+            background: '#1f6feb',
+            textColor: '#ffffff'
+        }
+    });
+    await ensureBootstrapAdminUser();
+}
+
 function isHttpUrl(url) {
     if (!url) return false;
     try {
@@ -821,38 +918,6 @@ async function flushAnalytics() {
 
 setInterval(() => { flushAnalytics().catch(() => {}); }, ANALYTICS_FLUSH_INTERVAL_MS);
 setTimeout(() => { flushAnalytics().catch(() => {}); }, 2000);
-
-// --- Ensure data files exist on startup
-(async () => {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await ensureFile(USERS_FILE, { users: [] });
-    await ensureFile(GAMES_FILE, []);
-    await migrateLegacyConfig();
-    await ensureYamlFile(CONFIG_GENERAL_FILE, { version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} });
-    await ensureYamlFile(FEATURES_FILE, {});
-    await ensureYamlFile(DEFAULTS_FILE, { presets: BUILT_IN_PRESETS });
-    await ensureFile(REQUESTS_FILE, { requests: [] });
-    await ensureFile(REPORTS_FILE, { reports: [] });
-    await ensureFile(SESSION_FILE, { sessions: [] });
-    await ensureAnalyticsFiles();
-    await ensureYamlFile(BANNER_FILE, {
-        enabled: true,
-        id: 'default',
-        message: 'Welcome to Jettic Games!',
-        description: 'Play and save your favorites.',
-        background: '#11161f',
-        textColor: '#e5e7eb',
-        dismissible: true,
-        dismissCooldownHours: 24,
-        button: {
-            enabled: true,
-            label: 'Visit Store',
-            url: 'https://example.com',
-            background: '#1f6feb',
-            textColor: '#ffffff'
-        }
-    });
-})();
 
 // --- Core endpoints
 app.get('/health', async (req, res) => {
@@ -2105,8 +2170,6 @@ app.get('/sitemap.xml', async (req, res) => {
     }
 });
 
-regenerateSitemap().catch((err) => console.error('Failed to generate initial sitemap', err));
-
 // --- Static assets
 app.use('/images', express.static(IMAGES_DIR, { maxAge: '1d', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] }));
 
@@ -2116,6 +2179,17 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`✅ Jettic Games backend running on http://localhost:${PORT}`);
-});
+async function startServer() {
+    try {
+        await ensureStartupDataFiles();
+        await regenerateSitemap();
+        app.listen(PORT, () => {
+            console.log(`✅ Jettic Games backend running on http://localhost:${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to initialize backend startup data', err);
+        process.exit(1);
+    }
+}
+
+startServer();

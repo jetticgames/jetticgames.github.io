@@ -70,7 +70,9 @@ function App() {
   const handleLogout = async () => {
     try {
       await api.logout()
-    } catch (_) {}
+    } catch {
+      // Ignore logout transport failures and clear local session state anyway.
+    }
     setSessionUser(null)
     setLoginSuccess(null)
   }
