@@ -1,3 +1,4 @@
 # Ignore all data directory contents
 backend/data/
 backend/data/analytics/
+privatekey.key
