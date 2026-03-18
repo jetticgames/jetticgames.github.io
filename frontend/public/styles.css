@@ -137,16 +137,14 @@ input, select, textarea, button,
 /* ===== Global App Page Loader (Full-screen Logo Spinner) ===== */
 .app-page-loader {position:fixed; inset:0; background:radial-gradient(circle at 40% 35%, #161b22 0%, #0d1117 70%); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:30000; transition:opacity .6s ease, transform .6s cubic-bezier(.4,.8,.2,1);} 
 .app-page-loader.fade-out {opacity:0; pointer-events:none; transform:scale(.96) translateY(-14px);} 
-.apl-full {display:flex; flex-direction:column; align-items:center; text-align:center; padding:20px 20px 64px; width:min(520px, 100%); position:relative;} 
+.apl-full {display:flex; flex-direction:column; align-items:center; text-align:center; padding:20px 20px; width:min(520px, 100%); position:relative;} 
 .apl-logo-wrap {position:relative; width:78px; height:78px; margin:0 0 6px;} 
 .apl-logo {width:100%; height:100%; object-fit:contain; user-select:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));} 
 /* New compact spinner below logo */
 .apl-spinner {width:36px; height:36px; position:relative; margin:4px 0 0;}
 .apl-spinner:before {content:""; position:absolute; inset:0; border:5px solid #28323c; border-top-color:#58a6ff; border-left-color:#58a6ff; border-radius:50%; box-sizing:border-box; animation:aplSpin .45s linear infinite;}
 .apl-spinner:after {content:""; position:absolute; inset:6px; background:#0d1117; border-radius:50%;}
-.apl-meta {position:absolute; left:20px; right:20px; bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:18px; font-size:13px; letter-spacing:.04em; text-transform:lowercase; color:#9ea7b1; pointer-events:none;}
-.apl-queue-text {text-align:left; opacity:.9;}
-.apl-network-text {text-align:right; opacity:.9;}
+.apl-network-text {position:absolute; left:50%; bottom:14px; transform:translateX(-50%); text-align:center; font-size:13px; letter-spacing:.04em; text-transform:lowercase; color:#9ea7b1; opacity:.95; pointer-events:none; white-space:nowrap;}
 /* Hide any text elements if present */
 .apl-title, .apl-sub, .apl-warning {display:none !important;}
 @keyframes aplSpin {to {transform:rotate(360deg);} } 

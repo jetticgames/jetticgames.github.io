@@ -21,6 +21,7 @@
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const API_MIN_REQUEST_INTERVAL_MS = Math.max(0, Number(window.JETTIC_CONFIG?.minRequestIntervalMs) || 2000);
+    const BACKEND_CONNECT_RETRY_MS = 1500;
     let apiRequestQueue = Promise.resolve();
     let lastApiRequestAt = 0;
 
@@ -128,6 +129,27 @@
         const normalized = String(status || '').toLowerCase();
         if (normalized === 'online' || normalized === 'offline' || normalized === 'connecting') {
             els.splashNetworkText.textContent = normalized;
+        }
+    }
+
+    async function waitForBackendConnection() {
+        if (!backendUrl) {
+            setSplashNetworkStatus('offline');
+            throw new Error('Backend URL is not configured');
+        }
+
+        // Ensure the first startup API request is always backend health.
+        setSplashNetworkStatus('connecting');
+        while (true) {
+            try {
+                await api.get('/health');
+                setSplashNetworkStatus('online');
+                return;
+            } catch (_) {
+                setSplashNetworkStatus('offline');
+                await wait(BACKEND_CONNECT_RETRY_MS);
+                setSplashNetworkStatus('connecting');
+            }
         }
     }
 
@@ -1486,6 +1508,7 @@
     async function loadInitial() {
         showLoader(true);
         try {
+            await waitForBackendConnection();
             const [config, gamesResponse, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
                 api.get('/api/games'),
