@@ -2116,34 +2116,6 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     flex: 0 0 auto;
 }
 
-.api-queue-indicator {
-    position: fixed;
-    right: 18px;
-    bottom: 18px;
-    z-index: 16000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--border-primary);
-    background: rgba(13, 17, 23, 0.94);
-    color: var(--text-secondary);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(6px);
-    transform: translateY(12px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .2s ease, transform .2s ease;
-    font-size: 12px;
-    letter-spacing: .2px;
-}
-
-.api-queue-indicator.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-
 .update-check-btn.loading,
 .logout-btn.loading,
 .friend-action-btn.loading {

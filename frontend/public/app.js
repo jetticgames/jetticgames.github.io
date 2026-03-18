@@ -20,27 +20,10 @@
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
-    const API_MIN_REQUEST_INTERVAL_MS = Math.max(0, Number(window.JETTIC_CONFIG?.minRequestIntervalMs) || 2000);
     const BACKEND_CONNECT_RETRY_MS = 1500;
-    let apiRequestQueue = Promise.resolve();
-    let lastApiRequestAt = 0;
 
     function wait(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    async function queueApiRequest(task) {
-        const run = async () => {
-            const elapsed = Date.now() - lastApiRequestAt;
-            const delay = Math.max(0, API_MIN_REQUEST_INTERVAL_MS - elapsed);
-            if (delay > 0) await wait(delay);
-            lastApiRequestAt = Date.now();
-            return task();
-        };
-
-        const scheduled = apiRequestQueue.then(run, run);
-        apiRequestQueue = scheduled.catch(() => undefined);
-        return scheduled;
     }
 
     const state = {
@@ -96,8 +79,7 @@
         pendingRoute: null,
         lastPlayedCache: [],
         pageTransitionId: 0,
-        panelTransitionId: 0,
-        apiPendingRequests: 0
+        panelTransitionId: 0
     };
 
     const HOME_PATH = '/';
@@ -107,22 +89,6 @@
     let presetEditContext = null;
 
     const els = {};
-
-    function ensureApiQueueIndicator() {
-        if (els.apiQueueIndicator) return;
-        const indicator = document.createElement('div');
-        indicator.id = 'apiQueueIndicator';
-        indicator.className = 'api-queue-indicator';
-        indicator.innerHTML = '<span class="jg-inline-loading-spinner" aria-hidden="true"></span><span>Waiting for API queue...</span>';
-        document.body.appendChild(indicator);
-        els.apiQueueIndicator = indicator;
-    }
-
-    function setApiQueueIndicatorVisible(visible) {
-        ensureApiQueueIndicator();
-        if (!els.apiQueueIndicator) return;
-        els.apiQueueIndicator.classList.toggle('visible', !!visible);
-    }
 
     function setSplashNetworkStatus(status) {
         if (!els.splashNetworkText) return;
@@ -185,102 +151,93 @@
             if (options.body && !headers['Content-Type'] && !headers['content-type']) {
                 headers['Content-Type'] = 'application/json';
             }
-            return queueApiRequest(async () => {
-                runtime.apiPendingRequests += 1;
-                setApiQueueIndicatorVisible(runtime.apiPendingRequests > 0);
-                let res;
-                const urlCandidates = buildBackendCandidates(backendUrl, path);
-                let selectedUrl = urlCandidates[0] || `${backendUrl}${path}`;
-                let lastNetworkError = null;
+            let res;
+            const urlCandidates = buildBackendCandidates(backendUrl, path);
+            let selectedUrl = urlCandidates[0] || `${backendUrl}${path}`;
+            let lastNetworkError = null;
 
+            for (let i = 0; i < urlCandidates.length; i += 1) {
+                const candidate = urlCandidates[i];
+                selectedUrl = candidate;
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
                 try {
-                    for (let i = 0; i < urlCandidates.length; i += 1) {
-                        const candidate = urlCandidates[i];
-                        selectedUrl = candidate;
-                        const controller = new AbortController();
-                        const timer = setTimeout(() => controller.abort(), 8000);
-                        try {
-                            res = await fetch(candidate, {
-                                credentials: 'include',
-                                cache: 'no-store',
-                                mode: 'cors',
-                                signal: options.signal || controller.signal,
-                                headers,
-                                ...options
-                            });
-                            clearTimeout(timer);
+                    res = await fetch(candidate, {
+                        credentials: 'include',
+                        cache: 'no-store',
+                        mode: 'cors',
+                        signal: options.signal || controller.signal,
+                        headers,
+                        ...options
+                    });
+                    clearTimeout(timer);
 
-                            if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
-                                continue;
-                            }
-                            break;
-                        } catch (err) {
-                            clearTimeout(timer);
-                            const name = err?.name || '';
-                            const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
-                            const networkError = new Error(
-                                name === 'AbortError'
-                                    ? 'Backend request timed out'
-                                    : mixedContent
-                                        ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-                                        : 'Backend is offline or unreachable'
-                            );
-                            networkError.debug = {
-                                type: 'network',
-                                method,
-                                path,
-                                url: candidate,
-                                attemptedUrls: urlCandidates,
-                                message: networkError.message,
-                                reason: name || 'unknown'
-                            };
-                            lastNetworkError = networkError;
-                            if (i === urlCandidates.length - 1) throw networkError;
-                        }
+                    if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
+                        continue;
                     }
-
-                    if (!res && lastNetworkError) throw lastNetworkError;
-
-                    const ct = res.headers.get('content-type') || '';
-                    const isJson = ct.includes('application/json');
-
-                    if (!res.ok) {
-                        let msg = res.statusText;
-                        let body = null;
-                        try {
-                            body = isJson ? await res.json() : null;
-                            if (body?.error?.message) msg = body.error.message;
-                            else if (body?.error) msg = body.error;
-                            else if (body?.message) msg = body.message;
-                        } catch (_) {}
-                        const responseError = new Error(msg || 'Request failed');
-                        responseError.status = res.status;
-                        responseError.debug = {
-                            type: 'response',
-                            method,
-                            path,
-                            url: selectedUrl,
-                            attemptedUrls: urlCandidates,
-                            status: res.status,
-                            statusText: res.statusText,
-                            contentType: ct,
-                            body
-                        };
-                        throw responseError;
-                    }
-
-                    if (!isJson) return res.text();
-
-                    const body = await res.json();
-                    if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
-                        return body.data;
-                    }
-                    return body;
-                } finally {
-                    runtime.apiPendingRequests = Math.max(0, runtime.apiPendingRequests - 1);
-                    setApiQueueIndicatorVisible(runtime.apiPendingRequests > 0);
+                    break;
+                } catch (err) {
+                    clearTimeout(timer);
+                    const name = err?.name || '';
+                    const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                    const networkError = new Error(
+                        name === 'AbortError'
+                            ? 'Backend request timed out'
+                            : mixedContent
+                                ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+                                : 'Backend is offline or unreachable'
+                    );
+                    networkError.debug = {
+                        type: 'network',
+                        method,
+                        path,
+                        url: candidate,
+                        attemptedUrls: urlCandidates,
+                        message: networkError.message,
+                        reason: name || 'unknown'
+                    };
+                    lastNetworkError = networkError;
+                    if (i === urlCandidates.length - 1) throw networkError;
                 }
-            });
+            }
+
+            if (!res && lastNetworkError) throw lastNetworkError;
+
+            const ct = res.headers.get('content-type') || '';
+            const isJson = ct.includes('application/json');
+
+            if (!res.ok) {
+                let msg = res.statusText;
+                let body = null;
+                try {
+                    body = isJson ? await res.json() : null;
+                    if (body?.error?.message) msg = body.error.message;
+                    else if (body?.error) msg = body.error;
+                    else if (body?.message) msg = body.message;
+                } catch (_) {}
+                const responseError = new Error(msg || 'Request failed');
+                responseError.status = res.status;
+                responseError.debug = {
+                    type: 'response',
+                    method,
+                    path,
+                    url: selectedUrl,
+                    attemptedUrls: urlCandidates,
+                    status: res.status,
+                    statusText: res.statusText,
+                    contentType: ct,
+                    body
+                };
+                throw responseError;
+            }
+
+            if (!isJson) return res.text();
+
+            const body = await res.json();
+            if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
+                return body.data;
+            }
+            return body;
         },
         get: (p) => api.request(p),
         post: (p, b) => api.request(p, { method: 'POST', body: JSON.stringify(b || {}) }),
