@@ -96,8 +96,7 @@
         lastPlayedCache: [],
         pageTransitionId: 0,
         panelTransitionId: 0,
-        apiPendingRequests: 0,
-        favoritesLoading: false
+        apiPendingRequests: 0
     };
 
     const HOME_PATH = '/';
@@ -122,15 +121,6 @@
         ensureApiQueueIndicator();
         if (!els.apiQueueIndicator) return;
         els.apiQueueIndicator.classList.toggle('visible', !!visible);
-    }
-
-    function buildLoadingMarkup(message = 'Loading...') {
-        return `<div class="loading-message jg-inline-loading"><span class="jg-inline-loading-spinner" aria-hidden="true"></span><span>${message}</span></div>`;
-    }
-
-    function setContainerLoading(container, message = 'Loading...') {
-        if (!container) return;
-        container.innerHTML = buildLoadingMarkup(message);
     }
 
     function buildBackendCandidates(baseUrl, path) {
@@ -1485,8 +1475,6 @@
 
     async function loadInitial() {
         showLoader(true);
-        setContainerLoading(els.allGames, 'Loading games...');
-        setContainerLoading(els.favoritesGrid, 'Loading favorites...');
         try {
             const [config, gamesResponse, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
@@ -1869,12 +1857,6 @@
         if (els.favoritesAuthHint) els.favoritesAuthHint.style.display = 'none';
         if (els.favoritesGrid) els.favoritesGrid.style.display = 'grid';
 
-        if (runtime.favoritesLoading) {
-            setContainerLoading(els.favoritesGrid, 'Loading favorites...');
-            if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'none';
-            return;
-        }
-
         if (!favGames.length) {
             if (els.favoritesEmpty) els.favoritesEmpty.style.display = 'block';
             return;
@@ -2029,8 +2011,6 @@
             pushNotification('Sign in required', 'Create an account to save favorites to your profile.', 'warning');
             return;
         }
-        runtime.favoritesLoading = true;
-        renderFavoritesPage();
         api.post('/api/favorites/toggle', { gameId: String(gameId) })
             .then(({ favorites }) => {
                 state.favorites = new Set((favorites || []).map(String));
@@ -2039,11 +2019,7 @@
                 updateGameFavoriteButton(gameId);
                 if (state.currentGame?.id === gameId) renderGameFriends(gameId);
             })
-            .catch((err) => showToast(err.message || 'Failed to update favorites', true))
-            .finally(() => {
-                runtime.favoritesLoading = false;
-                renderFavoritesPage();
-            });
+            .catch((err) => showToast(err.message || 'Failed to update favorites', true));
     }
 
     function updateGameFavoriteButton(gameId) {
@@ -2063,11 +2039,6 @@
     async function loadFriends(silent = false) {
         if (!state.user) return;
         if (!silent) {
-            setContainerLoading(els.friendsList, 'Loading friends...');
-            setContainerLoading(els.manageFriendsList, 'Loading friends...');
-            setContainerLoading(els.manageIncomingList, 'Loading requests...');
-            setContainerLoading(els.manageOutgoingList, 'Loading outgoing requests...');
-            setContainerLoading(els.blockedList, 'Loading blocked users...');
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'none';
             if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'none';
             if (els.friendsContent) els.friendsContent.style.display = 'grid';
@@ -2107,7 +2078,6 @@
         if (!state.user?.admin) return;
         if (!force && state.adminRequests?.length) { renderAdminRequests(); return; }
         if (els.adminRequestsError) els.adminRequestsError.textContent = '';
-        setContainerLoading(els.adminRequestsList, 'Loading requests...');
         try {
             const { requests = [] } = await api.get('/api/requests');
             state.adminRequests = requests;
@@ -2121,7 +2091,6 @@
         if (!state.user?.admin) return;
         if (!force && state.adminReports?.length) { renderAdminReports(); return; }
         if (els.adminReportsError) els.adminReportsError.textContent = '';
-        setContainerLoading(els.adminReportsList, 'Loading reports...');
         try {
             const { reports = [] } = await api.get('/api/admin/reports');
             state.adminReports = reports;
@@ -2134,7 +2103,6 @@
     async function loadAdminGames(force = false) {
         if (!state.user?.admin) return;
         if (!force && state.adminGames?.length) { renderAdminGames(); return; }
-        setContainerLoading(els.adminGamesList, 'Loading games...');
         try {
             const { games = [] } = await api.get('/api/admin/games');
             state.adminGames = games;
@@ -2147,7 +2115,6 @@
     async function loadAdminUsers(force = false) {
         if (!state.user?.admin) return;
         if (!force && state.adminUsers?.length) { renderAdminUsers(); return; }
-        setContainerLoading(els.adminUsersList, 'Loading users...');
         try {
             const { users = [] } = await api.get('/api/admin/users');
             state.adminUsers = users;
