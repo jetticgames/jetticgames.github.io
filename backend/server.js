@@ -104,8 +104,8 @@ app.use(morgan('dev'));
 app.set('etag', false);
 
 const apiLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 200,
+    windowMs: 1 * 1000,
+    max: 5,
     standardHeaders: true,
     legacyHeaders: false
 });
@@ -215,7 +215,11 @@ async function loadConfig() {
         maintenanceMode: general?.maintenanceMode || { enabled: false },
         uiControls: general?.uiControls || {},
         features: features || {},
-        defaults: (defaults && Object.keys(defaults).length ? defaults : { presets: BUILT_IN_PRESETS })
+        defaults: (defaults && Object.keys(defaults).length ? defaults : {
+            particles: { enabled: false },
+            cursor: { enabled: false },
+            presets: BUILT_IN_PRESETS
+        })
     };
 }
 
@@ -227,7 +231,11 @@ async function saveConfig(config) {
     };
     await writeYaml(CONFIG_GENERAL_FILE, general);
     await writeYaml(FEATURES_FILE, config?.features || {});
-    await writeYaml(DEFAULTS_FILE, config?.defaults || { presets: BUILT_IN_PRESETS });
+    await writeYaml(DEFAULTS_FILE, config?.defaults || {
+        particles: { enabled: false },
+        cursor: { enabled: false },
+        presets: BUILT_IN_PRESETS
+    });
 }
 
 async function migrateLegacyConfig() {
@@ -246,7 +254,11 @@ async function migrateLegacyConfig() {
         await writeYaml(FEATURES_FILE, legacy.features || {});
     }
     if (!(await fileExists(DEFAULTS_FILE)) && legacy.defaults) {
-        await writeYaml(DEFAULTS_FILE, legacy.defaults || { presets: BUILT_IN_PRESETS });
+        await writeYaml(DEFAULTS_FILE, legacy.defaults || {
+            particles: { enabled: false },
+            cursor: { enabled: false },
+            presets: BUILT_IN_PRESETS
+        });
     }
 }
 
@@ -256,7 +268,11 @@ function buildLegacyConfigDefault() {
         maintenanceMode: { enabled: false },
         uiControls: {},
         features: {},
-        defaults: { presets: BUILT_IN_PRESETS }
+        defaults: {
+            particles: { enabled: false },
+            cursor: { enabled: false },
+            presets: BUILT_IN_PRESETS
+        }
     };
 }
 
@@ -418,7 +434,11 @@ async function seedDataFiles() {
             analyticsEnabled: true,
             authEnabled: true
         },
-        defaults: { presets: BUILT_IN_PRESETS }
+        defaults: {
+            particles: { enabled: false },
+            cursor: { enabled: false },
+            presets: BUILT_IN_PRESETS
+        }
     };
 
     await writeJson(LEGACY_CONFIG_FILE, defaultConfig);
@@ -488,7 +508,11 @@ async function ensureStartupDataFiles() {
     await migrateLegacyConfig();
     await ensureYamlFile(CONFIG_GENERAL_FILE, { version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} });
     await ensureYamlFile(FEATURES_FILE, { analyticsEnabled: true, authEnabled: true });
-    await ensureYamlFile(DEFAULTS_FILE, { presets: BUILT_IN_PRESETS });
+    await ensureYamlFile(DEFAULTS_FILE, {
+        particles: { enabled: false },
+        cursor: { enabled: false },
+        presets: BUILT_IN_PRESETS
+    });
     await ensureFile(REQUESTS_FILE, { requests: [] });
     await ensureFile(REPORTS_FILE, { reports: [] });
     await ensureFile(SESSION_FILE, { sessions: [] });
@@ -636,13 +660,13 @@ function defaultSettingsFromConfig(config) {
     return {
         proxyDefault: !!d.proxyDefault,
         accentColor: d.accentColor || '#58a6ff',
-        particlesEnabled: particles.enabled !== false,
+        particlesEnabled: particles.enabled === true,
         particleCount: Number.isFinite(particles.count) ? particles.count : 50,
         particleSpeed: Number.isFinite(particles.speed) ? particles.speed : 0.5,
         particleColor: particles.color || '#58a6ff',
         particleLineDistance: Number.isFinite(particles.lineDistance) ? particles.lineDistance : 150,
         particleMouseInteraction: particles.mouse !== false,
-        cursorEnabled: cursor.enabled !== false,
+        cursorEnabled: cursor.enabled === true,
         cursorSize: Number.isFinite(cursor.size) ? cursor.size : 8,
         cursorColor: cursor.color || '#ffffff',
         cursorType: ['circle', 'dot', 'none', 'custom'].includes(cursor.type) ? cursor.type : 'circle',

@@ -3446,7 +3446,7 @@
         if (els.settingParticles) els.settingParticles.checked = settings.particlesEnabled !== false;
         if (els.settingParticleCount) els.settingParticleCount.value = settings.particleCount ?? 50;
         if (els.settingParticleSpeed) els.settingParticleSpeed.value = settings.particleSpeed ?? 0.5;
-        if (els.settingCursor) els.settingCursor.checked = settings.cursorEnabled !== false;
+        if (els.settingCursor) els.settingCursor.checked = false;
         if (els.settingCursorSize) els.settingCursorSize.value = settings.cursorSize ?? 8;
         if (els.settingCursorColor) els.settingCursorColor.value = settings.cursorColor || '#ffffff';
         if (els.settingShowClock) els.settingShowClock.checked = settings.showClock !== false;
@@ -3617,11 +3617,7 @@
         if (!settings) return;
         applyAccent(settings.accentColor);
         state.proxyEnabled = !!settings.proxyDefault;
-        if (settings.cursorEnabled !== false) {
-            enableCustomCursor(settings);
-        } else {
-            disableCustomCursor();
-        }
+        disableCustomCursor();
         if (settings.particlesEnabled !== false) {
             startParticles(settings);
         } else {
