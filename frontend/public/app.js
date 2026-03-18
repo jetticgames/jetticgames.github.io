@@ -3469,15 +3469,23 @@
         }
         try {
             const health = await api.get('/health');
-            const players = Number.isFinite(health.players) ? health.players : (Number.isFinite(health.games) ? health.games : null);
-            if (players === null) throw new Error('Bad health payload');
-            const label = state.user?.admin ? `Online - ${players} Players` : 'Online';
+            const asNumber = (value) => {
+                const n = Number(value);
+                return Number.isFinite(n) ? n : null;
+            };
+            const onlineTotal = (asNumber(health?.onlineUsers) ?? 0) + (asNumber(health?.onlineGuests) ?? 0);
+            const players =
+                asNumber(health?.players) ??
+                (onlineTotal > 0 ? onlineTotal : null) ??
+                asNumber(health?.games);
+            const label = state.user?.admin && players !== null ? `Online - ${players} Players` : 'Online';
             setStatus(true, label);
             handleConnectivityChange(true);
             hideOfflineOverlay();
-        } catch (_) {
+        } catch (err) {
             setStatus(false, 'Offline - Check Network');
-            handleConnectivityChange(false, 'Jettic Games is currently offline or blocked by your network.');
+            const detail = err?.message ? ` (${err.message})` : '';
+            handleConnectivityChange(false, `Jettic Games is currently offline or blocked by your network${detail}.`);
         }
     }
 
