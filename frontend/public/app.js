@@ -20,6 +20,7 @@
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
+    const AUTH_DEBUG_ENABLED = (window.JETTIC_CONFIG?.authDebug ?? true) !== false;
     const API_MIN_REQUEST_INTERVAL_MS = Math.max(0, Number(window.JETTIC_CONFIG?.minRequestIntervalMs) || 2000);
     let apiRequestQueue = Promise.resolve();
     let lastApiRequestAt = 0;
@@ -106,9 +107,64 @@
 
     const els = {};
 
+    function toDebugJson(value) {
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch (_) {
+            return String(value);
+        }
+    }
+
+    function ensureAuthDebugPanel() {
+        if (!AUTH_DEBUG_ENABLED || !els.authForm) return null;
+        let panel = document.getElementById('authDebugPanel');
+        if (!panel) {
+            panel = document.createElement('details');
+            panel.id = 'authDebugPanel';
+            panel.className = 'auth-debug-panel';
+            panel.style.marginTop = '10px';
+            panel.style.border = '1px solid #30363d';
+            panel.style.borderRadius = '8px';
+            panel.style.padding = '8px 10px';
+            panel.style.background = 'rgba(0, 0, 0, 0.25)';
+
+            const summary = document.createElement('summary');
+            summary.textContent = 'Auth Debug';
+            summary.style.cursor = 'pointer';
+            summary.style.color = '#9ca3af';
+            summary.style.fontSize = '12px';
+            summary.style.fontWeight = '600';
+
+            const pre = document.createElement('pre');
+            pre.id = 'authDebugOutput';
+            pre.style.margin = '8px 0 0 0';
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.wordBreak = 'break-word';
+            pre.style.fontSize = '11px';
+            pre.style.lineHeight = '1.4';
+            pre.style.maxHeight = '220px';
+            pre.style.overflow = 'auto';
+            pre.style.color = '#d1d5db';
+
+            panel.appendChild(summary);
+            panel.appendChild(pre);
+            els.authForm.appendChild(panel);
+        }
+        return panel;
+    }
+
+    function setAuthDebug(payload, open = true) {
+        const panel = ensureAuthDebugPanel();
+        if (!panel) return;
+        const output = panel.querySelector('#authDebugOutput');
+        if (output) output.textContent = toDebugJson(payload);
+        panel.open = !!open;
+    }
+
     const api = {
         async request(path, options = {}) {
             if (!backendUrl) throw new Error('Backend URL is not configured');
+            const method = String(options.method || 'GET').toUpperCase();
             const headers = { ...(options.headers || {}) };
             if (options.body && !headers['Content-Type'] && !headers['content-type']) {
                 headers['Content-Type'] = 'application/json';
@@ -130,13 +186,22 @@
                     clearTimeout(timer);
                     const name = err?.name || '';
                     const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
-                    throw new Error(
+                    const networkError = new Error(
                         name === 'AbortError'
                             ? 'Backend request timed out'
                             : mixedContent
                                 ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
                                 : 'Backend is offline or unreachable'
                     );
+                    networkError.debug = {
+                        type: 'network',
+                        method,
+                        path,
+                        url: `${backendUrl}${path}`,
+                        message: networkError.message,
+                        reason: name || 'unknown'
+                    };
+                    throw networkError;
                 }
                 clearTimeout(timer);
                 const ct = res.headers.get('content-type') || '';
@@ -144,15 +209,26 @@
 
                 if (!res.ok) {
                     let msg = res.statusText;
+                    let body = null;
                     try {
-                        const body = isJson ? await res.json() : null;
+                        body = isJson ? await res.json() : null;
                         if (body?.error?.message) msg = body.error.message;
                         else if (body?.error) msg = body.error;
                         else if (body?.message) msg = body.message;
                     } catch (_) {}
-                    const err = new Error(msg);
-                    err.status = res.status;
-                    throw err;
+                    const responseError = new Error(msg || 'Request failed');
+                    responseError.status = res.status;
+                    responseError.debug = {
+                        type: 'response',
+                        method,
+                        path,
+                        url: `${backendUrl}${path}`,
+                        status: res.status,
+                        statusText: res.statusText,
+                        contentType: ct,
+                        body
+                    };
+                    throw responseError;
                 }
 
                 if (!isJson) return res.text();
@@ -781,6 +857,7 @@
     }
 
     function bindAuthModal() {
+        ensureAuthDebugPanel();
         const updateAuthMode = (mode) => {
             els.authTabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === mode));
             if (els.authModal) els.authModal.dataset.mode = mode;
@@ -3866,6 +3943,7 @@
         els.authModal.style.display = 'flex';
         els.authModal.dataset.mode = defaultTab;
         els.authTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === defaultTab));
+        setAuthDebug({ info: 'Auth debug ready', backendUrl, mode: defaultTab, at: new Date().toISOString() }, false);
     }
 
     function closeAuthModal() {
@@ -3879,11 +3957,26 @@
         const password = els.authForm.password.value;
         const email = els.authEmail?.value?.trim();
         els.authFeedback.textContent = '';
+        const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+        const payload = mode === 'register'
+            ? { username: identifier, password, email }
+            : { identifier, password };
+        setAuthDebug({
+            phase: 'request',
+            at: new Date().toISOString(),
+            mode,
+            request: {
+                method: 'POST',
+                path,
+                url: `${backendUrl}${path}`,
+                payload: {
+                    identifier,
+                    email: mode === 'register' ? email : undefined,
+                    passwordLength: password?.length || 0
+                }
+            }
+        });
         try {
-            const path = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
-            const payload = mode === 'register'
-                ? { username: identifier, password, email }
-                : { identifier, password };
             const res = await api.post(path, payload);
             const user = res.user;
             if (res.banned) {
@@ -3893,6 +3986,14 @@
                 refreshUserUI();
                 closeAuthModal();
                 showBannedModal(res.reason || 'Your account is banned');
+                setAuthDebug({
+                    phase: 'response',
+                    at: new Date().toISOString(),
+                    mode,
+                    status: 'banned',
+                    reason: res.reason || 'Your account is banned',
+                    user: { id: user?.id, username: user?.username, email: user?.email }
+                });
                 return;
             }
             hideBannedModal();
@@ -3908,9 +4009,24 @@
             refreshUserUI();
             renderPlayHistory();
             closeAuthModal();
+            setAuthDebug({
+                phase: 'response',
+                at: new Date().toISOString(),
+                mode,
+                status: 'success',
+                user: { id: user?.id, username: user?.username, email: user?.email }
+            }, false);
             showToast(mode === 'register' ? 'Account created' : 'Signed in');
         } catch (err) {
             els.authFeedback.textContent = err.message || 'Authentication failed';
+            setAuthDebug({
+                phase: 'response',
+                at: new Date().toISOString(),
+                mode,
+                status: 'failed',
+                message: err?.message || 'Authentication failed',
+                debug: err?.debug || null
+            }, true);
         }
     }
 

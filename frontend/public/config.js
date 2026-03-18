@@ -5,5 +5,6 @@ window.JETTIC_CONFIG = {
     /\.netlify\.app$/i.test(window.location.hostname)
       ? '/relay'
       : 'https://scintillating-dasik-bc2b84.netlify.app/relay',
-  minRequestIntervalMs: 2000
+  minRequestIntervalMs: 2000,
+  authDebug: true
 };
