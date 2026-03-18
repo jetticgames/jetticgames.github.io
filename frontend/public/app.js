@@ -20,6 +20,27 @@
     let backendUrl = resolveBackendUrl();
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
+    const API_MIN_REQUEST_INTERVAL_MS = Math.max(0, Number(window.JETTIC_CONFIG?.minRequestIntervalMs) || 2000);
+    let apiRequestQueue = Promise.resolve();
+    let lastApiRequestAt = 0;
+
+    function wait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function queueApiRequest(task) {
+        const run = async () => {
+            const elapsed = Date.now() - lastApiRequestAt;
+            const delay = Math.max(0, API_MIN_REQUEST_INTERVAL_MS - elapsed);
+            if (delay > 0) await wait(delay);
+            lastApiRequestAt = Date.now();
+            return task();
+        };
+
+        const scheduled = apiRequestQueue.then(run, run);
+        apiRequestQueue = scheduled.catch(() => undefined);
+        return scheduled;
+    }
 
     const state = {
         games: [],
@@ -88,58 +109,60 @@
     const api = {
         async request(path, options = {}) {
             if (!backendUrl) throw new Error('Backend URL is not configured');
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 5000);
-            let res;
             const headers = { ...(options.headers || {}) };
             if (options.body && !headers['Content-Type'] && !headers['content-type']) {
                 headers['Content-Type'] = 'application/json';
             }
-            try {
-                res = await fetch(`${backendUrl}${path}`, {
-                    credentials: 'include',
-                    cache: 'no-store',
-                    mode: 'cors',
-                    signal: options.signal || controller.signal,
-                    headers,
-                    ...options
-                });
-            } catch (err) {
-                clearTimeout(timer);
-                const name = err?.name || '';
-                const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
-                throw new Error(
-                    name === 'AbortError'
-                        ? 'Backend request timed out'
-                        : mixedContent
-                            ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-                            : 'Backend is offline or unreachable'
-                );
-            }
-            clearTimeout(timer);
-            const ct = res.headers.get('content-type') || '';
-            const isJson = ct.includes('application/json');
-
-            if (!res.ok) {
-                let msg = res.statusText;
+            return queueApiRequest(async () => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
+                let res;
                 try {
-                    const body = isJson ? await res.json() : null;
-                    if (body?.error?.message) msg = body.error.message;
-                    else if (body?.error) msg = body.error;
-                    else if (body?.message) msg = body.message;
-                } catch (_) {}
-                const err = new Error(msg);
-                err.status = res.status;
-                throw err;
-            }
+                    res = await fetch(`${backendUrl}${path}`, {
+                        credentials: 'include',
+                        cache: 'no-store',
+                        mode: 'cors',
+                        signal: options.signal || controller.signal,
+                        headers,
+                        ...options
+                    });
+                } catch (err) {
+                    clearTimeout(timer);
+                    const name = err?.name || '';
+                    const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                    throw new Error(
+                        name === 'AbortError'
+                            ? 'Backend request timed out'
+                            : mixedContent
+                                ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
+                                : 'Backend is offline or unreachable'
+                    );
+                }
+                clearTimeout(timer);
+                const ct = res.headers.get('content-type') || '';
+                const isJson = ct.includes('application/json');
 
-            if (!isJson) return res.text();
+                if (!res.ok) {
+                    let msg = res.statusText;
+                    try {
+                        const body = isJson ? await res.json() : null;
+                        if (body?.error?.message) msg = body.error.message;
+                        else if (body?.error) msg = body.error;
+                        else if (body?.message) msg = body.message;
+                    } catch (_) {}
+                    const err = new Error(msg);
+                    err.status = res.status;
+                    throw err;
+                }
 
-            const body = await res.json();
-            if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
-                return body.data;
-            }
-            return body;
+                if (!isJson) return res.text();
+
+                const body = await res.json();
+                if (body && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'data')) {
+                    return body.data;
+                }
+                return body;
+            });
         },
         get: (p) => api.request(p),
         post: (p, b) => api.request(p, { method: 'POST', body: JSON.stringify(b || {}) }),

@@ -74,36 +74,6 @@ function getSetCookieValues(headers) {
   return splitSetCookieHeader(combined);
 }
 
-function normalizeRelayError(statusCode, payload, fallbackMessage) {
-  if (payload && typeof payload === 'object') {
-    const message = payload.message || payload.error || fallbackMessage;
-    return {
-      ok: false,
-      status: statusCode,
-      error: {
-        message: message || 'Request failed',
-        details: payload
-      }
-    };
-  }
-
-  return {
-    ok: false,
-    status: statusCode,
-    error: {
-      message: fallbackMessage || 'Request failed'
-    }
-  };
-}
-
-async function readJsonSafe(response) {
-  try {
-    return await response.json();
-  } catch (_) {
-    return null;
-  }
-}
-
 function withRelayHeaders(baseHeaders = {}) {
   return {
     ...baseHeaders,
@@ -117,13 +87,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: withRelayHeaders({ 'content-type': 'application/json' }),
-      body: JSON.stringify({
-        ok: false,
-        status: 500,
-        error: {
-          message: 'Missing RELAY_TARGET_BASE_URL environment variable'
-        }
-      })
+      body: JSON.stringify({ error: 'Missing RELAY_TARGET_BASE_URL environment variable' })
     };
   }
 
@@ -181,14 +145,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 502,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        ok: false,
-        status: 502,
-        error: {
-          message: 'Failed to reach backend',
-          detail: error.message
-        }
-      })
+      body: JSON.stringify({ error: 'Failed to reach backend', detail: error.message })
     };
   }
 
@@ -209,33 +166,6 @@ exports.handler = async (event) => {
     contentType.includes('application/javascript') ||
     contentType.includes('application/xml') ||
     contentType.includes('application/x-www-form-urlencoded');
-
-  if (isJson) {
-    const payload = await readJsonSafe(upstreamResponse);
-
-    if (upstreamResponse.ok) {
-      return {
-        statusCode: upstreamResponse.status,
-        headers: { ...responseHeaders, 'content-type': 'application/json; charset=utf-8' },
-        ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
-        body: JSON.stringify({
-          ok: true,
-          status: upstreamResponse.status,
-          data: payload,
-          meta: {
-            via: 'netlify-relay'
-          }
-        })
-      };
-    }
-
-    return {
-      statusCode: upstreamResponse.status,
-      headers: { ...responseHeaders, 'content-type': 'application/json; charset=utf-8' },
-      ...(setCookieValues.length ? { multiValueHeaders: { 'set-cookie': setCookieValues } } : {}),
-      body: JSON.stringify(normalizeRelayError(upstreamResponse.status, payload, upstreamResponse.statusText))
-    };
-  }
 
   if (isText) {
     return {

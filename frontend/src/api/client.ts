@@ -48,11 +48,35 @@ export class ApiClient {
   private readonly baseUrl: string
   private readonly getToken: () => string | null
   private readonly setToken: (token: string | null) => void
+  private readonly minRequestIntervalMs: number
+  private requestQueue: Promise<void> = Promise.resolve()
+  private lastRequestAt = 0
 
-  constructor(baseUrl: string, getToken: () => string | null, setToken: (token: string | null) => void) {
+  constructor(
+    baseUrl: string,
+    getToken: () => string | null,
+    setToken: (token: string | null) => void,
+    minRequestIntervalMs = 2000
+  ) {
     this.baseUrl = baseUrl
     this.getToken = getToken
     this.setToken = setToken
+    this.minRequestIntervalMs = Math.max(0, minRequestIntervalMs)
+  }
+
+  private async waitForRequestWindow() {
+    const run = async () => {
+      const elapsed = Date.now() - this.lastRequestAt;
+      const delay = Math.max(0, this.minRequestIntervalMs - elapsed);
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      this.lastRequestAt = Date.now();
+    };
+
+    const queued = this.requestQueue.then(run, run);
+    this.requestQueue = queued.catch(() => undefined);
+    await queued;
   }
 
   private buildUrl(path: string) {
@@ -72,6 +96,8 @@ export class ApiClient {
   }
 
   async request<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+    await this.waitForRequestWindow();
+
     const headers = new Headers(init.headers || {});
     if (!headers.has('Content-Type') && init.body) {
       headers.set('Content-Type', 'application/json');
