@@ -27,6 +27,7 @@ const LEGACY_CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const REQUESTS_FILE = path.join(DATA_DIR, 'requests.json');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const BANNER_FILE = path.join(DATA_DIR, 'banner.yaml');
+const DATA_SCHEMA_FILE = path.join(DATA_DIR, 'schema-version.json');
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const IMAGES_DIR = path.join(__dirname, 'images');
 const SITEMAP_FILE = path.join(FRONTEND_DIR, 'sitemap.xml');
@@ -50,6 +51,10 @@ const ANALYTICS_PLAYERS_FILE = path.join(ANALYTICS_DIR, 'players.json');
 const ANALYTICS_GAMES_FILE = path.join(ANALYTICS_DIR, 'games.json');
 const ANALYTICS_RETENTION_MINUTES = 365 * 24 * 60; // keep up to ~12 months of minute snapshots (bounded by disk; tune as needed)
 const ANALYTICS_FLUSH_INTERVAL_MS = 60 * 1000;
+const DATA_SCHEMA_VERSION = '2026.03.18.v1';
+const DEFAULT_ADMIN_USERNAME = 'admin';
+const DEFAULT_ADMIN_EMAIL = 'admin@jettic.local';
+const DEFAULT_ADMIN_PASSWORD = 'password';
 let analyticsFlushInFlight = false;
 const analyticsCounters = {};
 
@@ -255,52 +260,210 @@ function buildLegacyConfigDefault() {
     };
 }
 
+function buildExampleGames() {
+    return [
+        {
+            id: 1,
+            title: 'Example Runner',
+            category: 'Arcade',
+            embed: 'https://example.com',
+            thumbnail: 'https://picsum.photos/seed/jettic-runner/640/360',
+            description: 'Sample game entry created during backend initialization.',
+            disabled: false,
+            disabledMessage: ''
+        },
+        {
+            id: 2,
+            title: 'Puzzle Lab',
+            category: 'Puzzle',
+            embed: 'https://example.org',
+            thumbnail: 'https://picsum.photos/seed/jettic-puzzle/640/360',
+            description: 'Second sample game to verify list rendering and category filters.',
+            disabled: false,
+            disabledMessage: ''
+        },
+        {
+            id: 3,
+            title: 'Space Drift',
+            category: 'Action',
+            embed: 'https://example.net',
+            thumbnail: 'https://picsum.photos/seed/jettic-space/640/360',
+            description: 'Sample action game used for smoke testing the player flow.',
+            disabled: false,
+            disabledMessage: ''
+        }
+    ];
+}
+
+function buildExampleBanner() {
+    return {
+        enabled: true,
+        id: 'default',
+        message: 'Welcome to Jettic Games!',
+        description: 'This backend was initialized with seeded example content.',
+        background: '#11161f',
+        textColor: '#e5e7eb',
+        dismissible: true,
+        dismissCooldownHours: 24,
+        button: {
+            enabled: true,
+            label: 'Open Docs',
+            url: 'https://example.com',
+            background: '#1f6feb',
+            textColor: '#ffffff'
+        }
+    };
+}
+
+function buildSchemaDescriptor() {
+    return {
+        schemaVersion: DATA_SCHEMA_VERSION,
+        appVersion: APP_VERSION,
+        initializedAt: new Date().toISOString()
+    };
+}
+
+async function createDefaultAdminUser(config) {
+    const now = new Date().toISOString();
+    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+    const defaultSettings = defaultSettingsFromConfig(config);
+    return {
+        id: crypto.randomUUID(),
+        username: DEFAULT_ADMIN_USERNAME,
+        email: DEFAULT_ADMIN_EMAIL,
+        passwordHash,
+        favorites: [],
+        profile: {
+            username: DEFAULT_ADMIN_USERNAME,
+            accentColor: config?.defaults?.accentColor || '#58a6ff',
+            avatar: null,
+            lastPlayed: [],
+            playtime: {}
+        },
+        settings: defaultSettings,
+        friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
+        presence: { online: false, gameId: null, lastSeen: now },
+        loginHistory: [],
+        banned: { active: false },
+        createdAt: now,
+        updatedAt: now,
+        admin: true
+    };
+}
+
+async function shouldHardResetData() {
+    if (String(process.env.BACKEND_FORCE_RESET || '').toLowerCase() === 'true') return true;
+    const schema = await readJson(DATA_SCHEMA_FILE, null);
+    if (!schema) {
+        // Existing files without schema marker are treated as legacy and replaced.
+        const legacyCandidates = [
+            USERS_FILE,
+            GAMES_FILE,
+            CONFIG_GENERAL_FILE,
+            FEATURES_FILE,
+            DEFAULTS_FILE,
+            REQUESTS_FILE,
+            REPORTS_FILE,
+            BANNER_FILE,
+            SESSION_FILE
+        ];
+        for (const file of legacyCandidates) {
+            if (await fileExists(file)) return true;
+        }
+        return false;
+    }
+    if (schema.schemaVersion !== DATA_SCHEMA_VERSION) return true;
+    if (schema.appVersion !== APP_VERSION) return true;
+    return false;
+}
+
+async function hardResetDataFiles() {
+    const resetTargets = [
+        USERS_FILE,
+        GAMES_FILE,
+        CONFIG_GENERAL_FILE,
+        FEATURES_FILE,
+        DEFAULTS_FILE,
+        LEGACY_CONFIG_FILE,
+        REQUESTS_FILE,
+        REPORTS_FILE,
+        BANNER_FILE,
+        SESSION_FILE,
+        DATA_SCHEMA_FILE
+    ];
+
+    for (const file of resetTargets) {
+        await fs.rm(file, { force: true });
+    }
+    await fs.rm(ANALYTICS_DIR, { recursive: true, force: true });
+}
+
+async function seedDataFiles() {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await ensureAnalyticsFiles();
+
+    await writeJson(GAMES_FILE, buildExampleGames());
+    await writeJson(REQUESTS_FILE, { requests: [] });
+    await writeJson(REPORTS_FILE, { reports: [] });
+    await writeJson(SESSION_FILE, { sessions: [] });
+
+    const defaultConfig = {
+        version: APP_VERSION,
+        maintenanceMode: { enabled: false },
+        uiControls: {
+            showClock: true,
+            showCurrent: true
+        },
+        features: {
+            analyticsEnabled: true,
+            authEnabled: true
+        },
+        defaults: { presets: BUILT_IN_PRESETS }
+    };
+
+    await writeJson(LEGACY_CONFIG_FILE, defaultConfig);
+    await writeYaml(CONFIG_GENERAL_FILE, {
+        version: APP_VERSION,
+        maintenanceMode: { enabled: false },
+        uiControls: defaultConfig.uiControls
+    });
+    await writeYaml(FEATURES_FILE, defaultConfig.features);
+    await writeYaml(DEFAULTS_FILE, defaultConfig.defaults);
+    await writeYaml(BANNER_FILE, buildExampleBanner());
+
+    const config = await loadConfig();
+    const adminUser = await createDefaultAdminUser(config);
+    await writeJson(USERS_FILE, { users: [adminUser] });
+    await writeJson(DATA_SCHEMA_FILE, buildSchemaDescriptor());
+}
+
 async function ensureBootstrapAdminUser() {
     const users = await loadUsers();
     const now = new Date().toISOString();
-    const passwordHash = await bcrypt.hash('admin', 10);
     const config = await loadConfig();
     const defaultSettings = defaultSettingsFromConfig(config);
 
     let adminUser = users.find((u) => String(u.username || '').toLowerCase() === 'admin');
     if (!adminUser) {
-        adminUser = {
-            id: crypto.randomUUID(),
-            username: 'admin',
-            email: null,
-            passwordHash,
-            favorites: [],
-            profile: {
-                username: 'admin',
-                accentColor: config?.defaults?.accentColor || '#58a6ff',
-                avatar: null,
-                lastPlayed: [],
-                playtime: {}
-            },
-            settings: defaultSettings,
-            friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
-            presence: { online: false, gameId: null, lastSeen: now },
-            loginHistory: [],
-            banned: { active: false },
-            createdAt: now,
-            updatedAt: now,
-            admin: true
-        };
+        adminUser = await createDefaultAdminUser(config);
         users.push(adminUser);
     } else {
-        adminUser.username = 'admin';
-        adminUser.passwordHash = passwordHash;
+        adminUser.username = DEFAULT_ADMIN_USERNAME;
+        adminUser.email = adminUser.email || DEFAULT_ADMIN_EMAIL;
         adminUser.admin = true;
         adminUser.banned = { active: false };
         adminUser.favorites = Array.isArray(adminUser.favorites) ? adminUser.favorites : [];
         adminUser.settings = adminUser.settings || defaultSettings;
         adminUser.friends = adminUser.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] };
         adminUser.profile = adminUser.profile || {};
-        adminUser.profile.username = 'admin';
+        adminUser.profile.username = DEFAULT_ADMIN_USERNAME;
         adminUser.profile.accentColor = adminUser.profile.accentColor || config?.defaults?.accentColor || '#58a6ff';
         adminUser.profile.avatar = adminUser.profile.avatar || null;
         adminUser.profile.lastPlayed = Array.isArray(adminUser.profile.lastPlayed) ? adminUser.profile.lastPlayed : [];
         adminUser.profile.playtime = normalizePlaytime(adminUser.profile.playtime);
+        if (String(process.env.RESET_ADMIN_PASSWORD || '').toLowerCase() === 'true') {
+            adminUser.passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+        }
         ensurePresence(adminUser);
         adminUser.presence.online = false;
         adminUser.updatedAt = now;
@@ -311,34 +474,27 @@ async function ensureBootstrapAdminUser() {
 
 async function ensureStartupDataFiles() {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    await ensureFile(USERS_FILE, { users: [] });
-    await ensureFile(GAMES_FILE, []);
+
+    if (await shouldHardResetData()) {
+        console.warn('Detected legacy/outdated backend data. Performing full data reset and reseed.');
+        await hardResetDataFiles();
+    }
+
+    if (!(await fileExists(USERS_FILE)) || !(await fileExists(GAMES_FILE))) {
+        await seedDataFiles();
+    }
+
     await ensureFile(LEGACY_CONFIG_FILE, buildLegacyConfigDefault());
     await migrateLegacyConfig();
     await ensureYamlFile(CONFIG_GENERAL_FILE, { version: APP_VERSION, maintenanceMode: { enabled: false }, uiControls: {} });
-    await ensureYamlFile(FEATURES_FILE, {});
+    await ensureYamlFile(FEATURES_FILE, { analyticsEnabled: true, authEnabled: true });
     await ensureYamlFile(DEFAULTS_FILE, { presets: BUILT_IN_PRESETS });
     await ensureFile(REQUESTS_FILE, { requests: [] });
     await ensureFile(REPORTS_FILE, { reports: [] });
     await ensureFile(SESSION_FILE, { sessions: [] });
     await ensureAnalyticsFiles();
-    await ensureYamlFile(BANNER_FILE, {
-        enabled: true,
-        id: 'default',
-        message: 'Welcome to Jettic Games!',
-        description: 'Play and save your favorites.',
-        background: '#11161f',
-        textColor: '#e5e7eb',
-        dismissible: true,
-        dismissCooldownHours: 24,
-        button: {
-            enabled: true,
-            label: 'Visit Store',
-            url: 'https://example.com',
-            background: '#1f6feb',
-            textColor: '#ffffff'
-        }
-    });
+    await ensureYamlFile(BANNER_FILE, buildExampleBanner());
+    await ensureFile(DATA_SCHEMA_FILE, buildSchemaDescriptor());
     await ensureBootstrapAdminUser();
 }
 
