@@ -7,7 +7,6 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const morgan = require('morgan');
@@ -82,7 +81,7 @@ const BUILT_IN_PRESETS = {
 };
 
 const app = express();
-// Trust only local/known proxies to keep rate-limit IPs accurate (avoids permissive 'true')
+// Trust only local/known proxies for accurate forwarded client IP handling.
 const TRUST_PROXY_SETTING = process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal';
 app.set('trust proxy', TRUST_PROXY_SETTING);
 
@@ -102,14 +101,6 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 // Disable weak ETags to avoid 304 responses breaking SPA fetch flows
 app.set('etag', false);
-
-const apiLimiter = rateLimit({
-    windowMs: 1 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false
-});
-app.use(['/api', '/proxy'], apiLimiter);
 
 // --- Utility helpers
 async function ensureFile(file, fallback) {
