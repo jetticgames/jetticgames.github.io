@@ -1834,7 +1834,7 @@
 
         els.favoritesGrid.innerHTML = '';
 
-        if (els.favoritesLoginBox) els.favoritesLoginBox.style.display = isAuthed ? 'none' : 'block';
+        if (els.favoritesLoginBox) els.favoritesLoginBox.style.display = isAuthed ? 'none' : 'flex';
         if (!isAuthed) {
             if (els.favoritesAuthHint) els.favoritesAuthHint.style.display = 'none';
             if (els.favoritesGrid) els.favoritesGrid.style.display = 'none';
@@ -2052,13 +2052,13 @@
                 renderFriends();
                 if (els.friendsContent) els.friendsContent.style.display = 'none';
                 if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
-                if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'block';
+                if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'flex';
                 return;
             }
             showToast(err.message || 'Friends unavailable', true);
             if (els.friendsContent) els.friendsContent.style.display = 'none';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = state.user ? 'none' : 'block';
-            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = state.user ? 'none' : 'block';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = state.user ? 'none' : 'flex';
         }
     }
 
@@ -3681,7 +3681,7 @@
         } else {
             els.accountLabel.textContent = 'Log in';
             if (els.friendsAuthNotice) els.friendsAuthNotice.style.display = 'block';
-            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'block';
+            if (els.friendsAuthNoticeBox) els.friendsAuthNoticeBox.style.display = 'flex';
             els.friendsContent.style.display = 'none';
             state.favorites = new Set();
             state.friends = { friends: [], incomingRequests: [], outgoingRequests: [], blocked: [] };
@@ -3692,7 +3692,7 @@
             if (els.settingsGrid) els.settingsGrid.style.display = 'none';
             if (els.settingsActions) els.settingsActions.style.display = 'none';
             if (els.adminNotifyTests) els.adminNotifyTests.style.display = 'none';
-            if (els.settingsLoginBox) els.settingsLoginBox.style.display = 'block';
+            if (els.settingsLoginBox) els.settingsLoginBox.style.display = 'flex';
             if (els.profileEmail) els.profileEmail.value = '';
         }
         closeAddFriendModal();
