@@ -103,17 +103,7 @@
         <main class="main-content">
             <header class="top-header">
                 <div class="header-content">
-                    <div class="header-stats">
-                        <div class="stat-item"><i class="stat-icon fas fa-gamepad"></i><span><span data-stat="games">0</span> Games</span></div>
-                        <div class="stat-item"><i class="stat-icon fas fa-folder"></i><span><span data-stat="categories">0</span> Categories</span></div>
-                    </div>
                     <div class="header-actions">
-                        <div class="header-status" id="headerClock" aria-live="polite">
-                            <div class="status-indicator">
-                                <div class="status-dot time-dot"></div>
-                                <span class="status-text" id="statusClockText">--:--</span>
-                            </div>
-                        </div>
                         <div class="header-status">
                             <div class="status-indicator">
                                 <div class="status-dot" id="statusDot"></div>
@@ -131,9 +121,6 @@
             <div class="content-area">
                 <section id="homePage" class="page active">
                     <div class="games-section">
-                        <div class="section-header">
-                            <h2 class="section-title">Featured</h2>
-                        </div>
                         <div id="homeBanner" class="home-banner-slot"></div>
                         <div class="category-bar">
                             <div id="categoryTabs" class="category-tabs"></div>
@@ -148,9 +135,6 @@
 
                 <section id="favoritesPage" class="page" style="display:none;">
                     <div class="games-section">
-                        <div class="section-header">
-                            <h2 class="section-title"><i class="fas fa-heart" style="color:#e25555;"></i> Favorites</h2>
-                        </div>
                         <div class="notice-box" id="favoritesLoginBox" style="display:none;">
                             <div class="empty-state" id="favoritesLoginNotice">
                                 <div class="empty-state-icon"><i class="fas fa-lock"></i></div>
@@ -167,7 +151,6 @@
 
                 <section id="friendsPage" class="page" style="display:none;">
                     <div class="section-header">
-                        <h2 class="section-title"><i class="fas fa-user-friends"></i> Friends</h2>
                         <div class="friends-tab-nav" id="friendsTabNav" style="display:none;">
                             <button class="friends-tab cat-tab active" data-tab="overview">Overview</button>
                             <button class="friends-tab cat-tab" data-tab="manage">Manage</button>
@@ -225,9 +208,6 @@
                 </section>
 
                 <section id="settingsPage" class="page" style="display:none;">
-                    <div class="section-header">
-                        <h2 class="section-title"><i class="fas fa-sliders-h"></i> Settings</h2>
-                    </div>
                     <div class="notice-box" id="settingsLoginBox" style="display:none;">
                         <div class="empty-state" id="settingsLoginNotice">
                             <div class="empty-state-icon"><i class="fas fa-lock"></i></div>
@@ -698,9 +678,6 @@
                     </section>
 
                 <section id="privacyPage" class="page" style="display:none;">
-                    <div class="section-header">
-                        <h2 class="section-title"><i class="fas fa-user-shield"></i> Privacy Policy</h2>
-                    </div>
                     <div class="legal-card">
                         <p>We collect only what we need to run Jettic and keep your account working.</p>
                         <h3>What we collect</h3>
@@ -727,9 +704,6 @@
                 </section>
 
                 <section id="termsPage" class="page" style="display:none;">
-                    <div class="section-header">
-                        <h2 class="section-title"><i class="fas fa-file-contract"></i> Terms of Service</h2>
-                    </div>
                     <div class="legal-card">
                         <p>By using Jettic you agree to these terms.</p>
                         <h3>Usage</h3>
@@ -800,22 +774,16 @@
         </main>
     </div>
 
-    <footer class="floating-footer" aria-label="Site footer">
-        <div class="footer-card">
-            <div class="footer-brand">
-                <span class="footer-dot" aria-hidden="true"></span>
-                <span class="footer-title">Jettic</span>
-            </div>
-            <ul class="footer-links" aria-label="Legal links">
-                <li class="nav-item footer-nav-item" data-page="privacy">
-                    <a href="#" class="nav-link footer-link">Privacy Policy</a>
-                </li>
-                <li class="footer-separator" aria-hidden="true">•</li>
-                <li class="nav-item footer-nav-item" data-page="terms">
-                    <a href="#" class="nav-link footer-link">Terms of Service</a>
-                </li>
-            </ul>
-        </div>
+    <footer class="site-footer" aria-label="Site footer">
+        <ul class="site-footer-nav" aria-label="Legal links">
+            <li class="nav-item footer-nav-item" data-page="privacy">
+                <a href="#" class="nav-link site-footer-link">Privacy Policy</a>
+            </li>
+            <li class="footer-separator" aria-hidden="true">•</li>
+            <li class="nav-item footer-nav-item" data-page="terms">
+                <a href="#" class="nav-link site-footer-link">Terms of Service</a>
+            </li>
+        </ul>
     </footer>
 
     <div id="offlineOverlays" class="offline-overlays" style="display:none;">

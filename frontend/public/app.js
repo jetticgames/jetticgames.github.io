@@ -538,8 +538,6 @@
             statsCategories: document.querySelector('[data-stat="categories"]'),
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
-            statusClockText: document.getElementById('statusClockText'),
-            headerClock: document.getElementById('headerClock'),
             searchInput: document.getElementById('searchInput'),
             homeBanner: document.getElementById('homeBanner'),
             categoryTabs: document.getElementById('categoryTabs'),
@@ -2215,13 +2213,13 @@
                 }
                 const cards = games
                     .slice()
-                    .sort((a, b) => (Number(b.players) || 0) - (Number(a.players) || 0) || (Number(b.favorites) || 0) - (Number(a.favorites) || 0))
+                    .sort((a, b) => (Number(b.players) || 0) - (Number(a.players) || 0) || (Number(b.plays) || 0) - (Number(a.plays) || 0) || (Number(b.favorites) || 0) - (Number(a.favorites) || 0))
                     .map((g) => `
                         <div class="analytics-game-card${g.disabled ? ' disabled' : ''}">
                             <div class="analytics-game-thumb" ${g.thumbnail ? `style="background-image:url('${escapeAttr(resolveAssetUrl(g.thumbnail))}');"` : ''}></div>
                             <div class="analytics-game-meta">
                                 <div class="analytics-game-title">${escapeHtml(g.title || `Game ${g.id}`)}</div>
-                                <div class="analytics-game-stats"><span>Players ${g.players || 0}</span><span>Favs ${g.favorites || 0}</span></div>
+                                <div class="analytics-game-stats"><span>Players ${g.players || 0}</span><span>Plays ${g.plays || 0}</span><span>Favs ${g.favorites || 0}</span></div>
                             </div>
                         </div>
                     `).join('');
@@ -4790,27 +4788,7 @@
     }
 
     function applyClockSetting(show) {
-        const enable = show !== false;
-        if (!els.headerClock) return;
-        els.headerClock.style.display = enable ? 'flex' : 'none';
-        if (enable) {
-            startClock();
-        } else {
-            stopClock();
-        }
-    }
-
-    function startClock() {
-        if (runtime.clockTimer) clearInterval(runtime.clockTimer);
-        const tick = () => {
-            if (!els.statusClockText) return;
-            const now = new Date();
-            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const date = now.toLocaleDateString();
-            els.statusClockText.textContent = `${time} • ${date}`;
-        };
-        tick();
-        runtime.clockTimer = setInterval(tick, 1000);
+        stopClock();
     }
 
     function stopClock() {

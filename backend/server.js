@@ -345,7 +345,8 @@ async function createDefaultAdminUser(config) {
             accentColor: config?.defaults?.accentColor || '#58a6ff',
             avatar: null,
             lastPlayed: [],
-            playtime: {}
+            playtime: {},
+            playCount: {}
         },
         settings: defaultSettings,
         friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
@@ -472,6 +473,7 @@ async function ensureBootstrapAdminUser() {
         adminUser.profile.avatar = adminUser.profile.avatar || null;
         adminUser.profile.lastPlayed = Array.isArray(adminUser.profile.lastPlayed) ? adminUser.profile.lastPlayed : [];
         adminUser.profile.playtime = normalizePlaytime(adminUser.profile.playtime);
+        adminUser.profile.playCount = normalizePlayCount(adminUser.profile.playCount);
         if (String(process.env.RESET_ADMIN_PASSWORD || '').toLowerCase() === 'true') {
             adminUser.passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
         }
@@ -760,7 +762,8 @@ function sanitizeUser(user) {
         profile: {
             ...(user.profile || {}),
             lastPlayed: Array.isArray(user.profile?.lastPlayed) ? user.profile.lastPlayed : [],
-            playtime: normalizePlaytime(user.profile?.playtime)
+            playtime: normalizePlaytime(user.profile?.playtime),
+            playCount: normalizePlayCount(user.profile?.playCount)
         },
         favorites: user.favorites || [],
         friends: user.friends || { accepted: [], incoming: [], outgoing: [], blocked: [] },
@@ -986,6 +989,17 @@ function normalizePlaytime(playtime) {
     return normalized;
 }
 
+function normalizePlayCount(playCount) {
+    if (!playCount || typeof playCount !== 'object') return {};
+    const normalized = {};
+    Object.entries(playCount).forEach(([id, value]) => {
+        const count = Number(value);
+        if (!Number.isFinite(count) || count < 0) return;
+        normalized[String(id)] = Math.floor(count);
+    });
+    return normalized;
+}
+
 function updateLastPlayed(user, gameId, max = 10) {
     if (!gameId) return;
     user.profile = user.profile || {};
@@ -1005,6 +1019,14 @@ function addPlaytime(user, gameId, deltaMs) {
     user.profile.playtime = normalizePlaytime(user.profile.playtime);
     const key = String(gameId);
     user.profile.playtime[key] = (user.profile.playtime[key] || 0) + delta;
+}
+
+function incrementPlayCount(user, gameId) {
+    if (!gameId) return;
+    user.profile = user.profile || {};
+    user.profile.playCount = normalizePlayCount(user.profile.playCount);
+    const key = String(gameId);
+    user.profile.playCount[key] = (user.profile.playCount[key] || 0) + 1;
 }
 
 function pruneGuestHeartbeats(now = Date.now()) {
@@ -1050,6 +1072,17 @@ function countFavoritesByGame(users = []) {
     return counts;
 }
 
+function countPlaysByGame(users = []) {
+    const counts = {};
+    users.forEach((u) => {
+        const playCount = normalizePlayCount(u?.profile?.playCount);
+        Object.entries(playCount).forEach(([id, value]) => {
+            counts[id] = (counts[id] || 0) + (Number(value) || 0);
+        });
+    });
+    return counts;
+}
+
 async function flushAnalytics() {
     if (analyticsFlushInFlight) return;
     analyticsFlushInFlight = true;
@@ -1070,12 +1103,14 @@ async function flushAnalytics() {
 
         const favorites = countFavoritesByGame(users);
         const playersByGame = countPlayersByGame(users, now);
+        const playsByGame = countPlaysByGame(users);
         const gamesSnapshot = games.map((g) => ({
             id: g.id,
             title: g.title,
             thumbnail: g.thumbnail || '',
             players: playersByGame[String(g.id)] || 0,
             favorites: favorites[String(g.id)] || 0,
+            plays: playsByGame[String(g.id)] || 0,
             disabled: !!g.disabled
         }));
 
@@ -1402,7 +1437,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
             email: normalizedEmail,
             passwordHash: hash,
             favorites: [],
-            profile: { username, accentColor: '#58a6ff', avatar: null, lastPlayed: [], playtime: {} },
+            profile: { username, accentColor: '#58a6ff', avatar: null, lastPlayed: [], playtime: {}, playCount: {} },
             settings: defaultSettingsFromConfig(await loadConfig()),
             friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
             presence: { online: false, gameId: null, lastSeen: now },
@@ -1710,7 +1745,8 @@ app.post('/api/auth/register', async (req, res) => {
                 accentColor: (await loadConfig()).defaults?.accentColor || '#58a6ff',
                 avatar: null,
                 lastPlayed: [],
-                playtime: {}
+                playtime: {},
+                playCount: {}
             },
             settings: defaultSettings,
             friends: { accepted: [], incoming: [], outgoing: [], blocked: [] },
@@ -2207,8 +2243,15 @@ app.post('/api/online/ping', async (req, res) => {
     }
 
     if (me) {
+        const prevGameId = me.presence?.gameId || null;
+        const wasOnline = isUserOnline(me, now);
         const nextGameId = gameId === undefined ? (me.presence?.gameId || null) : gameId;
         setPresence(me, { online: online !== false, gameId: nextGameId });
+        const changedGame = !!nextGameId && String(nextGameId) !== String(prevGameId);
+        const startedPlaying = !!nextGameId && !wasOnline;
+        if (online !== false && (changedGame || startedPlaying)) {
+            incrementPlayCount(me, nextGameId);
+        }
         if (nextGameId) updateLastPlayed(me, nextGameId);
         me.updatedAt = new Date().toISOString();
         await saveUsers(users);
