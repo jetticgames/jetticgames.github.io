@@ -605,7 +605,6 @@
             settingCursor: document.getElementById('settingCursor'),
             settingCursorSize: document.getElementById('settingCursorSize'),
             settingCursorColor: document.getElementById('settingCursorColor'),
-            settingShowClock: document.getElementById('settingShowClock'),
             settingsFeedback: document.getElementById('settingsFeedback'),
             settingsVersion: document.getElementById('settingsVersion'),
             settingsBackend: document.getElementById('settingsBackend'),
@@ -1242,7 +1241,6 @@
             els.settingCursor,
             els.settingCursorSize,
             els.settingCursorColor,
-            els.settingShowClock,
             els.settingShowCurrent,
             els.settingPanicEnabled,
             els.settingPanicUrl,
@@ -1260,9 +1258,6 @@
             input.addEventListener(evt, () => queueSaveSettings());
         });
 
-        els.settingShowClock?.addEventListener('change', (e) => {
-            applyClockSetting(e.target.checked);
-        });
         els.settingShowCurrent?.addEventListener('change', (e) => {
             applyCurrentSectionSetting(e.target.checked);
         });
@@ -3404,7 +3399,6 @@
         if (els.settingCursor) els.settingCursor.checked = false;
         if (els.settingCursorSize) els.settingCursorSize.value = settings.cursorSize ?? 8;
         if (els.settingCursorColor) els.settingCursorColor.value = settings.cursorColor || '#ffffff';
-        if (els.settingShowClock) els.settingShowClock.checked = settings.showClock !== false;
         if (els.settingShowCurrent) els.settingShowCurrent.checked = settings.showCurrent !== false;
         populatePresetSelect(els.settingPanicPreset, state.settingPresets?.panicButtons || []);
         populatePresetSelect(els.settingTabPreset, state.settingPresets?.tabDisguises || []);
@@ -3579,7 +3573,6 @@
             stopParticles();
         }
         updateProxyUI();
-        applyClockSetting(settings.showClock !== false);
         applyCurrentSectionSetting(settings.showCurrent !== false);
         applyPanicBehavior(settings);
         applyTabDisguiseBehavior(settings);
@@ -4239,7 +4232,6 @@
             cursorEnabled: els.settingCursor?.checked !== false,
             cursorSize: Number(els.settingCursorSize?.value || 8),
             cursorColor: els.settingCursorColor?.value,
-            showClock: els.settingShowClock ? els.settingShowClock.checked : true,
             showCurrent: els.settingShowCurrent ? els.settingShowCurrent.checked : true,
             panicEnabled: !!els.settingPanicEnabled?.checked,
             panicUrl: (els.settingPanicUrl?.value || '').trim(),
