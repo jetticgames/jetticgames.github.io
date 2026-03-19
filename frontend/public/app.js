@@ -3614,11 +3614,17 @@
     }
 
     function setStatus(isOnline, text) {
+        if (!els.statusDot && !els.statusText) {
+            setSplashNetworkStatus(isOnline ? 'online' : 'offline');
+            return;
+        }
         els.statusDot?.classList.toggle('online', isOnline);
         els.statusDot?.classList.toggle('offline', !isOnline);
-        els.statusText.textContent = text;
-        els.statusText.classList.toggle('online', isOnline);
-        els.statusText.classList.toggle('offline', !isOnline);
+        if (els.statusText) {
+            els.statusText.textContent = text;
+            els.statusText.classList.toggle('online', isOnline);
+            els.statusText.classList.toggle('offline', !isOnline);
+        }
         setSplashNetworkStatus(isOnline ? 'online' : 'offline');
     }
 
