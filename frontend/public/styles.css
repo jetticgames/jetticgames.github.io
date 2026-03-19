@@ -762,18 +762,42 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 .auth-form .update-check-btn { width: 100%; justify-content: center; text-align: center; }
 .auth-feedback { color:#f85149; font-size:12px; min-height:16px; }
 
+.close-auth {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid var(--border-primary);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.close-auth:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+.close-auth:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+.close-auth i {
+    pointer-events: none;
+}
+
 .auth-modal .close-auth {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: transparent;
-    border: none;
-    color: #9ba3af;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 6px;
 }
-.auth-modal .close-auth:hover { color: #fff; }
 
 /* Custom Confirmation Dialog */
 #customConfirmDialog {
