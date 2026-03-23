@@ -144,15 +144,36 @@ input, select, textarea, button,
 .app-page-loader.fade-out .apl-full {transform:scale(.72); opacity:0;} 
 .apl-logo-wrap {position:relative; width:78px; height:78px; margin:0 0 6px;} 
 .apl-logo {width:100%; height:100%; object-fit:contain; user-select:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));} 
-/* New compact spinner below logo */
-.apl-spinner {width:36px; height:36px; position:relative; margin:4px 0 0;}
-.apl-spinner:before {content:""; position:absolute; inset:0; border:5px solid #28323c; border-top-color:#58a6ff; border-left-color:#58a6ff; border-radius:50%; box-sizing:border-box; animation:aplSpin .45s linear infinite;}
-.apl-spinner:after {content:""; position:absolute; inset:6px; background:#0d1117; border-radius:50%;}
+/* Indeterminate loading bar (Windows copy-style marquee) */
+.apl-bar {
+    width: min(340px, 72vw);
+    height: 12px;
+    margin: 10px 0 0;
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid #30363d;
+}
+
+.apl-bar-line {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    height: calc(100% - 2px);
+    width: 30%;
+    background: linear-gradient(90deg, rgba(88, 166, 255, 0.12), rgba(88, 166, 255, 0.85), rgba(88, 166, 255, 0.12));
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.35);
+    will-change: transform;
+    animation: aplBarSweep 1.25s linear infinite;
+}
 .apl-network-text {position:absolute; left:50%; bottom:14px; transform:translateX(-50%) scale(1); text-align:center; font-size:13px; letter-spacing:.04em; text-transform:lowercase; color:#9ea7b1; opacity:.95; pointer-events:none; white-space:nowrap; transition:transform .55s cubic-bezier(.22,.68,.2,1), opacity .4s ease;}
 .app-page-loader.fade-out .apl-network-text {transform:translateX(-50%) scale(.84); opacity:0;}
 /* Hide any text elements if present */
 .apl-title, .apl-sub, .apl-warning {display:none !important;}
-@keyframes aplSpin {to {transform:rotate(360deg);} } 
+@keyframes aplBarSweep {
+    0% {transform: translateX(-140%);}
+    100% {transform: translateX(410%);}
+}
 /* Removed float & glow animations for static logo */
 @keyframes flashWarn {0%{opacity:.55;}100%{opacity:1;}}
 
