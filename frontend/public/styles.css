@@ -161,8 +161,8 @@ input, select, textarea, button,
     left: 0;
     height: calc(100% - 2px);
     width: 30%;
-    background: linear-gradient(90deg, rgba(88, 166, 255, 0.12), rgba(88, 166, 255, 0.85), rgba(88, 166, 255, 0.12));
-    box-shadow: 0 0 12px rgba(88, 166, 255, 0.35);
+    background: #58a6ff;
+    box-shadow: none;
     will-change: transform;
     animation: aplBarSweep 1.25s linear infinite;
 }
