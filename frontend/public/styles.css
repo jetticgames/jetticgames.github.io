@@ -4673,3 +4673,20 @@ body *:not(i):not(.fa):not([class^='fa-']):not([class*=' fa-']) {
 *::after {
     border-radius: 0 !important;
 }
+
+/* Ensure all search bars keep coding font and sharp corners. */
+input[type="search"],
+#searchInput,
+#adminTabSearch,
+.admin-tab-search {
+    font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
+    text-transform: uppercase !important;
+    border-radius: 0 !important;
+}
+
+#searchInput::placeholder,
+#adminTabSearch::placeholder,
+.admin-tab-search::placeholder {
+    font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
+    text-transform: uppercase !important;
+}
