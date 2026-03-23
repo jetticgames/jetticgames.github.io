@@ -4663,7 +4663,7 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
 
 /* Global typography + shape override requested by user */
 body,
-body *:not(i):not(.fa):not([class^='fa-']):not([class*=' fa-']) {
+body *:not(i):not(.fa):not([class^='fa-']):not([class*=' fa-']):not(input):not(textarea):not(select):not(option) {
     font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
     text-transform: uppercase !important;
 }
@@ -4691,6 +4691,10 @@ input[type="search"],
 
 /* Input fields should keep normal case. */
 input,
-input::placeholder {
+textarea,
+select,
+option,
+input::placeholder,
+textarea::placeholder {
     text-transform: none !important;
 }

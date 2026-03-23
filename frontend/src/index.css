@@ -259,7 +259,7 @@ button:active {
 
 /* Global typography + shape override requested by user */
 body,
-body * {
+body *:not(input):not(textarea):not(select):not(option) {
   font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace;
   text-transform: uppercase;
 }
@@ -272,7 +272,11 @@ body * {
 
 /* Input fields should keep normal case. */
 input,
-input::placeholder {
+textarea,
+select,
+option,
+input::placeholder,
+textarea::placeholder {
   text-transform: none !important;
 }
 
