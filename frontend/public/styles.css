@@ -4729,8 +4729,6 @@ h6,
 .site-footer,
 .sidebar-header,
 .nav-bottom,
-.content-area,
-.games-section,
 .card,
 .settings-card,
 .friends-panel,
@@ -4795,6 +4793,21 @@ textarea {
     color: var(--text-primary) !important;
 }
 
+/* Keep structural layout wrappers transparent; glass belongs to components only. */
+.content-area,
+.games-section,
+.section-header,
+.header-content,
+.friends-tab-panels,
+.friends-columns,
+.page {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
 .nav-link:hover,
 .cat-tab:hover,
 .friends-tab:hover,
@@ -4852,6 +4865,24 @@ button:hover {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1)) !important;
     border: 1px solid rgba(255, 255, 255, 0.44) !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 8px 22px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Sidebar page spacing: clear separation between page links and utility sections. */
+.sidebar-nav > .nav-list:first-child > .nav-item[data-page] {
+    margin: 0 12px 8px !important;
+}
+
+.sidebar-nav > .nav-list:first-child > .nav-item[data-page]:first-child {
+    margin-top: 6px !important;
+}
+
+.sidebar-nav > .nav-list:first-child > .nav-item[data-page]:last-of-type {
+    margin-bottom: 14px !important;
+}
+
+.sidebar-section-item,
+.sidebar-plain {
+    margin-top: 10px !important;
 }
 
 input::placeholder,
