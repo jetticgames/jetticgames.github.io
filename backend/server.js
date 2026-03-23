@@ -359,53 +359,6 @@ async function createDefaultAdminUser(config) {
     };
 }
 
-async function shouldHardResetData() {
-    if (String(process.env.BACKEND_FORCE_RESET || '').toLowerCase() === 'true') return true;
-    const schema = await readJson(DATA_SCHEMA_FILE, null);
-    if (!schema) {
-        // Existing files without schema marker are treated as legacy and replaced.
-        const legacyCandidates = [
-            USERS_FILE,
-            GAMES_FILE,
-            CONFIG_GENERAL_FILE,
-            FEATURES_FILE,
-            DEFAULTS_FILE,
-            REQUESTS_FILE,
-            REPORTS_FILE,
-            BANNER_FILE,
-            SESSION_FILE
-        ];
-        for (const file of legacyCandidates) {
-            if (await fileExists(file)) return true;
-        }
-        return false;
-    }
-    if (schema.schemaVersion !== DATA_SCHEMA_VERSION) return true;
-    if (schema.appVersion !== APP_VERSION) return true;
-    return false;
-}
-
-async function hardResetDataFiles() {
-    const resetTargets = [
-        USERS_FILE,
-        GAMES_FILE,
-        CONFIG_GENERAL_FILE,
-        FEATURES_FILE,
-        DEFAULTS_FILE,
-        LEGACY_CONFIG_FILE,
-        REQUESTS_FILE,
-        REPORTS_FILE,
-        BANNER_FILE,
-        SESSION_FILE,
-        DATA_SCHEMA_FILE
-    ];
-
-    for (const file of resetTargets) {
-        await fs.rm(file, { force: true });
-    }
-    await fs.rm(ANALYTICS_DIR, { recursive: true, force: true });
-}
-
 async function seedDataFiles() {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await ensureAnalyticsFiles();
@@ -487,11 +440,6 @@ async function ensureBootstrapAdminUser() {
 
 async function ensureStartupDataFiles() {
     await fs.mkdir(DATA_DIR, { recursive: true });
-
-    if (await shouldHardResetData()) {
-        console.warn('Detected legacy/outdated backend data. Performing full data reset and reseed.');
-        await hardResetDataFiles();
-    }
 
     if (!(await fileExists(USERS_FILE)) || !(await fileExists(GAMES_FILE))) {
         await seedDataFiles();
