@@ -4680,7 +4680,6 @@ input[type="search"],
 #adminTabSearch,
 .admin-tab-search {
     font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
-    text-transform: uppercase !important;
     border-radius: 0 !important;
 }
 
@@ -4688,5 +4687,10 @@ input[type="search"],
 #adminTabSearch::placeholder,
 .admin-tab-search::placeholder {
     font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
-    text-transform: uppercase !important;
+}
+
+/* Input fields should keep normal case. */
+input,
+input::placeholder {
+    text-transform: none !important;
 }

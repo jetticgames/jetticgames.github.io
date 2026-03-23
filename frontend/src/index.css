@@ -270,6 +270,12 @@ body * {
   border-radius: 0 !important;
 }
 
+/* Input fields should keep normal case. */
+input,
+input::placeholder {
+  text-transform: none !important;
+}
+
 @media (max-width: 640px) {
   .page__header {
     flex-direction: column;
