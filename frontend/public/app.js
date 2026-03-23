@@ -1738,7 +1738,14 @@
         els.allGames.appendChild(frag);
     }
 
-    const placeholderThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270" fill="none"><rect width="480" height="270" fill="%23d1d5db"/><circle cx="380" cy="72" r="30" fill="%239ca3af"/><path d="M0 220h480v50H0z" fill="%239aa0a8"/><path d="M70 230 190 110l125 120H70Z" fill="%23737b84"/><path d="M185 230 280 135l130 95H185Z" fill="%23646b73"/><path d="M140 170 190 120l45 44" stroke="%23bfc5cc" stroke-width="8" stroke-linecap="round"/><rect x="28" y="24" width="424" height="222" rx="14" stroke="%23808790" stroke-width="10"/></svg>';
+    const fallbackLogoThumb = '/logo.png';
+
+    function applyLogoThumbFallback(img) {
+        if (!img || img.dataset.fallbackApplied === 'true') return;
+        img.dataset.fallbackApplied = 'true';
+        img.classList.add('thumb-fallback-logo');
+        img.src = fallbackLogoThumb;
+    }
 
     function resolveAssetUrl(url) {
         if (!url) return '';
@@ -1756,7 +1763,8 @@
     }
 
     function buildGameCard(game, idx = 0) {
-        const thumb = resolveAssetUrl(game.thumbnail) || placeholderThumb;
+        const thumb = resolveAssetUrl(game.thumbnail);
+        const initialThumb = thumb || fallbackLogoThumb;
         const card = document.createElement('div');
         card.className = 'game-card';
         card.dataset.id = game.id;
@@ -1764,7 +1772,7 @@
         card.innerHTML = `
             <div class="card-friend-avatars"></div>
             <div class="game-thumb">
-                <img src="${thumb}" alt="${game.title}" loading="lazy" />
+                <img src="${initialThumb}" alt="${game.title}" loading="lazy" />
                 <div class="game-card-overlay"></div>
                 ${game.disabled ? '<div class="game-badge danger">Maintenance</div>' : ''}
             </div>
@@ -1777,7 +1785,13 @@
             </div>`;
 
         const img = card.querySelector('img');
-        img.addEventListener('error', () => { img.src = placeholderThumb; });
+        if (!thumb) {
+            applyLogoThumbFallback(img);
+        }
+        img.addEventListener('error', () => {
+            if (img.dataset.fallbackApplied === 'true') return;
+            applyLogoThumbFallback(img);
+        });
 
         card.addEventListener('click', (e) => {
             if (e.target.closest('.fav-toggle')) return;

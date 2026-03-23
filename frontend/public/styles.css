@@ -1905,6 +1905,14 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
 
 .game-thumb img {object-fit: cover;}
 
+.game-thumb img.thumb-fallback-logo {
+    object-fit: contain;
+    object-position: center;
+    padding: 22px;
+    filter: grayscale(1) brightness(0.78) contrast(1.05);
+    background: linear-gradient(135deg, #c6c9cf 0%, #d8dbe0 100%);
+}
+
 .featured-grid .game-card img {
     height: 100%;
 }
