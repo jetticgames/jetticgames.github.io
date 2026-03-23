@@ -277,6 +277,7 @@ select,
 option,
 input::placeholder,
 textarea::placeholder {
+  font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
   text-transform: none !important;
 }
 
