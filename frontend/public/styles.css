@@ -4644,33 +4644,39 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
    Futuristic Glass + Gloss Theme Override
    ====================================================== */
 :root {
-    --bg-primary: #040913;
-    --bg-secondary: rgba(13, 24, 44, 0.66);
-    --bg-tertiary: rgba(18, 34, 60, 0.6);
-    --text-primary: #e6f5ff;
-    --text-secondary: #9cc4dc;
-    --text-muted: #7fa3b8;
-    --border-primary: rgba(151, 220, 255, 0.22);
-    --border-secondary: rgba(103, 176, 221, 0.18);
-    --accent-primary: #48dcff;
-    --accent-hover: #88b9ff;
-    --success: #4cebaf;
-    --error: #ff738f;
-    --warning: #ffd370;
-    --accent-color: #48dcff;
-    --hover-color: rgba(19, 40, 70, 0.74);
-    --bg-secondary-transparent: rgba(13, 24, 44, 0.58);
-    --glass-highlight: rgba(255, 255, 255, 0.25);
+    --bg-primary: #0b0e14;
+    --bg-secondary: rgba(255, 255, 255, 0.08);
+    --bg-tertiary: rgba(255, 255, 255, 0.12);
+    --text-primary: #eff3f8;
+    --text-secondary: #c8ced8;
+    --text-muted: #a8afb9;
+    --border-primary: rgba(255, 255, 255, 0.28);
+    --border-secondary: rgba(255, 255, 255, 0.2);
+    --accent-primary: #f0f3f7;
+    --accent-hover: #ffffff;
+    --success: #dce2ea;
+    --error: #b4bac3;
+    --warning: #d8dde5;
+    --accent-color: #f0f3f7;
+    --hover-color: rgba(255, 255, 255, 0.16);
+    --bg-secondary-transparent: rgba(255, 255, 255, 0.09);
+    --glass-highlight: rgba(255, 255, 255, 0.34);
 }
 
 body {
     background:
-        radial-gradient(1200px 760px at 10% 10%, rgba(79, 171, 255, 0.26), transparent 60%),
-        radial-gradient(980px 620px at 88% 0%, rgba(106, 249, 215, 0.2), transparent 64%),
-        linear-gradient(145deg, #040a15 0%, #09162a 50%, #040b19 100%) !important;
+        radial-gradient(1200px 760px at 10% 10%, rgba(255, 255, 255, 0.11), transparent 60%),
+        radial-gradient(980px 620px at 88% 0%, rgba(255, 255, 255, 0.07), transparent 64%),
+        linear-gradient(145deg, #0d1117 0%, #151922 50%, #090c13 100%) !important;
     color: var(--text-primary) !important;
-    font-family: 'Rajdhani', 'Segoe UI', sans-serif !important;
+    font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
     position: relative;
+}
+
+body,
+body *:not(i):not(.fa):not([class^='fa-']):not([class*=' fa-']) {
+    font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
+    text-transform: uppercase;
 }
 
 body::before {
@@ -4692,12 +4698,12 @@ body::after {
     background:
         repeating-linear-gradient(
             90deg,
-            rgba(95, 185, 255, 0.04) 0,
-            rgba(95, 185, 255, 0.04) 1px,
+            rgba(255, 255, 255, 0.05) 0,
+            rgba(255, 255, 255, 0.05) 1px,
             transparent 1px,
             transparent 52px
         ),
-        linear-gradient(180deg, rgba(3, 9, 18, 0.15), rgba(4, 10, 20, 0.72));
+        linear-gradient(180deg, rgba(10, 12, 16, 0.15), rgba(7, 9, 14, 0.74));
 }
 
 h1,
@@ -4714,7 +4720,7 @@ h6,
 .cat-tab,
 .friends-tab,
 .nav-link {
-    font-family: 'Orbitron', 'Rajdhani', sans-serif !important;
+    font-family: 'Share Tech Mono', 'Consolas', 'Courier New', monospace !important;
     letter-spacing: 0.03em;
 }
 
@@ -4751,11 +4757,11 @@ h6,
 .game-offline-overlay,
 .main-offline-overlay,
 .ads-offline-overlay {
-    background: linear-gradient(145deg, rgba(18, 34, 60, 0.58), rgba(11, 22, 42, 0.48)) !important;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)) !important;
     border: 1px solid var(--border-primary) !important;
-    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 22px 48px rgba(0, 8, 20, 0.48) !important;
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 16px 38px rgba(0, 0, 0, 0.34) !important;
+    backdrop-filter: blur(16px) saturate(108%);
+    -webkit-backdrop-filter: blur(16px) saturate(108%);
 }
 
 .game-card,
@@ -4784,8 +4790,8 @@ button,
 input,
 select,
 textarea {
-    background: linear-gradient(140deg, rgba(20, 40, 70, 0.68), rgba(15, 28, 52, 0.56)) !important;
-    border-color: rgba(149, 219, 255, 0.28) !important;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07)) !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
     color: var(--text-primary) !important;
 }
 
@@ -4802,9 +4808,9 @@ textarea {
 .control-btn:hover,
 .icon-btn:hover,
 button:hover {
-    background: linear-gradient(140deg, rgba(35, 63, 104, 0.78), rgba(30, 50, 92, 0.62)) !important;
-    border-color: rgba(174, 230, 255, 0.42) !important;
-    transform: translateY(-1px);
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.11)) !important;
+    border-color: rgba(255, 255, 255, 0.42) !important;
+    transform: translateY(-2px) scale(1.012);
 }
 
 .nav-item.active .nav-link,
@@ -4814,10 +4820,10 @@ button:hover {
 .update-btn-primary,
 .profile-actions button.primary,
 .add-friend-form button.primary {
-    background: linear-gradient(128deg, rgba(72, 220, 255, 0.42), rgba(131, 142, 255, 0.38)) !important;
-    border-color: rgba(155, 226, 255, 0.56) !important;
-    color: #effbff !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 12px 28px rgba(12, 55, 92, 0.34) !important;
+    background: linear-gradient(128deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.11)) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    color: #f5f8fb !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 10px 24px rgba(0, 0, 0, 0.3) !important;
 }
 
 .page,
@@ -4831,61 +4837,26 @@ button:hover {
 .auth-modal,
 .profile-card {
     position: relative;
-    overflow: hidden;
-}
-
-.page::before,
-.friends-tab-panel::before,
-.notification-card::before,
-.stat-card::before,
-.settings-card::before,
-.game-card::before,
-.friends-panel::before,
-.modal-card::before,
-.auth-modal::before,
-.profile-card::before {
-    content: '';
-    position: absolute;
-    top: -120%;
-    left: -34%;
-    width: 60%;
-    height: 320%;
-    background: linear-gradient(120deg, transparent 46%, rgba(255, 255, 255, 0.2) 49%, transparent 53%);
-    transform: rotate(18deg);
-    pointer-events: none;
-    animation: glassSweep 8.4s ease-in-out infinite;
-}
-
-@keyframes glassSweep {
-    0%,
-    72% {
-        opacity: 0;
-        transform: translateX(-26%) rotate(18deg);
-    }
-    100% {
-        opacity: 0.76;
-        transform: translateX(196%) rotate(18deg);
-    }
 }
 
 .status-dot,
 .status__dot,
 .admin-user-online .dot {
-    box-shadow: 0 0 0 3px rgba(124, 211, 255, 0.24), 0 0 14px rgba(96, 217, 255, 0.3) !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2), 0 0 12px rgba(255, 255, 255, 0.16) !important;
 }
 
 .welcome-icon,
 .logo-icon,
 .notification-icon,
 .empty-state-icon {
-    background: linear-gradient(135deg, rgba(72, 220, 255, 0.45), rgba(140, 145, 255, 0.42)) !important;
-    border: 1px solid rgba(170, 231, 255, 0.48) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 26px rgba(8, 48, 88, 0.35) !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.44) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 8px 22px rgba(0, 0, 0, 0.28) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-    color: #89adc3 !important;
+    color: #aab1bb !important;
 }
 
 @media (max-width: 860px) {
