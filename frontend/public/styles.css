@@ -4203,6 +4203,118 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
 .proxy-toggle-visual.off .times-icon {display:block; color:#f85149;}
 .proxy-toggle-visual:active {transform:scale(.95);} 
 /* live-user-badge removed */
+
+/* Staged game-card hover choreography: thumb -> title -> category -> favorite */
+.games-grid .game-card .game-thumb img {
+    transform-origin: center center;
+    transition: transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.34s ease;
+    will-change: transform;
+}
+
+.games-grid .game-card:hover .game-thumb img {
+    transform: scale(1.12) rotate(-2deg);
+    filter: brightness(1);
+}
+
+.games-grid .game-card .game-card-content {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.games-grid .game-card .game-card-title,
+.games-grid .game-card .game-card-category,
+.games-grid .game-card .fav-toggle {
+    opacity: 0;
+}
+
+.games-grid .game-card .game-card-title,
+.games-grid .game-card .game-card-category {
+    transform: translateY(22px);
+}
+
+.games-grid .game-card .fav-toggle {
+    transform: translateY(18px) scale(0.9);
+}
+
+.games-grid .game-card:hover .game-card-content {
+    opacity: 1;
+    transition-delay: 0.18s;
+}
+
+.games-grid .game-card:hover .game-card-title {
+    animation: cardTitleRubberUp 0.56s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both;
+}
+
+.games-grid .game-card:hover .game-card-category {
+    animation: cardMetaSlideUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+}
+
+.games-grid .game-card:hover .fav-toggle {
+    animation: cardFavSlideUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.48s both;
+}
+
+@keyframes cardTitleRubberUp {
+    0% {
+        opacity: 0;
+        transform: translateY(24px) scale(0.92);
+    }
+    62% {
+        opacity: 1;
+        transform: translateY(-2px) scale(1.07, 0.94);
+    }
+    80% {
+        transform: translateY(0) scale(0.98, 1.03);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes cardMetaSlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes cardFavSlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.86);
+    }
+    78% {
+        opacity: 1;
+        transform: translateY(-1px) scale(1.06);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .games-grid .game-card .game-thumb img,
+    .games-grid .game-card .game-card-content,
+    .games-grid .game-card .game-card-title,
+    .games-grid .game-card .game-card-category,
+    .games-grid .game-card .fav-toggle {
+        transition: none !important;
+        animation: none !important;
+    }
+
+    .games-grid .game-card .game-card-content,
+    .games-grid .game-card .game-card-title,
+    .games-grid .game-card .game-card-category,
+    .games-grid .game-card .fav-toggle {
+        opacity: 1;
+        transform: none;
+    }
+}
 /* Align ad column top with iframe top */
 .game-sidebar {margin-top:0 !important; padding-top:16px !important;}
 .ad-column {padding-top:0 !important;}
