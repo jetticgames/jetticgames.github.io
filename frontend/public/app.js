@@ -80,7 +80,9 @@
         lastPlayedCache: [],
         pageTransitionId: 0,
         panelTransitionId: 0,
-        searchDebounceTimer: null
+        searchDebounceTimer: null,
+        isInitialLoad: true,
+        offlineOverlayDismissed: false
     };
 
     const HOME_PATH = '/';
@@ -491,6 +493,7 @@
         applyClockSetting(true);
         applyCurrentSectionSetting(true);
         els.offlineReloadBtn?.addEventListener('click', () => window.location.reload());
+        els.offlineDismissBtn?.addEventListener('click', () => dismissOfflineOverlay());
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') sendOnlinePing();
         });
@@ -638,6 +641,7 @@
             mainOfflineOverlay: document.getElementById('mainOfflineOverlay'),
             gameOfflineOverlay: document.getElementById('gameOfflineOverlay'),
             offlineReloadBtn: document.getElementById('offlineReloadBtn'),
+            offlineDismissBtn: document.getElementById('offlineDismissBtn'),
             offlineMessage: document.getElementById('offlineMessage'),
             authModal: document.getElementById('authModal'),
             authTabs: Array.from(document.querySelectorAll('.auth-tab')),
@@ -1506,11 +1510,14 @@
             applyRouteFromLocation({ initial: true });
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
-            showOfflineOverlay('Jettic Games is currently offline or blocked by your network.');
+            if (!runtime.offlineOverlayDismissed) {
+                showOfflineOverlay('Jettic Games is currently offline or blocked by your network.');
+            }
         } finally {
             startOnlineHeartbeat();
             startHealthPolling();
             showLoader(false);
+            runtime.isInitialLoad = false;
         }
     }
 
@@ -3656,7 +3663,9 @@
             runtime.offlineNotified = true;
             pushNotification('Offline', 'Jettic Online Services are unavailable while offline.', 'warning');
             setStatus(false, 'Offline - Check Network');
-            showOfflineOverlay(reason || 'Jettic Games is currently offline or blocked by your network.');
+            if (runtime.isInitialLoad && !runtime.offlineOverlayDismissed) {
+                showOfflineOverlay(reason || 'Jettic Games is currently offline or blocked by your network.');
+            }
         } else {
             runtime.offlineNotified = false;
             pushNotification('Back online', 'Reconnected to Jettic Online Services.', 'success');
@@ -3682,6 +3691,11 @@
         if (els.mainOfflineOverlay) els.mainOfflineOverlay.style.display = 'none';
         if (els.gameOfflineOverlay) els.gameOfflineOverlay.style.display = 'none';
         document.body.classList.remove('offline-mode');
+    }
+
+    function dismissOfflineOverlay() {
+        runtime.offlineOverlayDismissed = true;
+        hideOfflineOverlay();
     }
 
     function refreshUserUI() {
