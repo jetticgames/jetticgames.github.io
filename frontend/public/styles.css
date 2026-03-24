@@ -4218,7 +4218,7 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
 
 .games-grid .game-card .game-card-content {
     opacity: 0;
-    transition: opacity 0.18s ease;
+    transition: opacity 0.22s ease;
 }
 
 .games-grid .game-card .game-card-title,
@@ -4228,73 +4228,91 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
 }
 
 .games-grid .game-card .game-card-title,
-.games-grid .game-card .game-card-category {
-    transform: translateY(22px);
+.games-grid .game-card .game-card-category,
+.games-grid .game-card .game-card-description {
+    transform: translateY(20px);
+    transition-property: transform, opacity;
+    transition-duration: 0.46s, 0.26s;
+    transition-timing-function: cubic-bezier(0.18, 0.9, 0.26, 1.22), ease;
 }
 
 .games-grid .game-card .fav-toggle {
-    transform: translateY(18px) scale(0.9);
+    transform: translateY(18px);
+    transition-property: transform, opacity, color;
+    transition-duration: 0.44s, 0.26s, 0.2s;
+    transition-timing-function: cubic-bezier(0.18, 0.9, 0.26, 1.22), ease, ease;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none;
 }
 
 .games-grid .game-card:hover .game-card-content {
     opacity: 1;
-    transition-delay: 0.18s;
+    transition-delay: 0.16s;
 }
 
 .games-grid .game-card:hover .game-card-title {
-    animation: cardTitleRubberUp 0.56s cubic-bezier(0.2, 0.9, 0.25, 1.2) 0.2s both;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.2s, 0.2s;
 }
 
 .games-grid .game-card:hover .game-card-category {
-    animation: cardMetaSlideUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.34s both;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.32s, 0.32s;
+}
+
+.games-grid .game-card:hover .game-card-description {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.32s, 0.32s;
 }
 
 .games-grid .game-card:hover .fav-toggle {
-    animation: cardFavSlideUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.48s both;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.44s, 0.44s, 0s;
 }
 
-@keyframes cardTitleRubberUp {
-    0% {
-        opacity: 0;
-        transform: translateY(24px) scale(0.92);
-    }
-    62% {
-        opacity: 1;
-        transform: translateY(-2px) scale(1.07, 0.94);
-    }
-    80% {
-        transform: translateY(0) scale(0.98, 1.03);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+/* Exit sequence (reverse order) when the cursor leaves the card */
+.games-grid .game-card:not(:hover) .fav-toggle {
+    transition-delay: 0s, 0s, 0s;
 }
 
-@keyframes cardMetaSlideUp {
-    0% {
-        opacity: 0;
-        transform: translateY(18px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.games-grid .game-card:not(:hover) .game-card-category {
+    transition-delay: 0.08s, 0.08s;
 }
 
-@keyframes cardFavSlideUp {
-    0% {
-        opacity: 0;
-        transform: translateY(18px) scale(0.86);
-    }
-    78% {
-        opacity: 1;
-        transform: translateY(-1px) scale(1.06);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+.games-grid .game-card:not(:hover) .game-card-description {
+    transition-delay: 0.08s, 0.08s;
+}
+
+.games-grid .game-card:not(:hover) .game-card-title {
+    transition-delay: 0.16s, 0.16s;
+}
+
+.games-grid .game-card:not(:hover) .game-card-content {
+    transition-delay: 0.16s;
+}
+
+.games-grid .game-card .fav-toggle,
+.games-grid .game-card .fav-toggle:hover,
+.games-grid .game-card .fav-toggle:focus,
+.games-grid .game-card .fav-toggle:active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.games-grid .game-card .fav-toggle i {
+    color: #ffffff;
+    transition: color 0.2s ease;
+}
+
+.games-grid .game-card .fav-toggle.active i {
+    color: #e25555;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4304,7 +4322,6 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
     .games-grid .game-card .game-card-category,
     .games-grid .game-card .fav-toggle {
         transition: none !important;
-        animation: none !important;
     }
 
     .games-grid .game-card .game-card-content,
