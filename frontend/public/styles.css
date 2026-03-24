@@ -4241,7 +4241,7 @@ label .jg-switch-input:checked + .jg-switch::after {transform:translateX(20px); 
     transition-property: transform, opacity, color;
     transition-duration: 0.44s, 0.26s, 0.2s;
     transition-timing-function: cubic-bezier(0.18, 0.9, 0.26, 1.22), ease, ease;
-    bottom: 22px;
+    bottom: 14px;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
