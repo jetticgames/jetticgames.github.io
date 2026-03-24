@@ -79,7 +79,8 @@
         pendingRoute: null,
         lastPlayedCache: [],
         pageTransitionId: 0,
-        panelTransitionId: 0
+        panelTransitionId: 0,
+        searchDebounceTimer: null
     };
 
     const HOME_PATH = '/';
@@ -477,6 +478,7 @@
         bindProfileSecurity();
         bindSettingsForm();
         bindFriendsUI();
+        bindSearch();
         bindFavoritesUI();
         bindGameControls();
         bindReportUI();
@@ -1066,14 +1068,25 @@
 
     function bindSearch() {
         if (!els.searchInput) return;
-        const enableSearch = () => {
-            els.searchInput.disabled = false;
-            els.searchInput.classList.remove('search-disabled');
-            els.searchInput.addEventListener('input', () => filterAndRender(), { once: false });
+        const runSearch = () => {
+            runtime.searchDebounceTimer = null;
+            filterAndRender();
         };
-        els.searchInput.disabled = true;
-        els.searchInput.classList.add('search-disabled');
-        setTimeout(enableSearch, 3000);
+
+        els.searchInput.disabled = false;
+        els.searchInput.classList.remove('search-disabled');
+
+        els.searchInput.addEventListener('input', () => {
+            if (runtime.searchDebounceTimer) clearTimeout(runtime.searchDebounceTimer);
+            runtime.searchDebounceTimer = setTimeout(runSearch, 1000);
+        });
+
+        els.searchInput.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (runtime.searchDebounceTimer) clearTimeout(runtime.searchDebounceTimer);
+            runSearch();
+        });
     }
 
     function bindProfileForm() {
