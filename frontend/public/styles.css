@@ -1842,6 +1842,80 @@ body.custom-cursor-enabled, body.custom-cursor-enabled * { cursor: none !importa
     display: block;
 }
 
+.game-card--skeleton {
+    pointer-events: none;
+    cursor: default;
+    opacity: 1;
+    animation: none;
+    border-color: #3a414c;
+    background: #2a2f36;
+}
+
+.game-card--skeleton:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #3a414c;
+}
+
+.game-skeleton-thumb {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #2a2f36 0%, #323843 55%, #2a2f36 100%);
+    overflow: hidden;
+}
+
+.game-skeleton-thumb::after {
+    content: "";
+    position: absolute;
+    inset: -30% -70%;
+    background: linear-gradient(110deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.24) 50%, rgba(255, 255, 255, 0) 60%);
+    transform: translateX(-140%) rotate(8deg);
+    animation: skeletonSweep 3.4s ease-in-out infinite;
+}
+
+.game-skeleton-content {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.game-skeleton-line {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(230, 236, 244, 0.18);
+}
+
+.game-skeleton-line--title {
+    width: 68%;
+    height: 13px;
+}
+
+.game-skeleton-line--meta {
+    width: 44%;
+}
+
+@keyframes skeletonSweep {
+    0% {
+        transform: translateX(-140%) rotate(8deg);
+        opacity: 0;
+    }
+    14% {
+        opacity: 1;
+    }
+    42% {
+        transform: translateX(140%) rotate(8deg);
+        opacity: 1;
+    }
+    43%, 100% {
+        transform: translateX(140%) rotate(8deg);
+        opacity: 0;
+    }
+}
+
 .game-card .card-friend-avatars {
     position: absolute;
     top: 10px;

@@ -21,6 +21,7 @@
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const BACKEND_CONNECT_RETRY_MS = 1500;
+    const GAMES_SKELETON_COUNT = 12;
 
     function wait(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,7 +83,8 @@
         panelTransitionId: 0,
         searchDebounceTimer: null,
         isInitialLoad: true,
-        offlineOverlayDismissed: false
+        offlineOverlayDismissed: false,
+        gamesLoading: true
     };
 
     const HOME_PATH = '/';
@@ -503,6 +505,7 @@
         window.addEventListener('popstate', handlePopState);
         setActiveNav('home');
         showPage('home', { skipHistory: true, replaceHistory: true });
+        renderGames();
         loadInitial();
     }
 
@@ -1475,7 +1478,8 @@
     }
 
     async function loadInitial() {
-        showLoader(true);
+        runtime.gamesLoading = true;
+        renderGames();
         try {
             await waitForBackendConnection();
             const [config, gamesResponse, stats, me] = await Promise.all([
@@ -1490,6 +1494,7 @@
             state.banner = config?.banner || null;
             buildCategoryTabs();
             renderHomeBanner(state.banner);
+            runtime.gamesLoading = false;
             renderGames();
             if (stats) updateStats(stats); else updateStats({ totalGames: state.games.length, categoryCount: state.categories.length });
             if (me?.user) {
@@ -1518,7 +1523,8 @@
         } finally {
             startOnlineHeartbeat();
             startHealthPolling();
-            showLoader(false);
+            runtime.gamesLoading = false;
+            renderGames();
             runtime.isInitialLoad = false;
         }
     }
@@ -1756,6 +1762,15 @@
         if (!els.allGames) return;
         els.allGames.innerHTML = '';
         const frag = document.createDocumentFragment();
+
+        if (runtime.gamesLoading) {
+            for (let i = 0; i < GAMES_SKELETON_COUNT; i += 1) {
+                frag.appendChild(buildGameSkeletonCard(i));
+            }
+            els.allGames.appendChild(frag);
+            return;
+        }
+
         state.filtered.forEach((game, idx) => frag.appendChild(buildGameCard(game, idx)));
         els.allGames.appendChild(frag);
     }
@@ -1825,6 +1840,21 @@
         });
         updateFavButton(card.querySelector('.fav-toggle'), game.id);
         renderCardFriends(card, game.id);
+        return card;
+    }
+
+    function buildGameSkeletonCard(idx = 0) {
+        const card = document.createElement('div');
+        card.className = 'game-card game-card--skeleton';
+        card.setAttribute('aria-hidden', 'true');
+        card.style.animationDelay = `${Math.min(idx, 12) * 60}ms`;
+        card.innerHTML = `
+            <div class="game-skeleton-thumb"></div>
+            <div class="game-skeleton-content">
+                <div class="game-skeleton-line game-skeleton-line--title"></div>
+                <div class="game-skeleton-line game-skeleton-line--meta"></div>
+            </div>
+        `;
         return card;
     }
 
@@ -4299,16 +4329,7 @@
 
     function showLoader(show) {
         if (!els.loader) return;
-        if (show) {
-            // Only allow showing once during initial load to avoid re-triggering the intro animation
-            if (els.loader.dataset.locked === 'true') return;
-            els.loader.style.display = 'flex';
-        } else {
-            els.loader.dataset.locked = 'true';
-            els.loader.classList.add('fade-out');
-            // Keep it in the DOM but hidden to prevent flicker on future API polls
-            setTimeout(() => { els.loader.style.display = 'none'; }, 600);
-        }
+        els.loader.style.display = 'none';
     }
 
     function toggleSaving(isSaving) {
