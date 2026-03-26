@@ -2,23 +2,51 @@
 (() => {
     'use strict';
 
-    function resolveBackendUrl() {
-        const params = new URLSearchParams(window.location.search);
-        const queryApi = (params.get('api') || '').trim();
-        if (queryApi) return queryApi.replace(/\/+$/, '');
-
-        const configApi = (window.JETTIC_CONFIG?.backendUrl || '').trim();
-        if (configApi) return configApi.replace(/\/+$/, '');
-
-        if (/\.netlify\.app$/i.test(window.location.hostname)) {
-            return '/.netlify/functions/relay';
-        }
-
-        return '';
+    function normalizeBackendUrl(url) {
+        return String(url || '').trim().replace(/\/+$/, '');
     }
 
-    let backendUrl = resolveBackendUrl();
+    function parseBackendUrlList(rawValue) {
+        const source = Array.isArray(rawValue) ? rawValue : [rawValue];
+        const urls = [];
+
+        source.forEach((value) => {
+            String(value || '')
+                .split(/[\n,;]/)
+                .forEach((token) => {
+                    const normalized = normalizeBackendUrl(token);
+                    if (normalized) urls.push(normalized);
+                });
+        });
+
+        return Array.from(new Set(urls));
+    }
+
+    function resolveBackendUrls() {
+        const params = new URLSearchParams(window.location.search);
+        const queryApiValues = params.getAll('api');
+        const queryUrls = parseBackendUrlList(queryApiValues);
+        if (queryUrls.length) return queryUrls;
+
+        const configUrls = parseBackendUrlList(window.JETTIC_CONFIG?.backendUrls || window.JETTIC_CONFIG?.backendUrl || '');
+        if (configUrls.length) return configUrls;
+
+        if (/\.netlify\.app$/i.test(window.location.hostname)) {
+            return ['/.netlify/functions/relay'];
+        }
+
+        return [];
+    }
+
+    function resolveBackendUrl() {
+        const urls = resolveBackendUrls();
+        return urls[0] || '';
+    }
+
+    let backendUrls = resolveBackendUrls();
+    let backendUrl = backendUrls[0] || '';
     window.JETTIC_BACKEND_URL = backendUrl;
+    window.JETTIC_BACKEND_URLS = backendUrls.slice();
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const BACKEND_CONNECT_RETRY_MS = 1500;
     const BACKEND_CONNECT_MAX_ATTEMPTS = 4;
@@ -27,6 +55,58 @@
 
     function wait(ms) {
         return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function applyBackendSelection(urls, preferredUrl = null) {
+        const normalized = parseBackendUrlList(urls);
+        const preferred = normalizeBackendUrl(preferredUrl || normalized[0] || '');
+        const ordered = preferred
+            ? [preferred, ...normalized.filter((url) => url !== preferred)]
+            : normalized;
+
+        backendUrls = ordered;
+        backendUrl = ordered[0] || '';
+        window.JETTIC_BACKEND_URL = backendUrl;
+        window.JETTIC_BACKEND_URLS = ordered.slice();
+        return backendUrl;
+    }
+
+    function promoteBackendUrl(url) {
+        const normalized = normalizeBackendUrl(url);
+        if (!normalized || normalized === backendUrl) return;
+        applyBackendSelection([normalized, ...backendUrls], normalized);
+    }
+
+    function shuffleArray(items) {
+        const copy = items.slice();
+        for (let i = copy.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    }
+
+    function firstSuccessful(promises) {
+        return new Promise((resolve, reject) => {
+            if (!promises.length) {
+                reject(new Error('No backend URLs configured'));
+                return;
+            }
+
+            let pending = promises.length;
+            let lastError = null;
+            promises.forEach((promise) => {
+                Promise.resolve(promise)
+                    .then(resolve)
+                    .catch((err) => {
+                        pending -= 1;
+                        lastError = err;
+                        if (pending === 0) {
+                            reject(lastError || new Error('All backend probes failed'));
+                        }
+                    });
+            });
+        });
     }
 
     const state = {
@@ -133,6 +213,89 @@
         return false;
     }
 
+    function isLikelyRelayBackendUrl(url) {
+        const normalized = normalizeBackendUrl(url);
+        if (!normalized) return false;
+        try {
+            const parsed = new URL(normalized, window.location.origin);
+            if (/\.netlify\.app$/i.test(parsed.hostname || '')) return true;
+            return /\/(?:\.netlify\/functions\/)?relay(?:\/|$)/i.test(parsed.pathname || '');
+        } catch (_) {
+            return /\/(?:\.netlify\/functions\/)?relay(?:\/|$)/i.test(normalized);
+        }
+    }
+
+    async function pingBackendForSelection(baseUrl) {
+        const startedAt = Date.now();
+        const candidates = isLikelyRelayBackendUrl(baseUrl)
+            ? buildRelayProbeCandidates(baseUrl)
+            : buildBackendCandidates(baseUrl, '/health');
+
+        let lastError = null;
+        for (let i = 0; i < candidates.length; i += 1) {
+            const candidate = candidates[i];
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), RELAY_PROBE_TIMEOUT_MS);
+            try {
+                const response = await fetch(candidate, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: controller.signal
+                });
+                clearTimeout(timer);
+                if (!response.ok) {
+                    lastError = new Error(`Probe failed: ${response.status}`);
+                    continue;
+                }
+
+                return {
+                    baseUrl,
+                    candidate,
+                    latencyMs: Date.now() - startedAt
+                };
+            } catch (err) {
+                clearTimeout(timer);
+                lastError = err;
+            }
+        }
+
+        throw lastError || new Error('Backend probe failed');
+    }
+
+    async function selectBestBackendUrl() {
+        const pool = backendUrls.filter(Boolean);
+        if (pool.length <= 1) return backendUrl;
+
+        const shuffled = shuffleArray(pool);
+        const probePromises = shuffled.map((baseUrl) => pingBackendForSelection(baseUrl));
+
+        try {
+            const fastest = await firstSuccessful(probePromises);
+            promoteBackendUrl(fastest.baseUrl);
+        } catch (_) {
+            return backendUrl;
+        }
+
+        Promise.allSettled(probePromises).then((results) => {
+            const successful = results
+                .filter((entry) => entry.status === 'fulfilled')
+                .map((entry) => entry.value)
+                .sort((a, b) => a.latencyMs - b.latencyMs);
+
+            if (!successful.length) return;
+
+            const ranked = successful.map((entry) => entry.baseUrl);
+            const remaining = backendUrls.filter((url) => !ranked.includes(url));
+            applyBackendSelection([...ranked, ...remaining], ranked[0]);
+            renderBackendInfo();
+        });
+
+        renderBackendInfo();
+        return backendUrl;
+    }
+
     function isNetlifyRelayDomainBackend(url = backendUrl) {
         const raw = String(url || '').trim();
         if (!raw) return false;
@@ -145,7 +308,7 @@
     }
 
     async function probeNetlifyRelayReachability() {
-        const base = String(backendUrl || window.JETTIC_BACKEND_URL || '').trim();
+        const base = normalizeBackendUrl(backendUrl || window.JETTIC_BACKEND_URL || backendUrls[0] || '');
         if (!isNetlifyRelayDomainBackend(base)) {
             runtime.relayReachable = null;
             return null;
@@ -221,6 +384,22 @@
         return Array.from(new Set(candidates));
     }
 
+    function collectRequestCandidates(path) {
+        const bases = backendUrls.length ? backendUrls : parseBackendUrlList(backendUrl);
+        const seenUrls = new Set();
+        const candidates = [];
+
+        bases.forEach((base) => {
+            buildBackendCandidates(base, path).forEach((candidateUrl) => {
+                if (seenUrls.has(candidateUrl)) return;
+                seenUrls.add(candidateUrl);
+                candidates.push({ baseUrl: base, url: candidateUrl });
+            });
+        });
+
+        return candidates;
+    }
+
     function shouldRetryWithAlternateRelayPath(response, attemptedUrl) {
         if (!response) return false;
         if (response.status !== 404) return false;
@@ -231,19 +410,22 @@
 
     const api = {
         async request(path, options = {}) {
-            if (!backendUrl) throw new Error('Backend URL is not configured');
+            if (!backendUrl && !backendUrls.length) throw new Error('Backend URL is not configured');
             const method = String(options.method || 'GET').toUpperCase();
             const headers = { ...(options.headers || {}) };
             if (options.body && !headers['Content-Type'] && !headers['content-type']) {
                 headers['Content-Type'] = 'application/json';
             }
             let res;
-            const urlCandidates = buildBackendCandidates(backendUrl, path);
-            let selectedUrl = urlCandidates[0] || `${backendUrl}${path}`;
+            const endpointCandidates = collectRequestCandidates(path);
+            if (!endpointCandidates.length) throw new Error('Backend URL is not configured');
+            const attemptedUrls = endpointCandidates.map((entry) => entry.url);
+            let selectedUrl = attemptedUrls[0] || `${backendUrl}${path}`;
             let lastNetworkError = null;
 
-            for (let i = 0; i < urlCandidates.length; i += 1) {
-                const candidate = urlCandidates[i];
+            for (let i = 0; i < endpointCandidates.length; i += 1) {
+                const candidateEntry = endpointCandidates[i];
+                const candidate = candidateEntry.url;
                 selectedUrl = candidate;
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), 8000);
@@ -258,14 +440,20 @@
                     });
                     clearTimeout(timer);
 
-                    if (shouldRetryWithAlternateRelayPath(res, candidate) && i < urlCandidates.length - 1) {
+                    if (shouldRetryWithAlternateRelayPath(res, candidate) && i < endpointCandidates.length - 1) {
                         continue;
                     }
+
+                    if (!res.ok && res.status >= 500 && i < endpointCandidates.length - 1) {
+                        continue;
+                    }
+
+                    if (res.ok) promoteBackendUrl(candidateEntry.baseUrl);
                     break;
                 } catch (err) {
                     clearTimeout(timer);
                     const name = err?.name || '';
-                    const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(backendUrl || '');
+                    const mixedContent = window.location.protocol === 'https:' && /^http:\/\//i.test(candidate || '');
                     const networkError = new Error(
                         name === 'AbortError'
                             ? 'Backend request timed out'
@@ -278,12 +466,12 @@
                         method,
                         path,
                         url: candidate,
-                        attemptedUrls: urlCandidates,
+                        attemptedUrls,
                         message: networkError.message,
                         reason: name || 'unknown'
                     };
                     lastNetworkError = networkError;
-                    if (i === urlCandidates.length - 1) throw networkError;
+                    if (i === endpointCandidates.length - 1) throw networkError;
                 }
             }
 
@@ -308,7 +496,7 @@
                     method,
                     path,
                     url: selectedUrl,
-                    attemptedUrls: urlCandidates,
+                    attemptedUrls,
                     status: res.status,
                     statusText: res.statusText,
                     contentType: ct,
@@ -600,12 +788,21 @@
 
     function renderBackendInfo() {
         if (!els.settingsBackend) return;
-        if (!backendUrl) {
-            backendUrl = resolveBackendUrl();
-            window.JETTIC_BACKEND_URL = backendUrl;
+        if (!backendUrl && !backendUrls.length) {
+            applyBackendSelection(resolveBackendUrls());
         }
-        const backend = (window.JETTIC_BACKEND_URL || backendUrl || '').trim();
-        els.settingsBackend.textContent = backend ? `Backend: ${backend}` : 'Backend: not configured';
+        const activeBackend = normalizeBackendUrl(window.JETTIC_BACKEND_URL || backendUrl || '');
+        if (!activeBackend) {
+            els.settingsBackend.textContent = 'Backend: not configured';
+            return;
+        }
+
+        if (backendUrls.length > 1) {
+            els.settingsBackend.textContent = `Backend: ${activeBackend} (${backendUrls.length} relays configured)`;
+            return;
+        }
+
+        els.settingsBackend.textContent = `Backend: ${activeBackend}`;
     }
 
     function cacheElements() {
@@ -1562,8 +1759,10 @@
     async function loadInitial() {
         runtime.gamesLoading = true;
         renderGames();
-        const relayProbePromise = probeNetlifyRelayReachability().catch(() => null);
+        const backendRacePromise = selectBestBackendUrl().catch(() => null);
+        const relayProbePromise = backendRacePromise.then(() => probeNetlifyRelayReachability()).catch(() => null);
         try {
+            await backendRacePromise;
             const backendReady = await waitForBackendConnection();
             if (!backendReady) {
                 await relayProbePromise;

@@ -155,6 +155,7 @@ Set this in Netlify Site settings -> Environment variables.
 The static site uses a runtime config object in [frontend/public/config.js](frontend/public/config.js):
 
 - window.JETTIC_CONFIG.backendUrl
+- window.JETTIC_CONFIG.backendUrls
 
 This is not an environment variable, but it is the main switch for where browser API requests go.
 
@@ -162,6 +163,26 @@ Examples:
 
 - Direct backend: http://localhost:3000
 - Netlify relay: https://your-relay-site.netlify.app/.netlify/functions/relay
+
+Multiple relay example:
+
+```js
+window.JETTIC_CONFIG = {
+	backendUrls: [
+		'https://relay-a.netlify.app/.netlify/functions/relay',
+		'https://relay-b.netlify.app/.netlify/functions/relay',
+		'https://relay-c.netlify.app/.netlify/functions/relay'
+	],
+	backendUrl: 'https://relay-a.netlify.app/.netlify/functions/relay'
+};
+```
+
+Startup behavior with multiple relay URLs:
+
+1. Frontend shuffles relay order for fairness.
+2. It pings all configured relays and picks the first successful responder.
+3. Relay priority is then ranked by measured response time.
+4. If a relay later fails, requests automatically fail over to the next ranked relay.
 
 ## Deploying Each Component
 
