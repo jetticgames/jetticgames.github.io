@@ -1,4 +1,4 @@
-// Jettic Games frontend v3 - rebuilt
+// Jettic Games frontend v3
 (() => {
     'use strict';
 
