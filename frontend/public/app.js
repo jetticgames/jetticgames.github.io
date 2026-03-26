@@ -22,6 +22,7 @@
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const BACKEND_CONNECT_RETRY_MS = 1500;
     const BACKEND_CONNECT_MAX_ATTEMPTS = 4;
+    const RELAY_PROBE_TIMEOUT_MS = 5000;
     const GAMES_SKELETON_COUNT = 12;
 
     function wait(ms) {
@@ -85,7 +86,9 @@
         searchDebounceTimer: null,
         isInitialLoad: true,
         offlineOverlayDismissed: false,
-        gamesLoading: true
+        gamesLoading: true,
+        relayReachable: null,
+        highLoadNoticeShown: false
     };
 
     const HOME_PATH = '/';
@@ -130,6 +133,64 @@
         return false;
     }
 
+    function isNetlifyRelayDomainBackend(url = backendUrl) {
+        const raw = String(url || '').trim();
+        if (!raw) return false;
+        try {
+            const parsed = new URL(raw, window.location.origin);
+            return /\.netlify\.app$/i.test(parsed.hostname || '');
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function probeNetlifyRelayReachability() {
+        const base = String(backendUrl || window.JETTIC_BACKEND_URL || '').trim();
+        if (!isNetlifyRelayDomainBackend(base)) {
+            runtime.relayReachable = null;
+            return null;
+        }
+
+        const candidates = buildRelayProbeCandidates(base);
+        for (let i = 0; i < candidates.length; i += 1) {
+            const candidate = candidates[i];
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), RELAY_PROBE_TIMEOUT_MS);
+            try {
+                const response = await fetch(candidate, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: controller.signal
+                });
+                clearTimeout(timer);
+                if (!response.ok) continue;
+                const payload = await response.json().catch(() => null);
+                if (payload?.ok === true || payload?.relay === true || payload?.reachable === true) {
+                    runtime.relayReachable = true;
+                    return true;
+                }
+            } catch (_) {
+                clearTimeout(timer);
+            }
+        }
+
+        runtime.relayReachable = false;
+        return false;
+    }
+
+    function maybeNotifyNetlifyHighLoad() {
+        if (runtime.highLoadNoticeShown) return;
+        if (runtime.relayReachable !== true) return;
+        runtime.highLoadNoticeShown = true;
+        pushNotification(
+            'High load',
+            'Jettic Games servers are under high load, therefore loading times can be increased.',
+            'warning'
+        );
+    }
+
     function buildBackendCandidates(baseUrl, path) {
         const safePath = String(path || '/').startsWith('/') ? String(path || '/') : `/${String(path || '')}`;
         const base = String(baseUrl || '').replace(/\/+$/, '');
@@ -143,6 +204,20 @@
             candidates.push(`${base.slice(0, -'/.netlify/functions/relay'.length)}/relay${safePath}`);
         }
 
+        return Array.from(new Set(candidates));
+    }
+
+    function buildRelayProbeCandidates(baseUrl) {
+        const base = String(baseUrl || '').trim();
+        const candidates = buildBackendCandidates(base, '/relay-health');
+        try {
+            const parsed = new URL(base, window.location.origin);
+            if (/\.netlify\.app$/i.test(parsed.hostname || '')) {
+                const origin = `${parsed.protocol}//${parsed.host}`;
+                candidates.push(`${origin}/.netlify/functions/relay/relay-health`);
+                candidates.push(`${origin}/relay/relay-health`);
+            }
+        } catch (_) {}
         return Array.from(new Set(candidates));
     }
 
@@ -1487,9 +1562,12 @@
     async function loadInitial() {
         runtime.gamesLoading = true;
         renderGames();
+        const relayProbePromise = probeNetlifyRelayReachability().catch(() => null);
         try {
             const backendReady = await waitForBackendConnection();
             if (!backendReady) {
+                await relayProbePromise;
+                maybeNotifyNetlifyHighLoad();
                 setStatus(false, backendUrl ? 'Offline - Limited mode' : 'Backend not configured');
                 refreshUserUI();
                 applyRouteFromLocation({ initial: true });
@@ -1529,6 +1607,8 @@
             }
             applyRouteFromLocation({ initial: true });
         } catch (err) {
+            await relayProbePromise;
+            maybeNotifyNetlifyHighLoad();
             showToast(err.message || 'Failed to load data', true);
             refreshUserUI();
             applyRouteFromLocation({ initial: true });

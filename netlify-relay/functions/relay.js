@@ -34,8 +34,11 @@ function getPathSuffix(event) {
   return tail.startsWith('/') ? tail : `/${tail}`;
 }
 
-function buildTargetUrl(baseUrl, event) {
-  const suffix = getPathSuffix(event);
+function isRelayHealthPath(pathSuffix) {
+  return pathSuffix === '/relay-health';
+}
+
+function buildTargetUrl(baseUrl, event, suffix = getPathSuffix(event)) {
   const query = String(event.rawQuery || event.rawQueryString || buildQueryString(event.queryStringParameters));
   return `${baseUrl}${suffix}${query ? `?${query}` : ''}`;
 }
@@ -117,7 +120,25 @@ exports.handler = async (event) => {
     };
   }
 
-  const targetUrl = buildTargetUrl(baseUrl, event);
+  const pathSuffix = getPathSuffix(event);
+  if (isRelayHealthPath(pathSuffix)) {
+    return {
+      statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        'content-type': 'application/json',
+        'cache-control': 'no-store'
+      },
+      body: JSON.stringify({
+        ok: true,
+        relay: true,
+        reachable: true,
+        timestamp: new Date().toISOString()
+      })
+    };
+  }
+
+  const targetUrl = buildTargetUrl(baseUrl, event, pathSuffix);
 
   const upstreamHeaders = new Headers();
   for (const [key, value] of Object.entries(event.headers || {})) {
