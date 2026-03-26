@@ -24,6 +24,10 @@ function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const notificationIdRef = useRef(0)
   const notificationTimersRef = useRef<number[]>([])
+  const minRequestIntervalMs = useMemo(() => {
+    const value = Number(import.meta.env.VITE_API_MIN_REQUEST_INTERVAL_MS)
+    return Number.isFinite(value) ? Math.max(0, value) : 150
+  }, [])
 
   const dismissNotification = useCallback((id: number) => {
     setNotifications((prev) => prev.filter((item) => item.id !== id))
@@ -55,7 +59,10 @@ function App() {
     [notifyError]
   )
 
-  const api = useMemo(() => new ApiClient(API_BASE_URL, () => token, setToken, 2000, handleApiError), [token, handleApiError])
+  const api = useMemo(
+    () => new ApiClient(API_BASE_URL, () => token, setToken, minRequestIntervalMs, handleApiError),
+    [token, minRequestIntervalMs, handleApiError]
+  )
 
   useEffect(() => {
     let cancelled = false

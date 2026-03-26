@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -54,8 +55,15 @@ const DATA_SCHEMA_VERSION = '2026.03.18.v1';
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_EMAIL = 'admin@jettic.local';
 const DEFAULT_ADMIN_PASSWORD = 'password';
+const BCRYPT_ROUNDS = Math.max(8, Number(process.env.BCRYPT_ROUNDS) || 10);
+const HTTP_LOG_ENABLED = process.env.HTTP_LOG_ENABLED !== 'false';
+const HTTP_LOG_FORMAT = process.env.HTTP_LOG_FORMAT || (process.env.NODE_ENV === 'production' ? 'tiny' : 'dev');
 let analyticsFlushInFlight = false;
 const analyticsCounters = {};
+const jsonFileCache = new Map();
+const yamlFileCache = new Map();
+let mergedConfigCache = null;
+let bannerConfigCache;
 
 const BUILT_IN_PRESETS = {
     panicButtons: [
@@ -96,9 +104,10 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(cors({ origin: true, credentials: true }));
+app.use(compression());
 app.use(express.json({ limit: '4mb' }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+if (HTTP_LOG_ENABLED) app.use(morgan(HTTP_LOG_FORMAT));
 // Disable weak ETags to avoid 304 responses breaking SPA fetch flows
 app.set('etag', false);
 
@@ -120,17 +129,34 @@ async function fileExists(file) {
     }
 }
 
-async function readYaml(file, fallback) {
+function cloneData(value) {
+    if (value === null || value === undefined) return value;
+    if (typeof value !== 'object') return value;
+    if (typeof structuredClone === 'function') return structuredClone(value);
+    return JSON.parse(JSON.stringify(value));
+}
+
+async function readYaml(file, fallback, { useCache = true } = {}) {
+    if (useCache && yamlFileCache.has(file)) {
+        return cloneData(yamlFileCache.get(file));
+    }
+
     try {
         const raw = await fs.readFile(file, 'utf8');
-        return yaml.load(raw);
+        const parsed = yaml.load(raw);
+        const output = parsed === undefined ? fallback : parsed;
+        if (useCache) yamlFileCache.set(file, cloneData(output));
+        return cloneData(output);
     } catch (_) {
-        return fallback;
+        if (useCache) yamlFileCache.set(file, cloneData(fallback));
+        return cloneData(fallback);
     }
 }
 
-async function writeYaml(file, data) {
-    const serialized = yaml.dump(data || {}, { noRefs: true, lineWidth: 120 });
+async function writeYaml(file, data, { useCache = true } = {}) {
+    const normalized = data || {};
+    if (useCache) yamlFileCache.set(file, cloneData(normalized));
+    const serialized = yaml.dump(normalized, { noRefs: true, lineWidth: 120 });
     await fs.writeFile(file, serialized, 'utf8');
 }
 
@@ -156,16 +182,24 @@ function loadSessionSecret() {
     return secret;
 }
 
-async function readJson(file, fallback) {
+async function readJson(file, fallback, { useCache = true } = {}) {
+    if (useCache && jsonFileCache.has(file)) {
+        return cloneData(jsonFileCache.get(file));
+    }
+
     try {
         const raw = await fs.readFile(file, 'utf8');
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (useCache) jsonFileCache.set(file, cloneData(parsed));
+        return cloneData(parsed);
     } catch (_) {
-        return fallback;
+        if (useCache) jsonFileCache.set(file, cloneData(fallback));
+        return cloneData(fallback);
     }
 }
 
-async function writeJson(file, data) {
+async function writeJson(file, data, { useCache = true } = {}) {
+    if (useCache) jsonFileCache.set(file, cloneData(data));
     await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
@@ -176,7 +210,7 @@ async function ensureAnalyticsFiles() {
 }
 
 async function loadAnalyticsFile(file) {
-    return readJson(file, { entries: [] });
+    return readJson(file, { entries: [] }, { useCache: false });
 }
 
 async function appendAnalyticsEntry(file, entry, maxEntries = ANALYTICS_RETENTION_MINUTES) {
@@ -184,7 +218,7 @@ async function appendAnalyticsEntry(file, entry, maxEntries = ANALYTICS_RETENTIO
     const entries = Array.isArray(data.entries) ? data.entries : [];
     entries.push(entry);
     const trimmed = entries.slice(-maxEntries);
-    await writeJson(file, { entries: trimmed });
+    await writeJson(file, { entries: trimmed }, { useCache: false });
 }
 
 async function analyticsEnabled() {
@@ -197,11 +231,13 @@ async function analyticsEnabled() {
 }
 
 async function loadConfig() {
+    if (mergedConfigCache) return cloneData(mergedConfigCache);
+
     const legacy = await readJson(LEGACY_CONFIG_FILE, null);
     const general = await readYaml(CONFIG_GENERAL_FILE, legacy || {});
     const features = await readYaml(FEATURES_FILE, legacy?.features || {});
     const defaults = await readYaml(DEFAULTS_FILE, legacy?.defaults || {});
-    return {
+    mergedConfigCache = {
         version: general?.version || APP_VERSION,
         maintenanceMode: general?.maintenanceMode || { enabled: false },
         uiControls: general?.uiControls || {},
@@ -212,6 +248,8 @@ async function loadConfig() {
             presets: BUILT_IN_PRESETS
         })
     };
+
+    return cloneData(mergedConfigCache);
 }
 
 async function saveConfig(config) {
@@ -227,6 +265,7 @@ async function saveConfig(config) {
         cursor: { enabled: false },
         presets: BUILT_IN_PRESETS
     });
+    mergedConfigCache = null;
 }
 
 async function migrateLegacyConfig() {
@@ -332,7 +371,7 @@ function buildSchemaDescriptor() {
 
 async function createDefaultAdminUser(config) {
     const now = new Date().toISOString();
-    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_ROUNDS);
     const defaultSettings = defaultSettingsFromConfig(config);
     return {
         id: crypto.randomUUID(),
@@ -428,7 +467,7 @@ async function ensureBootstrapAdminUser() {
         adminUser.profile.playtime = normalizePlaytime(adminUser.profile.playtime);
         adminUser.profile.playCount = normalizePlayCount(adminUser.profile.playCount);
         if (String(process.env.RESET_ADMIN_PASSWORD || '').toLowerCase() === 'true') {
-            adminUser.passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+            adminUser.passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_ROUNDS);
         }
         ensurePresence(adminUser);
         adminUser.presence.online = false;
@@ -541,31 +580,34 @@ function normalizePresets(config) {
 }
 
 async function loadBannerConfig() {
-    try {
-        const raw = await fs.readFile(BANNER_FILE, 'utf8');
-        const data = yaml.load(raw);
-        if (!data || data.enabled === false) return null;
-        const button = data.button || {};
-        return {
-            id: String(data.id || 'default'),
-            enabled: data.enabled !== false,
-            message: data.message || '',
-            description: data.description || '',
-            background: data.background || '#11161f',
-            textColor: data.textColor || '#e5e7eb',
-            dismissible: data.dismissible !== false,
-            dismissCooldownHours: Number.isFinite(data.dismissCooldownHours) ? data.dismissCooldownHours : 24,
-            button: {
-                enabled: button.enabled !== false && !!button.url,
-                label: button.label || 'Learn more',
-                url: button.url || '',
-                background: button.background || '#1f6feb',
-                textColor: button.textColor || '#ffffff'
-            }
-        };
-    } catch (_) {
+    if (bannerConfigCache !== undefined) return cloneData(bannerConfigCache);
+
+    const data = await readYaml(BANNER_FILE, null);
+    if (!data || data.enabled === false) {
+        bannerConfigCache = null;
         return null;
     }
+
+    const button = data.button || {};
+    bannerConfigCache = {
+        id: String(data.id || 'default'),
+        enabled: data.enabled !== false,
+        message: data.message || '',
+        description: data.description || '',
+        background: data.background || '#11161f',
+        textColor: data.textColor || '#e5e7eb',
+        dismissible: data.dismissible !== false,
+        dismissCooldownHours: Number.isFinite(data.dismissCooldownHours) ? data.dismissCooldownHours : 24,
+        button: {
+            enabled: button.enabled !== false && !!button.url,
+            label: button.label || 'Learn more',
+            url: button.url || '',
+            background: button.background || '#1f6feb',
+            textColor: button.textColor || '#ffffff'
+        }
+    };
+
+    return cloneData(bannerConfigCache);
 }
 
 async function saveBannerConfig(input) {
@@ -587,8 +629,8 @@ async function saveBannerConfig(input) {
             textColor: button.textColor || '#ffffff'
         }
     };
-    const yamlStr = yaml.dump(data, { noRefs: true, lineWidth: 120 });
-    await fs.writeFile(BANNER_FILE, yamlStr, 'utf8');
+    await writeYaml(BANNER_FILE, data);
+    bannerConfigCache = data.enabled === false ? null : data;
     return data;
 }
 
@@ -1377,7 +1419,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
         if (clash) return res.status(409).json({ error: 'Username already exists' });
         const emailClash = await getUserByEmail(users, normalizedEmail);
         if (emailClash) return res.status(409).json({ error: 'Email already exists' });
-        const hash = await bcrypt.hash(password, 10);
+        const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
         const now = new Date().toISOString();
         const user = {
             id: crypto.randomUUID(),
@@ -1426,7 +1468,7 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         }
         if (password !== undefined) {
             validatePassword(password);
-            user.passwordHash = await bcrypt.hash(password, 10);
+            user.passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
         }
         if (admin !== undefined) {
             const isSelf = req.user?.id === user.id;
@@ -1680,7 +1722,7 @@ app.post('/api/auth/register', async (req, res) => {
         const emailClash = await getUserByEmail(users, normalizedEmail);
         if (emailClash) return res.status(409).json({ error: 'Email already in use' });
 
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
         const now = new Date().toISOString();
         const user = {
             id: crypto.randomUUID(),
@@ -1845,7 +1887,7 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
     const ok = await bcrypt.compare(currentPassword, me.passwordHash || '');
     if (!ok) return res.status(401).json({ error: 'Invalid password' });
     validatePassword(newPassword);
-    me.passwordHash = await bcrypt.hash(newPassword, 10);
+    me.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     me.updatedAt = new Date().toISOString();
     await saveUsers(users);
     await replaceSessionForUser(me, req, res);

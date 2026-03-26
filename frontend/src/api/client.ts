@@ -106,7 +106,7 @@ export class ApiClient {
     baseUrl: string,
     getToken: () => string | null,
     setToken: (token: string | null) => void,
-    minRequestIntervalMs = 2000,
+    minRequestIntervalMs = 150,
     onError?: ApiErrorHandler
   ) {
     this.baseUrl = baseUrl
