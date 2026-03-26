@@ -106,9 +106,16 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['*'],
+    exposedHeaders: ['*']
+}));
 app.use(compression());
-app.use(express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ extended: true, limit: '250mb' }));
 app.use(cookieParser());
 if (HTTP_LOG_ENABLED) app.use(morgan(HTTP_LOG_FORMAT));
 // Disable weak ETags to avoid 304 responses breaking SPA fetch flows
@@ -2092,7 +2099,7 @@ app.post('/api/utils/page-meta', requireAuth, async (req, res) => {
     const { url } = req.body || {};
     if (!isHttpUrl(url)) return res.status(400).json({ error: 'Invalid URL' });
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
+    const timer = setTimeout(() => controller.abort(), 120000);
     try {
         const resp = await fetch(url, { redirect: 'follow', signal: controller.signal });
         const base = resp.url || url;
@@ -2405,7 +2412,7 @@ app.get('/proxy', async (req, res) => {
     if (!['http:', 'https:'].includes(parsed.protocol)) return res.status(400).json({ error: 'Only http/https allowed' });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 120000);
     try {
         const upstream = await fetch(parsed.toString(), {
             method: 'GET',

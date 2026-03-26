@@ -50,7 +50,8 @@
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const BACKEND_CONNECT_RETRY_MS = 1500;
     const BACKEND_CONNECT_MAX_ATTEMPTS = 4;
-    const RELAY_PROBE_TIMEOUT_MS = 5000;
+    const RELAY_PROBE_TIMEOUT_MS = 120000;
+    const API_REQUEST_TIMEOUT_MS = 120000;
     const GAMES_SKELETON_COUNT = 12;
 
     function wait(ms) {
@@ -152,7 +153,6 @@
         playSession: null,
         adminGameThumbData: null,
         adminGameRequestId: null,
-        settingsSaveTimer: null,
         panicHandler: null,
         defaultTitle: document.title,
         defaultFavicon: null,
@@ -428,7 +428,7 @@
                 const candidate = candidateEntry.url;
                 selectedUrl = candidate;
                 const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 8000);
+                const timer = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
                 try {
                     res = await fetch(candidate, {
                         credentials: 'include',
@@ -1556,7 +1556,7 @@
 
         autoSaveInputs.forEach((input) => {
             const evt = input.type === 'color' || input.type === 'number' ? 'input' : 'change';
-            input.addEventListener(evt, () => queueSaveSettings());
+            input.addEventListener(evt, () => saveSettingsNow());
         });
 
         els.settingShowCurrent?.addEventListener('change', (e) => {
@@ -1566,18 +1566,18 @@
         els.settingPanicPreset?.addEventListener('change', (e) => {
             const id = e.target.value;
             applyPanicPreset(id);
-            queueSaveSettings();
+            saveSettingsNow();
         });
         els.settingTabPreset?.addEventListener('change', (e) => {
             const id = e.target.value;
             applyTabPreset(id);
-            queueSaveSettings();
+            saveSettingsNow();
         });
         els.settingPanicKeybind?.addEventListener('keydown', (e) => {
             e.preventDefault();
             const combo = formatKeybindFromEvent(e);
             els.settingPanicKeybind.value = combo;
-            queueSaveSettings();
+            saveSettingsNow();
         });
         els.settingTabFetchBtn?.addEventListener('click', async () => {
             await fetchTabMetadata();
@@ -3918,7 +3918,7 @@
             if (title && els.settingTabTitle) els.settingTabTitle.value = title;
             if (favicon && els.settingTabFavicon) els.settingTabFavicon.value = favicon;
             setSettingsFeedback('Metadata applied', false);
-            queueSaveSettings();
+            saveSettingsNow();
         } catch (err) {
             setSettingsFeedback(err.message || 'Failed to fetch metadata', true);
         }
@@ -4661,16 +4661,13 @@
         };
     }
 
-    function queueSaveSettings() {
+    function saveSettingsNow() {
         if (!state.user) {
             setSettingsFeedback('Log in to save settings', true);
             return;
         }
-        if (runtime.settingsSaveTimer) clearTimeout(runtime.settingsSaveTimer);
         setSettingsFeedback('Saving...', false);
-        runtime.settingsSaveTimer = setTimeout(() => {
-            saveSettings();
-        }, 200);
+        saveSettings();
     }
 
     async function saveSettings() {

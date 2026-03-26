@@ -11,6 +11,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   'content-length'
 ]);
 
+const RELAY_UPSTREAM_TIMEOUT_MS = 120000;
+
 function normalizeBaseUrl(raw) {
   const value = String(raw || '').trim();
   if (!value) return '';
@@ -155,19 +157,35 @@ exports.handler = async (event) => {
   }
 
   let upstreamResponse;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RELAY_UPSTREAM_TIMEOUT_MS);
   try {
     upstreamResponse = await fetch(targetUrl, {
       method,
       headers: upstreamHeaders,
       body: ['GET', 'HEAD'].includes(method) ? undefined : decodeBody(event),
+      signal: controller.signal,
       redirect: 'follow'
     });
   } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === 'AbortError') {
+      return {
+        statusCode: 504,
+        headers: { ...corsHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Upstream backend timed out',
+          detail: `Relay waited ${RELAY_UPSTREAM_TIMEOUT_MS}ms for backend response`
+        })
+      };
+    }
     return {
       statusCode: 502,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
       body: JSON.stringify({ error: 'Failed to reach backend', detail: error.message })
     };
+  } finally {
+    clearTimeout(timeout);
   }
 
   const responseHeaders = { ...corsHeaders };
