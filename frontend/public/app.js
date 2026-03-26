@@ -62,6 +62,7 @@
     const BACKEND_CONNECT_MAX_ATTEMPTS = 4;
     const RELAY_PROBE_TIMEOUT_MS = 120000;
     const API_REQUEST_TIMEOUT_MS = 120000;
+    const GAMES_HIGH_LOAD_NOTIFY_MS = 30000;
     const GAMES_SKELETON_COUNT = 12;
 
     function wait(ms) {
@@ -353,9 +354,9 @@
         return false;
     }
 
-    function maybeNotifyNetlifyHighLoad() {
+    function maybeNotifyNetlifyHighLoad(force = false) {
         if (runtime.highLoadNoticeShown) return;
-        if (runtime.relayReachable !== true) return;
+        if (!force && runtime.relayReachable !== true) return;
         runtime.highLoadNoticeShown = true;
         pushNotification(
             'High load',
@@ -1769,6 +1770,11 @@
     async function loadInitial() {
         runtime.gamesLoading = true;
         renderGames();
+        const highLoadWatchdog = setTimeout(() => {
+            if (runtime.gamesLoading) {
+                maybeNotifyNetlifyHighLoad(true);
+            }
+        }, GAMES_HIGH_LOAD_NOTIFY_MS);
         const backendRacePromise = selectBestBackendUrl().catch(() => null);
         const relayProbePromise = backendRacePromise.then(() => probeNetlifyRelayReachability()).catch(() => null);
         try {
@@ -1825,6 +1831,7 @@
                 showOfflineOverlay('Jettic Games is currently offline or blocked by your network.');
             }
         } finally {
+            clearTimeout(highLoadWatchdog);
             startOnlineHeartbeat();
             startHealthPolling();
             runtime.gamesLoading = false;
