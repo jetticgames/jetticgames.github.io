@@ -36,12 +36,11 @@ RELAY_TARGET_BASE_URL=http://127.0.0.1:3000 npm run dev
 
 ## Frontend config example
 
-Set your frontend backend URL to the Netlify relay URL, for example:
+Set your frontend backend URL using environment variables, for example:
 
-```js
-window.JETTIC_CONFIG = {
-  backendUrl: 'https://your-relay-site.netlify.app/relay'
-};
+```bash
+VITE_BACKEND_URLS=https://your-relay-site.netlify.app/relay
+VITE_API_BASE_URL=https://your-relay-site.netlify.app/relay
 ```
 
 Then frontend call `/health` becomes:

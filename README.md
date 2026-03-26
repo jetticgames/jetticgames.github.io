@@ -59,22 +59,11 @@ npm install
 npm run dev
 ```
 
-Set API target in [frontend/public/config.js](frontend/public/config.js) by editing window.JETTIC_CONFIG.backendUrl.
+Set API target via environment variables (example in `frontend/.env.local`):
 
-Local direct backend example:
-
-```js
-window.JETTIC_CONFIG = {
-	backendUrl: 'http://localhost:3000'
-};
-```
-
-Relay example:
-
-```js
-window.JETTIC_CONFIG = {
-	backendUrl: 'https://your-relay-site.netlify.app/.netlify/functions/relay'
-};
+```bash
+VITE_BACKEND_URLS=https://relay-a.netlify.app/.netlify/functions/relay,https://relay-b.netlify.app/.netlify/functions/relay
+VITE_API_BASE_URL=https://relay-a.netlify.app/.netlify/functions/relay
 ```
 
 ### 3. (Optional) Start relay locally
@@ -101,7 +90,7 @@ Recommended placement:
 - Backend variables: runtime environment for the backend process (systemd, pm2, Docker, shell export)
 - Frontend Vite variables: frontend/.env.local (create this file) or hosting build env
 - Relay variables: Netlify site environment settings (or shell for netlify dev)
-- Frontend runtime backend URL: [frontend/public/config.js](frontend/public/config.js)
+- No runtime config file is used for backend URLs or secrets
 
 ## Complete Environment Variable Reference
 
@@ -110,7 +99,7 @@ Recommended placement:
 | Name | Required | Example value | Default | Purpose |
 |---|---|---|---|---|
 | PORT | No | 3000 | 3000 | HTTP port for backend server |
-| JWT_SECRET | No (but strongly recommended in production) | c8f7...long-random-secret...9f2 | Auto-generated from [backend/data/session-secret.txt](backend/data/session-secret.txt) | JWT signing secret; if absent, backend generates/persists a secret file |
+| JWT_SECRET | Yes | c8f7...long-random-secret...9f2 | none | JWT signing secret. Server startup fails if missing |
 | PUBLIC_BASE_URL | No | https://api.example.com | null | Canonical public API URL used for generated links and cookie security defaults |
 | REFRESH_TOKEN_TTL_DAYS | No | 14 | 14 | Session refresh lifetime in days |
 | COOKIE_SECURE | No | true | Auto: true if PUBLIC_BASE_URL starts with https://, else false | Force Secure cookie flag |
@@ -130,13 +119,15 @@ These apply to the React/Vite source in [frontend/src](frontend/src).
 
 | Name | Required | Example value | Default | Purpose |
 |---|---|---|---|---|
-| VITE_API_BASE_URL | No | https://your-relay-site.netlify.app/.netlify/functions/relay | Derived from runtime config or hostname fallback | Overrides API base URL in [frontend/src/config.ts](frontend/src/config.ts) |
+| VITE_BACKEND_URLS | No | https://relay-a.netlify.app/.netlify/functions/relay,https://relay-b.netlify.app/.netlify/functions/relay | empty | Comma/newline/semicolon-separated backend or relay URLs used by the static frontend runtime |
+| VITE_API_BASE_URL | No | https://your-relay-site.netlify.app/.netlify/functions/relay | Hostname fallback when VITE_BACKEND_URLS is not set | Single backend URL fallback used by static and React clients |
 | VITE_API_MIN_REQUEST_INTERVAL_MS | No | 150 | 150 | Client-side minimum request interval throttle |
 | VITE_BASE_PATH | No | / | / | Vite base path for built assets |
 
 Example frontend/.env.local:
 
 ```bash
+VITE_BACKEND_URLS=https://relay-a.netlify.app/.netlify/functions/relay,https://relay-b.netlify.app/.netlify/functions/relay
 VITE_API_BASE_URL=https://your-relay-site.netlify.app/.netlify/functions/relay
 VITE_API_MIN_REQUEST_INTERVAL_MS=150
 VITE_BASE_PATH=/
@@ -150,32 +141,15 @@ VITE_BASE_PATH=/
 
 Set this in Netlify Site settings -> Environment variables.
 
-## Frontend Runtime Configuration (non-env)
+## Frontend Runtime Configuration
 
-The static site uses a runtime config object in [frontend/public/config.js](frontend/public/config.js):
+Frontend backend/relay configuration is environment-driven only.
 
-- window.JETTIC_CONFIG.backendUrl
-- window.JETTIC_CONFIG.backendUrls
+Use:
 
-This is not an environment variable, but it is the main switch for where browser API requests go.
-
-Examples:
-
-- Direct backend: http://localhost:3000
-- Netlify relay: https://your-relay-site.netlify.app/.netlify/functions/relay
-
-Multiple relay example:
-
-```js
-window.JETTIC_CONFIG = {
-	backendUrls: [
-		'https://relay-a.netlify.app/.netlify/functions/relay',
-		'https://relay-b.netlify.app/.netlify/functions/relay',
-		'https://relay-c.netlify.app/.netlify/functions/relay'
-	],
-	backendUrl: 'https://relay-a.netlify.app/.netlify/functions/relay'
-};
-```
+- VITE_BACKEND_URLS for multiple relays
+- VITE_API_BASE_URL for single fallback
+- ?api=<url> query override for debugging
 
 Startup behavior with multiple relay URLs:
 
@@ -219,7 +193,7 @@ Expected response includes:
 ### Frontend deployment
 
 1. Deploy [frontend](frontend) as static hosting.
-2. Set runtime API URL in [frontend/public/config.js](frontend/public/config.js).
+2. Set backend/relay URLs using Vite environment variables in your deployment pipeline.
 3. If deploying behind subpath, set VITE_BASE_PATH for Vite build flows.
 
 ## Operational Notes
@@ -235,7 +209,7 @@ Expected response includes:
 
 ### Frontend shows offline or slow loading
 
-1. Verify backend URL in [frontend/public/config.js](frontend/public/config.js).
+1. Verify VITE_BACKEND_URLS and/or VITE_API_BASE_URL in frontend environment variables.
 2. If using relay, verify relay health endpoint:
 	 - /.netlify/functions/relay/relay-health
 3. Verify relay target:

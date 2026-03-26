@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs/promises');
-const fsSync = require('fs');
 const { Readable } = require('stream');
 const crypto = require('crypto');
 const os = require('os');
@@ -16,8 +15,7 @@ const yaml = require('js-yaml');
 
 const APP_VERSION = '3.0.0';
 const PORT = process.env.PORT || 3000;
-const SESSION_SECRET_FILE = path.join(__dirname, 'data', 'session-secret.txt');
-const JWT_SECRET = process.env.JWT_SECRET || loadSessionSecret();
+const JWT_SECRET = process.env.JWT_SECRET;
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.json');
@@ -176,20 +174,6 @@ async function ensureYamlFile(file, fallback) {
     } catch (_) {
         await writeYaml(file, fallback);
     }
-}
-
-function loadSessionSecret() {
-    if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-    try {
-        const existing = fsSync.readFileSync(SESSION_SECRET_FILE, 'utf8').trim();
-        if (existing) return existing;
-    } catch (_) {}
-    const secret = crypto.randomBytes(48).toString('hex');
-    try {
-        fsSync.mkdirSync(path.dirname(SESSION_SECRET_FILE), { recursive: true });
-        fsSync.writeFileSync(SESSION_SECRET_FILE, secret, 'utf8');
-    } catch (_) {}
-    return secret;
 }
 
 async function readJson(file, fallback, { useCache = true } = {}) {
@@ -2462,6 +2446,9 @@ app.get('*', (req, res) => {
 
 async function startServer() {
     try {
+        if (!JWT_SECRET) {
+            throw new Error('JWT_SECRET environment variable is required. Local secret files are no longer supported.');
+        }
         await ensureStartupDataFiles();
         await regenerateSitemap();
         app.listen(PORT, () => {

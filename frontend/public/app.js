@@ -3,7 +3,14 @@
     'use strict';
 
     function normalizeBackendUrl(url) {
-        return String(url || '').trim().replace(/\/+$/, '');
+        const normalized = String(url || '').trim().replace(/\/+$/, '');
+        if (!normalized || /^%[A-Z0-9_]+%$/.test(normalized)) return '';
+        return normalized;
+    }
+
+    function readFrontendEnv(name) {
+        const value = window.__JETTIC_ENV__?.[name];
+        return normalizeBackendUrl(value);
     }
 
     function parseBackendUrlList(rawValue) {
@@ -28,8 +35,11 @@
         const queryUrls = parseBackendUrlList(queryApiValues);
         if (queryUrls.length) return queryUrls;
 
-        const configUrls = parseBackendUrlList(window.JETTIC_CONFIG?.backendUrls || window.JETTIC_CONFIG?.backendUrl || '');
-        if (configUrls.length) return configUrls;
+        const envRelayUrls = parseBackendUrlList(readFrontendEnv('VITE_BACKEND_URLS'));
+        if (envRelayUrls.length) return envRelayUrls;
+
+        const envApiBase = readFrontendEnv('VITE_API_BASE_URL');
+        if (envApiBase) return [envApiBase];
 
         if (/\.netlify\.app$/i.test(window.location.hostname)) {
             return ['/.netlify/functions/relay'];
@@ -3999,7 +4009,7 @@
     async function updateHealth() {
         if (!backendUrl) {
             setStatus(false, 'Backend not configured');
-            handleConnectivityChange(false, 'Backend URL is not configured. Update config.js or ?api query.');
+            handleConnectivityChange(false, 'Backend URL is not configured. Set VITE_BACKEND_URLS/VITE_API_BASE_URL or use ?api query.');
             return;
         }
         try {
