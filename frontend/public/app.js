@@ -675,7 +675,9 @@
             adminTabSearch: document.getElementById('adminTabSearch'),
             analyticsPlayerCounts: document.getElementById('analyticsPlayerCounts'),
             analyticsAccountsTotal: document.getElementById('analyticsAccountsTotal'),
-            analyticsSystemStatus: document.getElementById('analyticsSystemStatus'),
+            analyticsRamStats: document.getElementById('analyticsRamStats'),
+            analyticsCpuStats: document.getElementById('analyticsCpuStats'),
+            analyticsSsdStats: document.getElementById('analyticsSsdStats'),
             analyticsGameTable: document.getElementById('analyticsGameTable'),
             analyticsModal: document.getElementById('analyticsModal'),
             analyticsModalBody: document.getElementById('analyticsModalBody'),
@@ -2173,9 +2175,31 @@
         [
             els.analyticsPlayerCounts,
             els.analyticsAccountsTotal,
-            els.analyticsSystemStatus,
+            els.analyticsRamStats,
+            els.analyticsCpuStats,
+            els.analyticsSsdStats,
             els.analyticsGameTable
         ].forEach((el) => { if (el) el.textContent = text; });
+    }
+
+    function formatBytes(bytes) {
+        const value = Number(bytes);
+        if (!Number.isFinite(value) || value < 0) return 'Unavailable';
+        if (value < 1024) return `${Math.round(value)} B`;
+        const units = ['KB', 'MB', 'GB', 'TB'];
+        let next = value / 1024;
+        let idx = 0;
+        while (next >= 1024 && idx < units.length - 1) {
+            next /= 1024;
+            idx += 1;
+        }
+        return `${next.toFixed(next >= 100 ? 0 : next >= 10 ? 1 : 2)} ${units[idx]}`;
+    }
+
+    function formatPercent(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return 'Unavailable';
+        return `${n.toFixed(1)}%`;
     }
 
     function openAnalyticsModal(type) {
@@ -2202,7 +2226,25 @@
         const onlineUsers = Number(latestPlayers?.onlineUsers) || 0;
         const onlineGuests = Number(latestPlayers?.onlineGuests) || 0;
         const totalAccounts = Number(summary.totalAccounts) || 0;
-        const status = summary.systemStatus || 'Operational';
+        const resources = summary.systemResources || {};
+        const memory = resources.memory || {};
+        const cpu = resources.cpu || {};
+        const disk = resources.disk || null;
+
+        const ramLine = Number.isFinite(memory.usedBytes) && Number.isFinite(memory.totalBytes)
+            ? `${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)} (${formatPercent(memory.usagePercent)})`
+            : 'Unavailable';
+        const cpuLine = Number.isFinite(cpu.usagePercent)
+            ? `${formatPercent(cpu.usagePercent)} across ${Number(cpu.cores) || 1} core(s)`
+            : 'Unavailable';
+        const cpuLoadLine = Number.isFinite(cpu.load1) && Number.isFinite(cpu.load5) && Number.isFinite(cpu.load15)
+            ? `Load avg 1m ${Number(cpu.load1).toFixed(2)} • 5m ${Number(cpu.load5).toFixed(2)} • 15m ${Number(cpu.load15).toFixed(2)}`
+            : 'Load average unavailable';
+        const diskLine = disk && Number.isFinite(disk.usedBytes) && Number.isFinite(disk.totalBytes)
+            ? `${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)} (${formatPercent(disk.usagePercent)})`
+            : 'Unavailable';
+        const sampledAt = resources.sampledAt ? new Date(resources.sampledAt).toLocaleString() : null;
+        const diskPath = disk?.path ? `Mounted at ${disk.path}` : 'Disk path unavailable';
 
         if (els.analyticsPlayerCounts) {
             els.analyticsPlayerCounts.innerHTML = `
@@ -2220,11 +2262,29 @@
                 </div>
             `;
         }
-        if (els.analyticsSystemStatus) {
-            els.analyticsSystemStatus.innerHTML = `
+        if (els.analyticsRamStats) {
+            els.analyticsRamStats.innerHTML = `
                 <div class="analytics-chart-text">
-                    <div>${escapeHtml(status)}</div>
-                    <div class="analytics-subtext">Based on server maintenance mode</div>
+                    <div>RAM ${escapeHtml(ramLine)}</div>
+                    <div class="analytics-subtext">${sampledAt ? `Sampled ${escapeHtml(sampledAt)}` : 'Sample time unavailable'}</div>
+                </div>
+            `;
+        }
+
+        if (els.analyticsCpuStats) {
+            els.analyticsCpuStats.innerHTML = `
+                <div class="analytics-chart-text">
+                    <div>${escapeHtml(cpuLine)}</div>
+                    <div class="analytics-subtext">${escapeHtml(cpuLoadLine)}</div>
+                </div>
+            `;
+        }
+
+        if (els.analyticsSsdStats) {
+            els.analyticsSsdStats.innerHTML = `
+                <div class="analytics-chart-text">
+                    <div>SSD ${escapeHtml(diskLine)}</div>
+                    <div class="analytics-subtext">${escapeHtml(diskPath)}</div>
                 </div>
             `;
         }

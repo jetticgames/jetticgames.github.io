@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const { Readable } = require('stream');
 const crypto = require('crypto');
+const os = require('os');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -55,6 +56,7 @@ const DATA_SCHEMA_VERSION = '2026.03.18.v1';
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_EMAIL = 'admin@jettic.local';
 const DEFAULT_ADMIN_PASSWORD = 'password';
+const SYSTEM_STATS_CACHE_MS = Math.max(1000, Number(process.env.SYSTEM_STATS_CACHE_MS) || 10000);
 const BCRYPT_ROUNDS = Math.max(8, Number(process.env.BCRYPT_ROUNDS) || 10);
 const HTTP_LOG_ENABLED = process.env.HTTP_LOG_ENABLED !== 'false';
 const HTTP_LOG_FORMAT = process.env.HTTP_LOG_FORMAT || (process.env.NODE_ENV === 'production' ? 'tiny' : 'dev');
@@ -64,6 +66,7 @@ const jsonFileCache = new Map();
 const yamlFileCache = new Map();
 let mergedConfigCache = null;
 let bannerConfigCache;
+let systemStatsCache = { at: 0, data: null };
 
 const BUILT_IN_PRESETS = {
     panicButtons: [
@@ -228,6 +231,71 @@ async function analyticsEnabled() {
     } catch (_) {
         return true;
     }
+}
+
+function safePercent(numerator, denominator) {
+    if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0;
+    return Number(((numerator / denominator) * 100).toFixed(1));
+}
+
+async function getSystemResourceStats() {
+    const now = Date.now();
+    if (systemStatsCache.data && (now - systemStatsCache.at) < SYSTEM_STATS_CACHE_MS) {
+        return cloneData(systemStatsCache.data);
+    }
+
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = Math.max(0, totalMemory - freeMemory);
+    const cpuCores = Math.max(1, (os.cpus() || []).length);
+    const loadAverage = os.loadavg();
+    const diskPath = path.resolve(DATA_DIR);
+
+    let disk = null;
+    if (typeof fs.statfs === 'function') {
+        try {
+            const stats = await fs.statfs(diskPath);
+            const blockSize = Number(stats.bsize || stats.frsize || 0);
+            const totalBlocks = Number(stats.blocks || 0);
+            const availableBlocks = Number(stats.bavail ?? stats.bfree ?? 0);
+
+            if (blockSize > 0 && totalBlocks > 0) {
+                const totalBytes = totalBlocks * blockSize;
+                const freeBytes = Math.max(0, availableBlocks * blockSize);
+                const usedBytes = Math.max(0, totalBytes - freeBytes);
+                disk = {
+                    path: diskPath,
+                    totalBytes,
+                    usedBytes,
+                    freeBytes,
+                    usagePercent: safePercent(usedBytes, totalBytes)
+                };
+            }
+        } catch (_) {
+            disk = null;
+        }
+    }
+
+    const snapshot = {
+        sampledAt: new Date(now).toISOString(),
+        memory: {
+            totalBytes: totalMemory,
+            usedBytes: usedMemory,
+            freeBytes: freeMemory,
+            usagePercent: safePercent(usedMemory, totalMemory)
+        },
+        cpu: {
+            cores: cpuCores,
+            load1: Number((loadAverage[0] || 0).toFixed(3)),
+            load5: Number((loadAverage[1] || 0).toFixed(3)),
+            load15: Number((loadAverage[2] || 0).toFixed(3)),
+            usagePercent: Number(Math.min(100, safePercent(loadAverage[0] || 0, cpuCores)).toFixed(1))
+        },
+        disk
+    };
+
+    systemStatsCache = { at: now, data: snapshot };
+    return cloneData(snapshot);
 }
 
 async function loadConfig() {
@@ -1619,11 +1687,12 @@ app.put('/api/admin/defaults', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
     const limit = Math.max(1, Math.min(Number(req.query.limit) || 288, ANALYTICS_RETENTION_MINUTES));
-    const [config, users, players, games] = await Promise.all([
+    const [config, users, players, games, systemResources] = await Promise.all([
         loadConfig(),
         loadUsers(),
         loadAnalyticsFile(ANALYTICS_PLAYERS_FILE),
-        loadAnalyticsFile(ANALYTICS_GAMES_FILE)
+        loadAnalyticsFile(ANALYTICS_GAMES_FILE),
+        getSystemResourceStats()
     ]);
     const enabled = config?.features?.analyticsEnabled !== false;
     if (!enabled) return res.json({ enabled: false });
@@ -1639,7 +1708,8 @@ app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
         summary: {
             onlinePlayers: Number(latestPlayers?.players) || 0,
             totalAccounts: Array.isArray(users) ? users.length : 0,
-            systemStatus: config?.maintenanceMode?.enabled ? 'Maintenance' : 'Operational'
+            systemStatus: config?.maintenanceMode?.enabled ? 'Maintenance' : 'Operational',
+            systemResources
         }
     });
 });
