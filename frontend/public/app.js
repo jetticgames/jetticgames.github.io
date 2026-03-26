@@ -21,6 +21,7 @@
     window.JETTIC_BACKEND_URL = backendUrl;
     const ONLINE_PING_INTERVAL = 10 * 1000;
     const BACKEND_CONNECT_RETRY_MS = 1500;
+    const BACKEND_CONNECT_MAX_ATTEMPTS = 4;
     const GAMES_SKELETON_COUNT = 12;
 
     function wait(ms) {
@@ -106,22 +107,27 @@
     async function waitForBackendConnection() {
         if (!backendUrl) {
             setSplashNetworkStatus('offline');
-            throw new Error('Backend URL is not configured');
+            return false;
         }
 
         // Ensure the first startup API request is always backend health.
         setSplashNetworkStatus('connecting');
-        while (true) {
+        for (let attempt = 0; attempt < BACKEND_CONNECT_MAX_ATTEMPTS; attempt += 1) {
             try {
                 await api.get('/health');
                 setSplashNetworkStatus('online');
-                return;
+                return true;
             } catch (_) {
                 setSplashNetworkStatus('offline');
+                if (attempt >= BACKEND_CONNECT_MAX_ATTEMPTS - 1) {
+                    return false;
+                }
                 await wait(BACKEND_CONNECT_RETRY_MS);
                 setSplashNetworkStatus('connecting');
             }
         }
+
+        return false;
     }
 
     function buildBackendCandidates(baseUrl, path) {
@@ -505,6 +511,7 @@
         window.addEventListener('popstate', handlePopState);
         setActiveNav('home');
         showPage('home', { skipHistory: true, replaceHistory: true });
+        refreshUserUI();
         renderGames();
         loadInitial();
     }
@@ -1481,7 +1488,13 @@
         runtime.gamesLoading = true;
         renderGames();
         try {
-            await waitForBackendConnection();
+            const backendReady = await waitForBackendConnection();
+            if (!backendReady) {
+                setStatus(false, backendUrl ? 'Offline - Limited mode' : 'Backend not configured');
+                refreshUserUI();
+                applyRouteFromLocation({ initial: true });
+                return;
+            }
             const [config, gamesResponse, stats, me] = await Promise.all([
                 api.get('/api/config').catch(() => null),
                 api.get('/api/games'),
@@ -1517,6 +1530,8 @@
             applyRouteFromLocation({ initial: true });
         } catch (err) {
             showToast(err.message || 'Failed to load data', true);
+            refreshUserUI();
+            applyRouteFromLocation({ initial: true });
             if (!runtime.offlineOverlayDismissed) {
                 showOfflineOverlay('Jettic Games is currently offline or blocked by your network.');
             }
