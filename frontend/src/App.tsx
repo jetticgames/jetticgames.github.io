@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ApiClient, type HealthResponse } from './api/client'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { ApiClient, type ApiError, type HealthResponse } from './api/client'
 import { API_BASE_URL, APP_NAME } from './config'
 import './index.css'
 
 type AuthForm = {
   email: string
   password: string
+}
+
+type AppNotification = {
+  id: number
+  message: string
 }
 
 function App() {
@@ -16,11 +21,45 @@ function App() {
   const [authForm, setAuthForm] = useState<AuthForm>({ email: '', password: '' })
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loginSuccess, setLoginSuccess] = useState<string | null>(null)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const notificationIdRef = useRef(0)
+  const notificationTimersRef = useRef<number[]>([])
 
-  const api = useMemo(() => new ApiClient(API_BASE_URL, () => token, setToken), [token])
+  const dismissNotification = useCallback((id: number) => {
+    setNotifications((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const notifyError = useCallback(
+    (message: string) => {
+      const id = ++notificationIdRef.current
+      setNotifications((prev) => [...prev, { id, message }].slice(-6))
+
+      const timer = window.setTimeout(() => {
+        dismissNotification(id)
+      }, 9000)
+      notificationTimersRef.current.push(timer)
+    },
+    [dismissNotification]
+  )
+
+  useEffect(() => {
+    return () => {
+      notificationTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [])
+
+  const handleApiError = useCallback(
+    (error: ApiError) => {
+      notifyError(error.message)
+    },
+    [notifyError]
+  )
+
+  const api = useMemo(() => new ApiClient(API_BASE_URL, () => token, setToken, 2000, handleApiError), [token, handleApiError])
 
   useEffect(() => {
     let cancelled = false
+    setHealthError(null)
     api
       .health()
       .then((data) => {
@@ -83,6 +122,22 @@ function App() {
 
   return (
     <div className="page">
+      <div className="notification-stack" aria-live="assertive" aria-atomic="false">
+        {notifications.map((notification) => (
+          <div key={notification.id} className="notification notification--error" role="alert">
+            <p>{notification.message}</p>
+            <button
+              className="notification__dismiss"
+              type="button"
+              onClick={() => dismissNotification(notification.id)}
+              aria-label="Dismiss notification"
+            >
+              Dismiss
+            </button>
+          </div>
+        ))}
+      </div>
+
       <header className="page__header">
         <div>
           <p className="eyebrow">Static SPA · API first</p>
@@ -110,8 +165,8 @@ function App() {
               <p className="eyebrow">Connection</p>
               <h2>Backend health</h2>
             </div>
-            <span className={`badge ${health ? 'badge--ok' : 'badge--warn'}`}>
-              {health ? 'Reachable' : 'Pending'}
+            <span className={`badge ${health ? 'badge--ok' : healthError ? 'badge--error' : 'badge--warn'}`}>
+              {health ? 'Reachable' : healthError ? 'Unavailable' : 'Checking'}
             </span>
           </div>
           <p className="muted">Checks the API /health endpoint without cookies (CORS-friendly).</p>

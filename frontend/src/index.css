@@ -160,6 +160,64 @@ h2 {
   color: #f8e3a1;
 }
 
+.badge--error {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
+
+.notification-stack {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(460px, calc(100vw - 28px));
+}
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(11, 15, 23, 0.96);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+}
+
+.notification p {
+  margin: 0;
+  color: #f5f7fb;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.notification--error {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.notification__dismiss {
+  background: transparent;
+  color: #f5f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 12px;
+  padding: 6px 9px;
+  flex: 0 0 auto;
+}
+
+.notification__dismiss:hover {
+  box-shadow: none;
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.notification__dismiss:active {
+  transform: none;
+}
+
 .status {
   display: flex;
   align-items: center;
@@ -282,6 +340,12 @@ textarea::placeholder {
 }
 
 @media (max-width: 640px) {
+  .notification-stack {
+    top: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+
   .page__header {
     flex-direction: column;
   }

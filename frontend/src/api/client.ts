@@ -29,12 +29,61 @@ type RelayEnvelope<T> = {
   ok?: boolean;
   status?: number;
   data?: T;
-  error?: {
-    message?: string;
-    details?: unknown;
-  };
+  error?:
+    | {
+        message?: string;
+        details?: unknown;
+      }
+    | string;
   message?: string;
 };
+
+type ApiRequestInit = RequestInit & {
+  timeoutMs?: number;
+  notifyOnError?: boolean;
+};
+
+export class ApiError extends Error {
+  readonly method: string
+  readonly path: string
+  readonly url?: string
+  readonly status?: number
+  readonly statusText?: string
+  readonly isTimeout: boolean
+  readonly isNetworkError: boolean
+
+  constructor({
+    message,
+    method,
+    path,
+    url,
+    status,
+    statusText,
+    isTimeout = false,
+    isNetworkError = false
+  }: {
+    message: string
+    method: string
+    path: string
+    url?: string
+    status?: number
+    statusText?: string
+    isTimeout?: boolean
+    isNetworkError?: boolean
+  }) {
+    super(message)
+    this.name = 'ApiError'
+    this.method = method
+    this.path = path
+    this.url = url
+    this.status = status
+    this.statusText = statusText
+    this.isTimeout = isTimeout
+    this.isNetworkError = isNetworkError
+  }
+}
+
+type ApiErrorHandler = (error: ApiError) => void
 
 export interface MeResponse {
   user: {
@@ -49,6 +98,7 @@ export class ApiClient {
   private readonly getToken: () => string | null
   private readonly setToken: (token: string | null) => void
   private readonly minRequestIntervalMs: number
+  private readonly onError?: ApiErrorHandler
   private requestQueue: Promise<void> = Promise.resolve()
   private lastRequestAt = 0
 
@@ -56,12 +106,19 @@ export class ApiClient {
     baseUrl: string,
     getToken: () => string | null,
     setToken: (token: string | null) => void,
-    minRequestIntervalMs = 2000
+    minRequestIntervalMs = 2000,
+    onError?: ApiErrorHandler
   ) {
     this.baseUrl = baseUrl
     this.getToken = getToken
     this.setToken = setToken
     this.minRequestIntervalMs = Math.max(0, minRequestIntervalMs)
+    this.onError = onError
+  }
+
+  private throwApiError(error: ApiError, notify = true): never {
+    if (notify) this.onError?.(error)
+    throw error
   }
 
   private async waitForRequestWindow() {
@@ -110,8 +167,13 @@ export class ApiClient {
     }
   }
 
-  async request<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+  async request<T = unknown>(path: string, init: ApiRequestInit = {}): Promise<T> {
     await this.waitForRequestWindow();
+
+    const safePath = path.startsWith('/') ? path : `/${path}`;
+    const method = (init.method || 'GET').toUpperCase();
+    const notifyOnError = init.notifyOnError !== false;
+    const timeoutMs = Math.max(1000, Number(init.timeoutMs) || 5000);
 
     const headers = new Headers(init.headers || {});
     if (!headers.has('Content-Type') && init.body) {
@@ -122,11 +184,11 @@ export class ApiClient {
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const urlCandidates = this.buildUrlCandidates(path);
     let response: Response | null = null;
-    let networkError: Error | null = null;
+    let networkError: ApiError | null = null;
 
     for (let i = 0; i < urlCandidates.length; i += 1) {
       const candidate = urlCandidates[i];
@@ -143,15 +205,23 @@ export class ApiClient {
           typeof window !== 'undefined' &&
           window.location.protocol === 'https:' &&
           this.baseUrl.startsWith('http://');
-        const message = errName === 'AbortError'
-          ? 'Backend request timed out'
-          : mixedContent
-            ? 'Blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.'
-            : 'Backend is offline or unreachable';
-        networkError = new Error(message);
+        const message =
+          errName === 'AbortError'
+            ? `${method} ${safePath} timed out after ${timeoutMs}ms`
+            : mixedContent
+              ? `${method} ${safePath} was blocked by browser mixed-content policy (HTTPS page cannot call HTTP API). Use an HTTPS backend URL.`
+              : `Unable to reach backend for ${method} ${safePath}`;
+        networkError = new ApiError({
+          message,
+          method,
+          path: safePath,
+          url: candidate,
+          isTimeout: errName === 'AbortError',
+          isNetworkError: true
+        });
         if (i === urlCandidates.length - 1) {
           clearTimeout(timeout);
-          throw networkError;
+          this.throwApiError(networkError, notifyOnError);
         }
         continue;
       }
@@ -165,17 +235,41 @@ export class ApiClient {
     clearTimeout(timeout);
 
     if (!response) {
-      throw networkError || new Error('Backend is offline or unreachable');
+      this.throwApiError(
+        networkError ||
+          new ApiError({
+            message: `Unable to reach backend for ${method} ${safePath}`,
+            method,
+            path: safePath,
+            isNetworkError: true
+          }),
+        notifyOnError
+      );
     }
 
     const data = (await this.parseJson(response)) as RelayEnvelope<T> | null;
     if (!response.ok) {
-      const message =
-        data?.error?.message ||
-        (typeof data?.error === 'string' ? data.error : undefined) ||
+      const envelopeError = data?.error;
+      const detailMessage =
+        (typeof envelopeError === 'object' && envelopeError ? envelopeError.message : undefined) ||
+        (typeof envelopeError === 'string' ? envelopeError : undefined) ||
         data?.message ||
         response.statusText;
-      throw new Error(message || 'Request failed');
+      const statusLine = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const message = `${method} ${safePath} failed (${statusLine})${
+        detailMessage ? `: ${detailMessage}` : ''
+      }`;
+      this.throwApiError(
+        new ApiError({
+          message,
+          method,
+          path: safePath,
+          url: response.url,
+          status: response.status,
+          statusText: response.statusText
+        }),
+        notifyOnError
+      );
     }
 
     if (data && data.ok === true && Object.prototype.hasOwnProperty.call(data, 'data')) {
@@ -199,7 +293,7 @@ export class ApiClient {
   }
 
   async me() {
-    return this.request<MeResponse>('/api/auth/me');
+    return this.request<MeResponse>('/api/auth/me', { notifyOnError: false });
   }
 
   async logout() {
